@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, CSSProperties } from 'react';
 import { useStore, UserInsight } from '../store';
 import { motion, AnimatePresence } from 'motion/react';
 import NotificationBell from './NotificationBell';
@@ -13,7 +13,7 @@ interface InsightViewProps {
 }
 
 export default function InsightView({ onBack, onLogout, onProfileClick, onNotificationClick, adminCourseId }: InsightViewProps) {
-  const { currentUser, db, saveUserInsight, toggleInsightLike } = useStore();
+  const { currentUser, db, saveUserInsight, toggleInsightLike, fetchData } = useStore();
   const effectiveCourseId = adminCourseId || currentUser?.courseId;
 
   const [activeTab, setActiveTab] = useState<'my' | 'classroom'>(adminCourseId ? 'classroom' : 'my');
@@ -28,8 +28,20 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
   // Bubble chart simulation state
   const [bubblePositions, setBubblePositions] = useState<Record<string, {x: number, y: number, r: number}>>({});
   const [isBubbleFullScreen, setIsBubbleFullScreen] = useState(false);
-  const bubbleContainerRef = useRef<HTMLDivElement>(null);
+  // useRef 대신 state 콜백 ref 사용:
+  // AnimatePresence mode="wait" 때문에 activeTab 변경 시점에는 아직 DOM에 없음.
+  // 요소가 실제로 마운트/언마운트될 때 state가 변경되어 useEffect를 재트리거.
+  const [bubbleContainerEl, setBubbleContainerEl] = useState<HTMLDivElement | null>(null);
   const bubbleWrapRef = useRef<HTMLDivElement>(null);
+
+  // Zoom / Pan state
+  const [bubbleZoom, setBubbleZoom] = useState(1);
+  const [bubblePan, setBubblePan]   = useState({ x: 0, y: 0 });
+  const [isRefreshing, setIsRefreshing]       = useState(false);
+  const [isBubbleDragging, setIsBubbleDragging] = useState(false);
+  const bubbleDragRef   = useRef({ x: 0, y: 0, px: 0, py: 0 });
+  const bubbleDragDist  = useRef(0);
+  const activePointers  = useRef(new Set<number>());
 
   const activeSessions = db.sessions.filter(s => s.courseId === effectiveCourseId && s.isActive);
   const userInsights = (db.userInsights || []).filter(i => i.userId === currentUser?.id);
@@ -124,11 +136,25 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
       .slice(0, 3);
   }, [db.userInsights, classroomSessionId]);
 
-  const getKeywordColor = (str: string) => {
-    const colors = ['#002c5f', '#00aad2', '#e4dcd3', '#1c1c1c', '#666666'];
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
-    return colors[Math.abs(hash) % colors.length];
+  // 현대자동차그룹 브랜드 컬러 팔레트 (인덱스 기반 — 순서대로 다른 색상 보장)
+  const HMG_COLORS = [
+    '#002c5f', // HMC Navy
+    '#c3001e', // HMC Red
+    '#00aad2', // HMC Sky Blue
+    '#b5944c', // Genesis Gold
+    '#00797f', // Dark Teal (EV/Eco)
+    '#596c7d', // Steel Blue-Gray
+    '#bb162b', // Kia Red
+    '#0064d2', // Ioniq Blue
+    '#3d4757', // Dark Slate
+    '#c8723a', // Warm Amber
+    '#1a6faf', // Mid Blue
+    '#7a4f7d', // Plum (Modern HMG)
+  ];
+
+  const getKeywordColor = (_str: string, index?: number) => {
+    const idx = index !== undefined ? index : 0;
+    return HMG_COLORS[idx % HMG_COLORS.length];
   };
 
   const getContrastColor = (hexcolor: string) => {
@@ -142,35 +168,65 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
     return 'white';
   };
 
+  // 입체감 있는 버블 스타일 생성 (구체 효과)
+  const get3DBubbleStyle = (hexColor: string): CSSProperties => {
+    const r = parseInt(hexColor.slice(1, 3), 16);
+    const g = parseInt(hexColor.slice(3, 5), 16);
+    const b = parseInt(hexColor.slice(5, 7), 16);
+    const lighter = `rgba(${Math.min(255, r + 90)},${Math.min(255, g + 90)},${Math.min(255, b + 90)},0.85)`;
+    const darker  = `rgb(${Math.max(0, r - 45)},${Math.max(0, g - 45)},${Math.max(0, b - 45)})`;
+    return {
+      background: `radial-gradient(circle at 33% 28%, ${lighter} 0%, ${hexColor} 48%, ${darker} 100%)`,
+      boxShadow: `inset -4px -5px 14px rgba(0,0,0,0.38), inset 4px 4px 10px rgba(255,255,255,0.22), 0 8px 28px rgba(0,0,0,0.32)`,
+    };
+  };
+
   // ── D3 bubble force simulation ──────────────────────────────────────────────
   useEffect(() => {
-    if (!classroomData.length || !bubbleContainerRef.current) return;
+    if (!classroomData.length || !bubbleContainerEl) return;
 
-    const W = bubbleContainerRef.current.clientWidth || 500;
-    const H = bubbleContainerRef.current.clientHeight || 400;
+    let currentSim: d3.Simulation<any, any> | null = null;
 
-    // Larger bubbles (higher count) = bigger radius → naturally cluster to center
-    const nodes: any[] = classroomData.map(d => ({
-      id: d.id,
-      r: 38 + (d.count / maxCount) * 58, // 38–96px radius
-      x: W / 2 + (Math.random() - 0.5) * 20,
-      y: H / 2 + (Math.random() - 0.5) * 20,
-    }));
+    const runSimulation = (W: number, H: number) => {
+      // 컨테이너 너비 기준으로 버블 반지름을 비례 조정 (기준: 500px)
+      const scale    = Math.min(1, W / 500);
+      const minR     = Math.max(16, Math.round(38 * scale));
+      const maxExtra = Math.max(14, Math.round(58 * scale));
 
-    const sim = d3.forceSimulation(nodes)
-      .force('center', d3.forceCenter(W / 2, H / 2).strength(0.8))
-      .force('collision', d3.forceCollide().radius((d: any) => d.r + 2).strength(1).iterations(6))
-      .force('x', d3.forceX(W / 2).strength(0.06))
-      .force('y', d3.forceY(H / 2).strength(0.06))
-      .alphaDecay(0.015)
-      .on('tick', () => {
-        const pos: Record<string, { x: number; y: number; r: number }> = {};
-        nodes.forEach((n: any) => { pos[n.id] = { x: n.x, y: n.y, r: n.r }; });
-        setBubblePositions({ ...pos });
-      });
+      if (currentSim) currentSim.stop();
 
-    return () => { sim.stop(); };
-  }, [classroomData, classroomSessionId, maxCount]);
+      const nodes: any[] = classroomData.map(d => ({
+        id: d.id,
+        r: minR + (d.count / maxCount) * maxExtra,
+        x: W / 2 + (Math.random() - 0.5) * 20,
+        y: H / 2 + (Math.random() - 0.5) * 20,
+      }));
+
+      currentSim = d3.forceSimulation(nodes)
+        .force('center', d3.forceCenter(W / 2, H / 2).strength(0.8))
+        .force('collision', d3.forceCollide().radius((d: any) => d.r + 2).strength(1).iterations(6))
+        .force('x', d3.forceX(W / 2).strength(0.06))
+        .force('y', d3.forceY(H / 2).strength(0.06))
+        .alphaDecay(0.015)
+        .on('tick', () => {
+          const pos: Record<string, { x: number; y: number; r: number }> = {};
+          nodes.forEach((n: any) => { pos[n.id] = { x: n.x, y: n.y, r: n.r }; });
+          setBubblePositions({ ...pos });
+        });
+    };
+
+    // ResizeObserver가 초기 크기도 보고하므로 여기서 최초 실행 포함
+    const ro = new ResizeObserver(entries => {
+      const { width: W, height: H } = entries[0].contentRect;
+      if (W > 0) runSimulation(W, H || 420);
+    });
+    ro.observe(bubbleContainerEl);
+
+    return () => {
+      currentSim?.stop();
+      ro.disconnect();
+    };
+  }, [classroomData, classroomSessionId, maxCount, bubbleContainerEl]);
 
   // ── Bubble fullscreen ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -197,6 +253,97 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
         if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
         else if ((document as any).webkitExitFullscreen) (document as any).webkitExitFullscreen();
       } catch {}
+    }
+  };
+
+  // ── 세션 변경 시 zoom/pan 초기화 ─────────────────────────────────────────────
+  useEffect(() => {
+    setBubbleZoom(1);
+    setBubblePan({ x: 0, y: 0 });
+  }, [classroomSessionId]);
+
+  // ── 마우스 휠 줌 (non-passive) ────────────────────────────────────────────────
+  useEffect(() => {
+    if (!bubbleContainerEl) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      setBubbleZoom(z => Math.min(5, Math.max(0.2, z * (e.deltaY < 0 ? 1.15 : 1 / 1.15))));
+    };
+    bubbleContainerEl.addEventListener('wheel', onWheel, { passive: false });
+    return () => bubbleContainerEl.removeEventListener('wheel', onWheel);
+  }, [bubbleContainerEl]);
+
+  // ── 터치 핀치 줌 (non-passive) ────────────────────────────────────────────────
+  useEffect(() => {
+    if (!bubbleContainerEl) return;
+    let lastDist: number | null = null;
+    const getTouchDist = (t: TouchList) => {
+      const dx = t[0].clientX - t[1].clientX;
+      const dy = t[0].clientY - t[1].clientY;
+      return Math.sqrt(dx * dx + dy * dy);
+    };
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) lastDist = getTouchDist(e.touches);
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length !== 2 || lastDist === null) return;
+      e.preventDefault();
+      const d = getTouchDist(e.touches);
+      setBubbleZoom(z => Math.min(5, Math.max(0.2, z * (d / lastDist!))));
+      lastDist = d;
+    };
+    const onTouchEnd = () => { lastDist = null; };
+    bubbleContainerEl.addEventListener('touchstart', onTouchStart, { passive: false });
+    bubbleContainerEl.addEventListener('touchmove',  onTouchMove,  { passive: false });
+    bubbleContainerEl.addEventListener('touchend',   onTouchEnd);
+    return () => {
+      bubbleContainerEl.removeEventListener('touchstart', onTouchStart);
+      bubbleContainerEl.removeEventListener('touchmove',  onTouchMove);
+      bubbleContainerEl.removeEventListener('touchend',   onTouchEnd);
+    };
+  }, [bubbleContainerEl]);
+
+  // ── 새로고침 ──────────────────────────────────────────────────────────────────
+  const handleBubbleRefresh = async () => {
+    setIsRefreshing(true);
+    setBubblePositions({});
+    try { await fetchData(); } finally { setIsRefreshing(false); }
+  };
+
+  // ── 드래그 (패닝) ─────────────────────────────────────────────────────────────
+  // setPointerCapture 미사용: 캔버스가 포인터를 독점하면 버블 onClick에 도달 불가.
+  // 대신 window 이벤트로 드래그 추적 → 버블 클릭은 정상 전파.
+  const handleBubblePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    activePointers.current.add(e.pointerId);
+    if (activePointers.current.size > 1 || e.button !== 0) return;
+
+    const pid = e.pointerId;
+    setIsBubbleDragging(true);
+    bubbleDragDist.current = 0;
+    bubbleDragRef.current = { x: e.clientX, y: e.clientY, px: bubblePan.x, py: bubblePan.y };
+
+    const onMove = (me: PointerEvent) => {
+      if (activePointers.current.size > 1) return;
+      const dx = me.clientX - bubbleDragRef.current.x;
+      const dy = me.clientY - bubbleDragRef.current.y;
+      bubbleDragDist.current = Math.sqrt(dx * dx + dy * dy);
+      setBubblePan({ x: bubbleDragRef.current.px + dx, y: bubbleDragRef.current.py + dy });
+    };
+    const onUp = () => {
+      activePointers.current.delete(pid);
+      setIsBubbleDragging(false);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  };
+
+  // 드래그였으면 버블 클릭 무시 (캡처 단계에서 차단)
+  const handleBubbleClickCapture = (e: React.MouseEvent) => {
+    if (bubbleDragDist.current > 5) {
+      e.stopPropagation();
+      bubbleDragDist.current = 0;
     }
   };
 
@@ -472,40 +619,66 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
                   className={`bg-surface-container-low rounded-xl border border-outline-variant/10 relative overflow-hidden ${isBubbleFullScreen ? 'fixed inset-0 z-[9999] rounded-none' : ''}`}
                 >
                   {/* Header */}
-                  <div className="flex items-center justify-between px-8 pt-8 pb-4">
-                    <div>
-                      <h3 className="text-primary font-headline font-bold text-lg md:text-xl">KEYWORD BUBBLE</h3>
-                      <p className="text-[10px] text-on-surface-variant mt-0.5">버블을 탭하면 키워드를 확인할 수 있어요</p>
+                  <div className="flex items-center justify-between px-6 pt-6 pb-3 gap-4">
+                    <div className="min-w-0">
+                      <h3 className="text-primary font-headline font-bold text-lg md:text-xl whitespace-nowrap">KEYWORD BUBBLE</h3>
+                      <p className="text-[10px] text-on-surface-variant mt-0.5 whitespace-nowrap">탭 → 키워드 공개 · 스크롤/핀치 → 줌 · 드래그 → 이동</p>
                     </div>
-                    <button
-                      onClick={toggleBubbleFullScreen}
-                      className="w-9 h-9 rounded-full bg-white/80 border border-outline flex items-center justify-center shadow-sm hover:bg-white transition-all text-on-surface-variant"
-                      title={isBubbleFullScreen ? '전체화면 나가기' : '전체화면'}
-                    >
-                      <span className="material-symbols-outlined text-lg">{isBubbleFullScreen ? 'fullscreen_exit' : 'fullscreen'}</span>
-                    </button>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {/* 새로고침 */}
+                      <button
+                        onClick={handleBubbleRefresh}
+                        disabled={isRefreshing}
+                        className="w-8 h-8 rounded-full bg-white/80 border border-outline flex items-center justify-center shadow-sm hover:bg-white transition-all text-on-surface-variant"
+                        title="새로고침"
+                      >
+                        <span className={`material-symbols-outlined text-base ${isRefreshing ? 'animate-spin' : ''}`}>refresh</span>
+                      </button>
+                    </div>
                   </div>
 
                   {/* Bubble canvas */}
                   <div
-                    ref={bubbleContainerRef}
-                    className={`relative w-full ${isBubbleFullScreen ? 'h-[calc(100vh-80px)]' : 'min-h-[420px]'} overflow-hidden`}
+                    ref={setBubbleContainerEl}
+                    className={`relative w-full ${isBubbleFullScreen ? 'h-[calc(100dvh-72px)]' : 'min-h-[55vw] sm:min-h-[420px]'} overflow-hidden`}
+                    style={{ touchAction: 'none', cursor: isBubbleDragging ? 'grabbing' : 'grab' }}
+                    onPointerDown={handleBubblePointerDown}
+                    onClickCapture={handleBubbleClickCapture}
                   >
+                    {/* 줌 퍼센트 표시 + 초기화 — 캔버스 좌상단 오버레이 */}
+                    {Math.round(bubbleZoom * 100) !== 100 && (
+                      <button
+                        onClick={() => { setBubbleZoom(1); setBubblePan({ x: 0, y: 0 }); }}
+                        className="absolute top-3 left-3 z-10 h-7 px-2.5 rounded-full bg-white/90 border border-outline text-[10px] font-bold text-primary shadow-sm hover:bg-white transition-all"
+                        title="줌 초기화"
+                      >
+                        {Math.round(bubbleZoom * 100)}% ↺
+                      </button>
+                    )}
                     {classroomData.length === 0 ? (
                       <div className="absolute inset-0 flex flex-col items-center justify-center text-on-surface-variant/40 gap-3">
                         <span className="material-symbols-outlined text-6xl">bubble_chart</span>
                         <p className="font-headline font-bold">데이터가 부족합니다</p>
                       </div>
                     ) : (
-                      classroomData.map((data) => {
+                      /* zoom/pan transform wrapper */
+                      <div
+                        style={{
+                          position: 'absolute', inset: 0,
+                          transform: `translate(${bubblePan.x}px, ${bubblePan.y}px) scale(${bubbleZoom})`,
+                          transformOrigin: '50% 50%',
+                        }}
+                      >
+                      {classroomData.map((data, idx) => {
                         const pos = bubblePositions[data.id];
                         if (!pos) return null;
                         const { x, y, r } = pos;
-                        const bgColor = getKeywordColor(data.name);
+                        const bgColor = getKeywordColor(data.name, idx);
                         const textColor = getContrastColor(bgColor);
                         const isRevealed = revealedBubbles[classroomSessionId]?.has(data.id);
                         const fontSize = Math.max(9, r * 0.2);
                         const countFontSize = Math.max(8, r * 0.1);
+                        const bubbleStyle = get3DBubbleStyle(bgColor);
 
                         return (
                           <motion.div
@@ -527,13 +700,13 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
                                 setSelectedKeywordDetail(data.id);
                               }
                             }}
-                            className="absolute rounded-full flex items-center justify-center cursor-pointer select-none shadow-lg transition-shadow hover:shadow-xl"
+                            className="absolute rounded-full flex items-center justify-center cursor-pointer select-none transition-shadow"
                             style={{
                               left: x - r,
                               top: y - r,
                               width: r * 2,
                               height: r * 2,
-                              backgroundColor: bgColor,
+                              ...bubbleStyle,
                             }}
                           >
                             {isRevealed ? (
@@ -560,7 +733,8 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
                             )}
                           </motion.div>
                         );
-                      })
+                      })}
+                      </div>
                     )}
                   </div>
 
@@ -590,7 +764,7 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
                                   <div className="flex items-center gap-2">
                                     <span className="text-[10px] font-black text-secondary uppercase tracking-widest">#{comment.keyword}</span>
                                     <span className="text-[10px] text-on-surface-variant font-medium">
-                                      — {user ? `${user.company} | ${user.department} | ${user.name} | ${user.title}` : 'Anonymous'}
+                                      {user ? `${user.company} ${user.department} ${user.name} ${user.title}` : 'Anonymous'}
                                     </span>
                                   </div>
                                   <div className="flex items-center gap-1 text-error">
@@ -667,7 +841,7 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
         {/* Keyword Detail Popup */}
         <AnimatePresence>
           {selectedKeywordDetail && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+            <div className="fixed inset-0 z-[10000] flex items-center justify-center p-6">
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}

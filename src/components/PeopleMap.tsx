@@ -391,7 +391,7 @@ export default function PeopleMap({ adminCourseId }: { adminCourseId?: string })
 
       {/* User detail popup + Tea time */}
       <AnimatePresence>
-        {selectedUser && currentUser && (
+        {selectedUser && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -425,8 +425,8 @@ export default function PeopleMap({ adminCourseId }: { adminCourseId?: string })
                 </button>
               </div>
 
-              {/* 공유 키워드 수 표시 */}
-              {selectedUser.id !== currentUser.id && (() => {
+              {/* 공유 키워드 수 표시 (유저 모드 전용) */}
+              {!adminCourseId && currentUser && selectedUser.id !== currentUser.id && (() => {
                 const myKws = userKeywordMap.get(currentUser.id) || new Set<string>();
                 const theirKws = userKeywordMap.get(selectedUser.id) || new Set<string>();
                 const shared = [...myKws].filter(k => theirKws.has(k)).length;
@@ -459,10 +459,13 @@ export default function PeopleMap({ adminCourseId }: { adminCourseId?: string })
                     </div>
                   );
                 })}
+                {selectedUserInterests.length === 0 && (
+                  <p className="text-xs text-on-surface-variant/50 italic">등록된 관심사가 없습니다.</p>
+                )}
               </div>
 
-              {/* Tea time request (inline) */}
-              {selectedUser.id !== currentUser.id && (
+              {/* Tea time request (유저 모드 전용) */}
+              {!adminCourseId && currentUser && selectedUser.id !== currentUser.id && (
                 <div className="space-y-3 pt-4 border-t border-outline">
                   <h4 className="text-xs font-bold text-on-surface uppercase tracking-widest">티타임 요청</h4>
                   <p className="text-[10px] text-on-surface-variant">

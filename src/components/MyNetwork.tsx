@@ -24,6 +24,13 @@ function SectionTitle({ icon, title, badge }: { icon: string; title: string; bad
   );
 }
 
+// ─── SNA 지표 쉬운 설명 ──────────────────────────────────────────────────────
+const SNA_METRIC_EXPLANATIONS: Record<string, string> = {
+  '마당발': '나와 직접 연결된 사람의 수를 기반으로 산출됩니다. 티타임 요청을 주고받은 사람이 많을수록 점수가 높아지며, 네트워크 안에서 얼마나 많은 사람과 직접 연결되어 있는지를 나타냅니다.',
+  '게이트키퍼': '서로 연결되지 않은 두 그룹 사이에서 다리 역할을 얼마나 자주 하는지를 측정합니다. 내가 없으면 정보가 전달되기 어려운 경로가 많을수록 점수가 높아지며, 조직 내 정보 흐름의 핵심 연결고리 역할을 나타냅니다.',
+  '전파자': '나로부터 네트워크의 모든 사람에게 정보가 얼마나 빠르게 도달할 수 있는지를 측정합니다. 평균 거리가 짧을수록 점수가 높으며, 소식이나 아이디어를 네트워크 전체에 빠르게 퍼뜨릴 수 있는 영향력을 나타냅니다.',
+};
+
 export default function MyNetwork({ targetUser, hideActions = false }: MyNetworkProps) {
   const { db, currentUser: storeUser, updateTeaTimeRequest, sendTeaTimeRequest, fetchData } = useStore();
   const currentUser = targetUser || storeUser;
@@ -174,10 +181,18 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
       </div>
 
       {/* ════════════════════════════════════════════════════════════════════════
-          1. SNA 종합 분석
+          1. SNA 유형 분석
       ════════════════════════════════════════════════════════════════════════ */}
       <section className="space-y-5">
-        <SectionTitle icon="analytics" title="SNS(Social Network Analysis) 종합 분석" />
+        {/* 타이틀: 풀네임 부분만 절반 크기로 */}
+        <div className="flex items-center gap-2 pb-2 border-b border-outline/40">
+          <span className="material-symbols-outlined text-primary text-xl">analytics</span>
+          <h2 className="font-headline text-base font-black uppercase tracking-widest text-on-surface leading-tight">
+            SNS
+            <span className="text-[0.55em] font-semibold normal-case tracking-normal text-on-surface/60"> (Social Network Analysis)</span>
+            {' '}유형 분석
+          </h2>
+        </div>
 
         {!snaResult ? (
           <p className="text-xs text-on-surface-variant italic p-4 bg-surface rounded-xl border border-outline">
@@ -231,8 +246,8 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
             {/* 3 metric bars */}
             <div className="space-y-4">
               {snaResult.types.map((t, idx) => (
-                <div key={idx} className="bg-surface border border-outline rounded-xl p-4">
-                  <div className="flex items-center justify-between mb-2">
+                <div key={idx} className="bg-surface border border-outline rounded-xl p-4 space-y-2">
+                  <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="text-xl">{t.icon}</span>
                       <div>
@@ -250,7 +265,13 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
                       style={{ width: `${Math.max(2, t.score)}%` }}
                     />
                   </div>
-                  <p className="text-[10px] text-on-surface-variant mt-1.5">{t.detail}</p>
+                  {/* 산출 데이터 */}
+                  <p className="text-[10px] text-on-surface-variant">{t.detail}</p>
+                  {/* 지표 쉬운 설명 */}
+                  <div className="pt-1 border-t border-outline/30">
+                    <p className="text-[10px] font-bold text-on-surface-variant/70 mb-0.5 uppercase tracking-widest">{t.metricName}이란?</p>
+                    <p className="text-[10px] text-on-surface-variant/80 leading-relaxed">{SNA_METRIC_EXPLANATIONS[t.type]}</p>
+                  </div>
                 </div>
               ))}
             </div>

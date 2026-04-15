@@ -1,6 +1,83 @@
 import { useState, useMemo } from 'react';
 import { useStore, User, Interest } from '../store';
-import TeaTimeModal from './TeaTimeModal';
+
+// ── Library 전용 티타임 모달 (다른 페이지의 TeaTimeModal과 완전 분리) ──────────
+function LibraryTeaTimeModal({
+  targetUser,
+  myInterests,
+  onSend,
+  onClose,
+}: {
+  targetUser: User;
+  myInterests: Interest[];
+  onSend: (message: string) => void;
+  onClose: () => void;
+}) {
+  const [msg, setMsg] = useState('');
+
+  const handleSend = () => {
+    if (!msg.trim()) { alert('메시지를 입력해주세요.'); return; }
+    const hashtags = myInterests.map(i => `#${i.keyword}`).join(' ');
+    onSend(hashtags ? `${hashtags}\n\n${msg}` : msg);
+    onClose();
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-outline"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* 상대방 프로필 */}
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-12 h-12 rounded-xl overflow-hidden flex items-center justify-center border border-outline bg-surface-container-low shrink-0">
+            {targetUser.profilePic
+              ? <img src={targetUser.profilePic} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              : <span className="font-bold text-primary text-sm">{targetUser.name.charAt(0)}</span>}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] text-on-surface-variant truncate uppercase font-medium">{targetUser.company} · {targetUser.department}</p>
+            <p className="font-bold text-on-surface text-sm">{targetUser.name}</p>
+            <p className="text-[10px] text-primary font-medium truncate">{targetUser.title}</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container-highest shrink-0">
+            <span className="material-symbols-outlined text-on-surface-variant text-lg">close</span>
+          </button>
+        </div>
+
+        {/* 티타임 요청 폼 */}
+        <div className="space-y-3">
+          <p className="text-[10px] font-bold text-on-surface uppercase tracking-widest">티타임 요청</p>
+          {myInterests.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {myInterests.map(i => (
+                <span key={i.id} className="px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-bold rounded-md border border-primary/20">
+                  #{i.keyword}
+                </span>
+              ))}
+            </div>
+          )}
+          <textarea
+            value={msg}
+            onChange={e => setMsg(e.target.value)}
+            placeholder={`${targetUser.name}님에게 보낼 메시지를 작성하세요...`}
+            rows={4}
+            className="w-full bg-surface-container-low border border-outline rounded-xl p-3 text-sm resize-none outline-none focus:border-primary"
+          />
+          <button
+            onClick={handleSend}
+            className="w-full py-3 bg-primary text-on-primary font-bold rounded-xl shadow-lg active:scale-95 transition-all"
+          >
+            요청 보내기
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function LibraryView() {
   const { db, currentUser, sendTeaTimeRequest } = useStore();
@@ -44,29 +121,31 @@ export default function LibraryView() {
 
   const filteredUsers = useMemo(() => {
     const q = search.toLowerCase().trim();
-    return courseUsers.filter(u => {
-      if (q) {
-        const matches =
-          u.name.toLowerCase().includes(q) ||
-          u.company.toLowerCase().includes(q) ||
-          u.department.toLowerCase().includes(q) ||
-          u.title.toLowerCase().includes(q) ||
-          db.interests.some((i: Interest) =>
-            i.userId === u.id && i.keyword.toLowerCase().includes(q)
+    return courseUsers
+      .filter(u => {
+        if (q) {
+          const matches =
+            u.name.toLowerCase().includes(q) ||
+            u.company.toLowerCase().includes(q) ||
+            u.department.toLowerCase().includes(q) ||
+            u.title.toLowerCase().includes(q) ||
+            db.interests.some((i: Interest) =>
+              i.userId === u.id && i.keyword.toLowerCase().includes(q)
+            );
+          if (!matches) return false;
+        }
+        if (selectedKeywords.size > 0) {
+          const userKeywords = new Set(
+            db.interests
+              .filter((i: Interest) => i.userId === u.id)
+              .map((i: Interest) => i.keyword.trim())
           );
-        if (!matches) return false;
-      }
-      if (selectedKeywords.size > 0) {
-        const userKeywords = new Set(
-          db.interests
-            .filter((i: Interest) => i.userId === u.id)
-            .map((i: Interest) => i.keyword.trim())
-        );
-        const hasAll = [...selectedKeywords].every(kw => userKeywords.has(kw));
-        if (!hasAll) return false;
-      }
-      return true;
-    });
+          const hasAll = [...selectedKeywords].every(kw => userKeywords.has(kw));
+          if (!hasAll) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => a.name.localeCompare(b.name, 'ko'));
   }, [courseUsers, search, selectedKeywords, db.interests]);
 
   const handleSend = (toUserId: string, message: string) => {
@@ -85,7 +164,7 @@ export default function LibraryView() {
     <div className="max-w-4xl mx-auto px-4 py-8 space-y-6">
       {/* Header */}
       <div className="pb-3 border-b-2 border-primary/30">
-        <h1 className="font-headline text-2xl font-black uppercase tracking-widest text-primary">LIBRARY</h1>
+        <h1 className="font-headline text-2xl font-black uppercase tracking-widest text-primary">LEADER LIBRARY</h1>
         <p className="text-xs text-on-surface-variant mt-0.5 font-medium">
           이번 과정에 참여하는 모든 리더 · {courseUsers.length}명
         </p>
@@ -260,14 +339,12 @@ export default function LibraryView() {
         </div>
       )}
 
-      {/* Tea Time Modal */}
+      {/* Library 전용 티타임 요청 모달 — be Giver/Taker 정보 없이 요청 폼만 표시 */}
       {selectedUser && currentUser && (
-        <TeaTimeModal
+        <LibraryTeaTimeModal
           targetUser={selectedUser}
-          currentUser={currentUser}
           myInterests={myInterests}
-          targetInterests={db.interests.filter((i: Interest) => i.userId === selectedUser.id)}
-          onSend={handleSend}
+          onSend={(msg) => handleSend(selectedUser.id, msg)}
           onClose={() => setSelectedUser(null)}
         />
       )}

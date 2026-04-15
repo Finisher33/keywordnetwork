@@ -3,19 +3,20 @@ import { useStore, Interest, User } from '../store';
 import LocationAutocomplete from './LocationAutocomplete';
 import { HYUNDAI_COMPANIES } from '../constants/companies';
 
-const DEFAULT_3D_EMOJIS = [
-  { name: 'Man', url: 'https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/People/Man%20Raising%20Hand.png' },
-  { name: 'Woman', url: 'https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/People/Woman%20Raising%20Hand.png' },
-  { name: 'Cat', url: 'https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Animals/Cat%20Face.png' },
-  { name: 'Dog', url: 'https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Animals/Dog%20Face.png' },
-  { name: 'Rabbit', url: 'https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Animals/Rabbit%20Face.png' },
-  { name: 'Panda', url: 'https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Animals/Panda.png' },
-  { name: 'Koala', url: 'https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Animals/Koala.png' },
-  { name: 'Lion', url: 'https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Animals/Lion.png' },
-  { name: 'Tiger', url: 'https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Animals/Tiger%20Face.png' },
-  { name: 'Bear', url: 'https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Animals/Bear.png' },
-  { name: 'Monkey', url: 'https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Animals/Monkey%20Face.png' },
-  { name: 'Fox', url: 'https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Animals/Fox.png' },
+// 12지신 동물 아이콘 (자·축·인·묘·진·사·오·미·신·유·술·해 순서)
+const ZODIAC_ANIMALS = [
+  { name: '쥐 (자)', label: '🐭 쥐', url: 'https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Animals/Mouse%20Face.png' },
+  { name: '소 (축)', label: '🐮 소', url: 'https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Animals/Cow%20Face.png' },
+  { name: '호랑이 (인)', label: '🐯 호랑이', url: 'https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Animals/Tiger%20Face.png' },
+  { name: '토끼 (묘)', label: '🐰 토끼', url: 'https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Animals/Rabbit%20Face.png' },
+  { name: '용 (진)', label: '🐲 용', url: 'https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Animals/Dragon%20Face.png' },
+  { name: '뱀 (사)', label: '🐍 뱀', url: 'https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Animals/Snake.png' },
+  { name: '말 (오)', label: '🐴 말', url: 'https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Animals/Horse%20Face.png' },
+  { name: '양 (미)', label: '🐑 양', url: 'https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Animals/Ewe.png' },
+  { name: '원숭이 (신)', label: '🐵 원숭이', url: 'https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Animals/Monkey%20Face.png' },
+  { name: '닭 (유)', label: '🐔 닭', url: 'https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Animals/Chicken.png' },
+  { name: '개 (술)', label: '🐶 개', url: 'https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Animals/Dog%20Face.png' },
+  { name: '돼지 (해)', label: '🐷 돼지', url: 'https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Animals/Pig%20Face.png' },
 ];
 
 interface MyProfileProps {
@@ -46,7 +47,11 @@ export default function MyProfile({ onSave, onLogout, showBack = true, targetUse
   const [department, setDepartment] = useState(userToEdit?.department || '');
   const [title, setTitle] = useState(userToEdit?.title || '');
   const [location, setLocation] = useState(userToEdit?.location || '');
-  const [profilePic, setProfilePic] = useState(userToEdit?.profilePic || '');
+  const [profilePic, setProfilePic] = useState(() => {
+    if (userToEdit?.profilePic) return userToEdit.profilePic;
+    // 최초 등록 시 12지신 중 랜덤 선택
+    return ZODIAC_ANIMALS[Math.floor(Math.random() * ZODIAC_ANIMALS.length)].url;
+  });
 
   const myInterests = useMemo(() => db.interests.filter(i => i.userId === userToEdit?.id), [db.interests, userToEdit]);
   
@@ -188,15 +193,19 @@ export default function MyProfile({ onSave, onLogout, showBack = true, targetUse
           </div>
 
           <div className="space-y-3 w-full">
-            <p className="text-[10px] font-bold text-on-surface-variant uppercase text-center tracking-widest">3D 프로필 아이콘 선택</p>
-            <div className="flex flex-wrap justify-center gap-3">
-              {DEFAULT_3D_EMOJIS.map(emoji => (
-                <button 
-                  key={emoji.url}
-                  onClick={() => setProfilePic(emoji.url)}
-                  className={`w-12 h-12 flex items-center justify-center rounded-2xl bg-surface-container-low hover:bg-primary/10 transition-all p-1 ${profilePic === emoji.url ? 'border-2 border-primary shadow-md scale-110' : 'border border-outline opacity-70 hover:opacity-100'}`}
+            <p className="text-[10px] font-bold text-on-surface-variant uppercase text-center tracking-widest">12지신 프로필 아이콘 선택</p>
+            <div className="grid grid-cols-6 gap-2">
+              {ZODIAC_ANIMALS.map(animal => (
+                <button
+                  key={animal.url}
+                  onClick={() => setProfilePic(animal.url)}
+                  title={animal.name}
+                  className={`flex flex-col items-center gap-0.5 p-1.5 rounded-2xl transition-all ${profilePic === animal.url ? 'border-2 border-primary shadow-md scale-110 bg-primary/10' : 'border border-outline opacity-70 hover:opacity-100 hover:bg-primary/5 bg-surface-container-low'}`}
                 >
-                  <img src={emoji.url} alt={emoji.name} className="w-full h-full object-contain" />
+                  <img src={animal.url} alt={animal.name} className="w-9 h-9 object-contain" />
+                  <span className="text-[8px] font-bold text-on-surface-variant leading-none truncate w-full text-center">
+                    {animal.label.split(' ')[1]}
+                  </span>
                 </button>
               ))}
             </div>

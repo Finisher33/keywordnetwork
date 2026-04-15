@@ -2,6 +2,7 @@ import { useState, FormEvent, useRef } from 'react';
 import { useStore, User } from '../store';
 import { cosineSimilarity } from '../services/embeddingService';
 import NetworkMap from './NetworkMap';
+import PeopleMap from './PeopleMap';
 import InsightView from './InsightView';
 import TotalInsight from './TotalInsight';
 import MyNetwork from './MyNetwork';
@@ -34,7 +35,7 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
   
   // Analysis State
   const [analysisCourseId, setAnalysisCourseId] = useState('');
-  const [analysisFeature, setAnalysisFeature] = useState<'total' | 'network' | 'insight'>('total');
+  const [analysisFeature, setAnalysisFeature] = useState<'total' | 'network' | 'peoplemap' | 'insight'>('total');
 
   // User List State
   const [userListCourseId, setUserListCourseId] = useState('');
@@ -1361,13 +1362,19 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
                   >
                     종합 인사이트
                   </button>
-                  <button 
+                  <button
                     onClick={() => setAnalysisFeature('network')}
                     className={`flex-1 min-w-fit px-3 py-2 rounded-lg text-[10px] sm:text-xs font-bold transition-all whitespace-nowrap ${analysisFeature === 'network' ? 'bg-primary text-on-primary shadow-md' : 'text-on-surface-variant hover:text-on-surface'}`}
                   >
                     네트워크맵
                   </button>
-                  <button 
+                  <button
+                    onClick={() => setAnalysisFeature('peoplemap')}
+                    className={`flex-1 min-w-fit px-3 py-2 rounded-lg text-[10px] sm:text-xs font-bold transition-all whitespace-nowrap ${analysisFeature === 'peoplemap' ? 'bg-primary text-on-primary shadow-md' : 'text-on-surface-variant hover:text-on-surface'}`}
+                  >
+                    피플맵
+                  </button>
+                  <button
                     onClick={() => setAnalysisFeature('insight')}
                     className={`flex-1 min-w-fit px-3 py-2 rounded-lg text-[10px] sm:text-xs font-bold transition-all whitespace-nowrap ${analysisFeature === 'insight' ? 'bg-primary text-on-primary shadow-md' : 'text-on-surface-variant hover:text-on-surface'}`}
                   >
@@ -1383,6 +1390,8 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
                   <TotalInsight courseId={analysisCourseId} />
                 ) : analysisFeature === 'network' ? (
                   <NetworkMap adminCourseId={analysisCourseId} />
+                ) : analysisFeature === 'peoplemap' ? (
+                  <PeopleMap adminCourseId={analysisCourseId} />
                 ) : (
                   <InsightView adminCourseId={analysisCourseId} />
                 )}
