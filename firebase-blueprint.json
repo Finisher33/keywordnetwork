@@ -1,0 +1,119 @@
+{
+  "entities": {
+    "Course": {
+      "title": "Course",
+      "description": "A course in the system",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" }
+      },
+      "required": ["id", "name"]
+    },
+    "Session": {
+      "title": "Session",
+      "description": "A session within a course",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "courseId": { "type": "string" },
+        "name": { "type": "string" },
+        "time": { "type": "string" },
+        "module": { "type": "string" },
+        "day": { "type": "string" },
+        "isActive": { "type": "boolean" }
+      },
+      "required": ["id", "courseId", "name", "isActive"]
+    },
+    "User": {
+      "title": "User",
+      "description": "A user/leader in the system",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "company": { "type": "string" },
+        "name": { "type": "string" },
+        "department": { "type": "string" },
+        "title": { "type": "string" },
+        "location": { "type": "string" },
+        "courseId": { "type": "string" },
+        "profilePic": { "type": "string" }
+      },
+      "required": ["id", "name", "courseId"]
+    },
+    "Interest": {
+      "title": "Interest",
+      "description": "A user's interest keyword",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "type": { "type": "string", "enum": ["giver", "taker"] },
+        "keyword": { "type": "string" },
+        "canonicalId": { "type": "string" },
+        "description": { "type": "string" }
+      },
+      "required": ["id", "userId", "type", "keyword"]
+    },
+    "UserInsight": {
+      "title": "UserInsight",
+      "description": "A user's insight or learning from a session",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "sessionId": { "type": "string" },
+        "keyword": { "type": "string" },
+        "canonicalId": { "type": "string" },
+        "description": { "type": "string" },
+        "likes": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["id", "userId", "sessionId", "keyword"]
+    },
+    "TeaTimeRequest": {
+      "title": "TeaTimeRequest",
+      "description": "A request for a tea time between users",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "fromUserId": { "type": "string" },
+        "toUserId": { "type": "string" },
+        "message": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "accepted", "rejected"] },
+        "responseMessage": { "type": "string" }
+      },
+      "required": ["id", "fromUserId", "toUserId", "status"]
+    },
+    "CanonicalTerm": {
+      "title": "CanonicalTerm",
+      "description": "A standardized term for clustering interests and insights",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "term": { "type": "string" },
+        "embedding": { "type": "array", "items": { "type": "number" } }
+      },
+      "required": ["id", "term"]
+    },
+    "PresetInterest": {
+      "title": "PresetInterest",
+      "description": "Predefined interest keywords managed by admin",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "keyword": { "type": "string" }
+      },
+      "required": ["id", "keyword"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": { "schema": "User", "description": "User profiles" },
+    "/courses/{courseId}": { "schema": "Course", "description": "Available courses" },
+    "/sessions/{sessionId}": { "schema": "Session", "description": "Course sessions" },
+    "/interests/{interestId}": { "schema": "Interest", "description": "User interests" },
+    "/userInsights/{insightId}": { "schema": "UserInsight", "description": "User insights" },
+    "/teaTimeRequests/{requestId}": { "schema": "TeaTimeRequest", "description": "Tea time requests" },
+    "/canonicalTerms/{termId}": { "schema": "CanonicalTerm", "description": "Canonical terms for clustering" },
+    "/presetInterests/{presetId}": { "schema": "PresetInterest", "description": "Admin-managed preset interest keywords" }
+  }
+}
