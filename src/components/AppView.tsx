@@ -2,27 +2,38 @@ import { useState } from 'react';
 import { motion } from 'motion/react';
 import { useStore } from '../store';
 import NetworkMap from './NetworkMap';
+import PeopleMap from './PeopleMap';
 import MyNetwork from './MyNetwork';
+import LibraryView from './LibraryView';
 import NotificationBell from './NotificationBell';
 
-export default function AppView({ 
-  onBack, 
-  onLogout, 
-  onProfileClick, 
-  initialTab = 'map', 
+export type AppTab = 'map' | 'peoplemap' | 'network' | 'library';
+
+export default function AppView({
+  onBack,
+  onLogout,
+  onProfileClick,
+  initialTab = 'map',
   onTabChange,
-  onNotificationClick 
-}: { 
-  onBack: () => void, 
-  onLogout: () => void, 
-  onProfileClick: () => void,
-  initialTab?: 'map' | 'network',
-  onTabChange?: (tab: 'map' | 'network') => void,
-  onNotificationClick?: () => void
+  onNotificationClick,
+}: {
+  onBack: () => void;
+  onLogout: () => void;
+  onProfileClick: () => void;
+  initialTab?: AppTab;
+  onTabChange?: (tab: AppTab) => void;
+  onNotificationClick?: () => void;
 }) {
   const { currentUser } = useStore();
   const activeTab = initialTab;
   const setActiveTab = onTabChange || (() => {});
+
+  const tabs: { id: AppTab; icon: string; label: string }[] = [
+    { id: 'map',       icon: 'hub',          label: 'Network Map' },
+    { id: 'peoplemap', icon: 'group',        label: 'People Map'  },
+    { id: 'network',   icon: 'diversity_2',  label: 'My Network'  },
+    { id: 'library',   icon: 'auto_stories', label: 'Library'     },
+  ];
 
   return (
     <div className="absolute inset-0 bg-background text-on-surface flex flex-col overflow-hidden">
@@ -63,29 +74,35 @@ export default function AppView({
         </div>
       </header>
 
-      {/* Main Content Area */}
-      <main className={`flex-1 relative ${activeTab === 'network' ? 'overflow-y-auto' : 'overflow-hidden'} bg-surface-container-lowest/30`}>
-        {activeTab === 'map' && <NetworkMap />}
-        {activeTab === 'network' && <MyNetwork />}
+      {/* Main Content */}
+      <main className={`flex-1 relative ${activeTab === 'network' || activeTab === 'library' ? 'overflow-y-auto' : 'overflow-hidden'} bg-surface-container-lowest/30`}>
+        {activeTab === 'map'       && <NetworkMap />}
+        {activeTab === 'peoplemap' && <PeopleMap />}
+        {activeTab === 'network'   && <MyNetwork />}
+        {activeTab === 'library'   && <LibraryView />}
       </main>
 
       {/* Bottom Nav */}
-      <nav className="z-50 flex justify-around items-center h-[calc(3.5rem+env(safe-area-inset-bottom))] pb-[env(safe-area-inset-bottom)] px-4 bg-white/95 backdrop-blur-2xl border-t border-outline shadow-xl shrink-0">
-        <button 
-          onClick={() => setActiveTab('map')}
-          className={`flex items-center justify-center gap-2 transition-all active:scale-95 px-4 py-2 rounded-full ${activeTab === 'map' ? 'text-primary bg-primary/10' : 'text-on-surface-variant/40 hover:text-primary'}`}
-        >
-          <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: activeTab === 'map' ? "'FILL' 1" : "'FILL' 0" }}>hub</span>
-          <span className="font-label text-[10px] uppercase tracking-widest font-black">Map</span>
-        </button>
-        
-        <button 
-          onClick={() => setActiveTab('network')}
-          className={`flex items-center justify-center gap-2 transition-all active:scale-95 px-4 py-2 rounded-full ${activeTab === 'network' ? 'text-primary bg-primary/10' : 'text-on-surface-variant/40 hover:text-primary'}`}
-        >
-          <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: activeTab === 'network' ? "'FILL' 1" : "'FILL' 0" }}>diversity_2</span>
-          <span className="font-label text-[10px] uppercase tracking-widest font-black">Network</span>
-        </button>
+      <nav className="z-50 flex justify-around items-center h-[calc(4rem+env(safe-area-inset-bottom))] pb-[env(safe-area-inset-bottom)] px-1 bg-white/95 backdrop-blur-2xl border-t border-outline shadow-xl shrink-0">
+        {tabs.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex flex-col items-center justify-center gap-0.5 transition-all active:scale-95 flex-1 py-2 rounded-xl ${
+              activeTab === tab.id ? 'text-primary' : 'text-on-surface-variant/40 hover:text-primary'
+            }`}
+          >
+            <span
+              className="material-symbols-outlined text-[22px]"
+              style={{ fontVariationSettings: activeTab === tab.id ? "'FILL' 1" : "'FILL' 0" }}
+            >
+              {tab.icon}
+            </span>
+            <span className={`font-label text-[8px] uppercase tracking-wide font-black leading-none ${activeTab === tab.id ? 'text-primary' : 'text-on-surface-variant/40'}`}>
+              {tab.label}
+            </span>
+          </button>
+        ))}
       </nav>
     </div>
   );

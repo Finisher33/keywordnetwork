@@ -3,7 +3,7 @@ import { useStore } from './store';
 import MainView from './components/MainView';
 import AdminView from './components/AdminView';
 import MyProfile from './components/MyProfile';
-import AppView from './components/AppView';
+import AppView, { AppTab } from './components/AppView';
 import LandingPageView from './components/LandingPageView';
 import InsightView from './components/InsightView';
 
@@ -12,7 +12,7 @@ export default function App() {
   const [view, setView] = useState<'main' | 'admin'>('main');
   const [subView, setSubView] = useState<'landing' | 'app' | 'insight' | 'profile'>('landing');
   const [lastSubView, setLastSubView] = useState<'landing' | 'app' | 'insight'>('landing');
-  const [appViewTab, setAppViewTab] = useState<'map' | 'network'>('map');
+  const [appViewTab, setAppViewTab] = useState<AppTab>('map');
 
   const handleNotificationClick = () => {
     setSubView('app');
