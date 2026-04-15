@@ -41,9 +41,16 @@
     padding: 0;
     overflow: hidden;
     overscroll-behavior: none;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
   * {
     border-color: rgba(209, 209, 209, 0.2);
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  input, textarea, select {
+    font-size: 16px; /* iOS 자동 줌 방지 */
   }
   body {
     @apply bg-background text-on-background font-body h-full;
@@ -71,11 +78,21 @@
     -webkit-backdrop-filter: blur(24px);
   }
 
-  .no-scrollbar::-webkit-scrollbar {
+  .no-scrollbar::-webkit-scrollbar,
+  .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
-  .no-scrollbar {
+  .no-scrollbar,
+  .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
+  }
+
+  /* 모바일 안전 영역 패딩 */
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
   }
 }

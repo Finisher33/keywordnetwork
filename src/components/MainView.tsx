@@ -97,7 +97,7 @@ export default function MainView({ onAdminClick }: { onAdminClick: () => void })
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-xl bg-primary/5 border border-primary/10 mb-2">
               <span className="material-symbols-outlined text-4xl text-primary">hub</span>
             </div>
-            <h1 className="text-[clamp(1.75rem,8vw,4.5rem)] font-headline font-black tracking-tight text-primary leading-none whitespace-nowrap w-full">
+            <h1 className="text-[clamp(1.75rem,8vw,4.5rem)] font-headline font-black tracking-tight text-primary leading-none break-keep w-full">
               be Giver be Taker
             </h1>
             <div className="h-1 w-12 bg-secondary mx-auto rounded-full"></div>
@@ -341,7 +341,7 @@ export default function MainView({ onAdminClick }: { onAdminClick: () => void })
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto p-8 space-y-8 text-sm text-on-surface-variant leading-relaxed">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-8 text-sm text-on-surface-variant leading-relaxed">
               <section className="space-y-3">
                 <h3 className="text-lg font-bold text-on-surface">제1조 (개인정보의 처리 목적)</h3>
                 <p>회사는 다음의 목적을 위하여 개인정보를 처리하며, 목적 이외의 용도로는 이용되지 않습니다.</p>

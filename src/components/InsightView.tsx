@@ -265,7 +265,7 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
               className="max-w-2xl mx-auto space-y-8"
             >
               <div className="space-y-2">
-                <h1 className="text-[clamp(1.5rem,8vw,2.5rem)] font-headline font-black text-on-surface tracking-tighter leading-none whitespace-nowrap w-full">
+                <h1 className="text-[clamp(1.5rem,8vw,2.5rem)] font-headline font-black text-on-surface tracking-tighter leading-none break-keep w-full">
                   be Giver be Taker
                 </h1>
                 <p className="text-on-surface-variant text-sm leading-relaxed font-medium">
@@ -336,7 +336,7 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
                 <p className="text-secondary font-black tracking-widest uppercase text-[10px] mb-2 font-label">Knowledge Mapping</p>
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                   <div className={adminCourseId ? "" : "max-w-2xl"}>
-                    <h2 className="text-[clamp(1.25rem,6vw,2.5rem)] font-black font-headline text-primary leading-tight tracking-tighter mb-4 uppercase whitespace-nowrap w-full">
+                    <h2 className="text-[clamp(1.25rem,6vw,2.5rem)] font-black font-headline text-primary leading-tight tracking-tighter mb-4 uppercase break-keep w-full">
                       Learning Insight Dashboard
                     </h2>
                     <p className="text-on-surface-variant text-sm md:text-lg leading-relaxed max-w-xl font-medium break-keep">

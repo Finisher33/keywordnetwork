@@ -167,7 +167,7 @@ export default function MyProfile({ onSave, onLogout, showBack = true, targetUse
         )}
       </header>
 
-      <main className="flex-1 overflow-y-auto pt-8 pb-32 max-w-2xl mx-auto px-6 space-y-10 w-full">
+      <main className="flex-1 overflow-y-auto pt-8 pb-32 max-w-2xl mx-auto px-4 sm:px-6 space-y-10 w-full">
         <section className="bg-surface p-6 rounded-3xl border border-outline space-y-8 shadow-sm">
         {/* Profile Picture Section */}
         <div className="flex flex-col items-center gap-6">
@@ -461,20 +461,26 @@ export default function MyProfile({ onSave, onLogout, showBack = true, targetUse
           </div>
         </div>
 
-        <button 
-          onClick={handleSave}
-          disabled={isSaving}
-          className={`w-full py-5 bg-primary text-white font-headline font-bold rounded-2xl shadow-xl active:scale-95 hover:opacity-90 transition-all flex items-center justify-center gap-2 ${isSaving ? 'opacity-70 cursor-not-allowed' : ''}`}
-        >
-          {isSaving ? (
-            <>
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-              저장 중...
-            </>
-          ) : '수정 완료'}
-        </button>
-      </section>
+        </section>
       </main>
+
+      {/* 하단 고정 저장 버튼 */}
+      <div className="shrink-0 px-4 sm:px-6 py-3 bg-white/90 backdrop-blur-md border-t border-outline shadow-lg pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+        <div className="max-w-2xl mx-auto w-full">
+          <button
+            onClick={handleSave}
+            disabled={isSaving}
+            className={`w-full py-4 bg-primary text-white font-headline font-bold rounded-2xl shadow-xl active:scale-95 hover:opacity-90 transition-all flex items-center justify-center gap-2 ${isSaving ? 'opacity-70 cursor-not-allowed' : ''}`}
+          >
+            {isSaving ? (
+              <>
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                저장 중...
+              </>
+            ) : '수정 완료'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -58,7 +58,7 @@ export default function LandingPageView({ onSelect, onLogout, onProfileClick, on
             <span className="material-symbols-outlined text-primary text-3xl">hub</span>
           </div>
         </div>
-        <h1 className="text-[clamp(1.5rem,8vw,5rem)] font-headline font-black tracking-tighter text-on-surface leading-none mb-2 whitespace-nowrap w-full">
+        <h1 className="text-[clamp(1.5rem,8vw,5rem)] font-headline font-black tracking-tighter text-on-surface leading-none mb-2 break-keep w-full">
           be Giver be Taker
         </h1>
         <div className="text-primary font-bold text-sm md:text-base tracking-wide">
