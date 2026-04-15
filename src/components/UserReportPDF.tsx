@@ -48,11 +48,12 @@ export default function UserReportPDF({
   }, [allUsers, user]);
 
   return (
-    <div className="pdf-report w-[210mm] bg-white px-[10mm] py-[20mm] text-[#111827] font-sans" style={{ colorScheme: 'light', minHeight: '297mm', fontSize: '10pt' }}>
+    <div className="pdf-report w-[210mm] bg-white px-[10mm] py-[20mm] text-[#111827] font-sans" style={{ colorScheme: 'light', fontSize: '10pt' }}>
       {/* Header */}
       <div className="pdf-header border-b-2 border-[#002C5F] pb-4 mb-8 flex justify-between items-end">
         <div className="min-w-0">
           <h1 className="pdf-main-title text-[24pt] font-black text-[#002C5F] tracking-tight whitespace-nowrap">be Giver be Taker • Network Report</h1>
+          <p className="text-[10pt] text-[#002C5F] font-bold mt-1">리더님들간의 의미있는 연결과 지속적인 교류를 응원합니다.</p>
           <p className="pdf-user-info text-[12pt] font-bold text-[#4B5563] mt-2">{formatLeaderInfo(user)}</p>
         </div>
         <p className="pdf-date text-[10pt] font-bold text-[#00AAD2] whitespace-nowrap ml-4">Date: {new Date().toLocaleDateString()}</p>
@@ -169,7 +170,7 @@ export default function UserReportPDF({
                           {uInterests.map(i => (
                             <div key={i.id} className="pdf-user-interest-item mb-2 last:mb-0">
                               <div className="pdf-user-header flex items-center gap-2 mb-1 flex-wrap">
-                                <span className={`pdf-badge text-[8pt] font-black px-2 py-0.5 rounded uppercase inline-flex items-center justify-center min-w-[45px] ${i.type === 'giver' ? 'pdf-badge-giver' : 'pdf-badge-taker'}`}>
+                                <span className={`pdf-badge text-[8pt] font-black px-2 py-0.5 rounded uppercase inline-flex items-center justify-center min-w-[45px] ${i.type === 'giver' ? 'pdf-badge-giver' : 'pdf-badge-taker'}`} style={{ textAlign: 'center' }}>
                                   {i.type}
                                 </span>
                                 <span className="pdf-user-info-text text-[10pt] font-bold text-[#002C5F]">
@@ -215,9 +216,8 @@ export default function UserReportPDF({
       </div>
 
       {/* Footer */}
-      <div className="pdf-footer mt-auto pt-6 border-t-2 border-[#F3F4F6] text-center">
-        <p className="pdf-footer-msg text-[11pt] text-[#002C5F] font-black">리더님들간의 의미있는 연결과 지속적인 교류를 응원합니다.</p>
-        <p className="pdf-copyright text-[9pt] text-[#9ca3af] mt-2 font-medium">ⓒ {currentYear} HMG 인재개발원. All rights reserved.</p>
+      <div className="pdf-footer mt-8 pt-6 border-t-2 border-[#F3F4F6] text-center">
+        <p className="pdf-copyright text-[9pt] text-[#9ca3af] font-medium">ⓒ {currentYear} HMG 인재개발원. All rights reserved.</p>
       </div>
     </div>
   );

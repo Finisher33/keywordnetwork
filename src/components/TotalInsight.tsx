@@ -444,7 +444,7 @@ export default function TotalInsight({ courseId }: TotalInsightProps) {
               {/* Connection Strength Analysis */}
               <div className="md:col-span-2 bg-white p-10 border-t-4 border-secondary shadow-sm rounded-xl">
                 <div className="flex justify-between items-center mb-4">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">01-1. 연결강도 분석 (Top 3 Partners)</p>
+                  <p className="text-xs font-black uppercase tracking-widest text-on-surface-variant">01-1. 연결강도 분석 (Top 3 Partners)</p>
                   <span className="text-[10px] font-black text-secondary uppercase tracking-widest">Shared Keywords Weight</span>
                 </div>
                 <p className="text-[11px] text-on-surface-variant mb-8 leading-relaxed">
@@ -488,7 +488,7 @@ export default function TotalInsight({ courseId }: TotalInsightProps) {
 
               {/* Centrality Analysis */}
               <div className="md:col-span-2 bg-white p-10 border-t-4 border-primary shadow-sm rounded-xl">
-                <p className="text-[10px] font-black uppercase tracking-widest mb-4 text-on-surface-variant">01-2. 중심성 분석 (Centrality Analysis)</p>
+                <p className="text-xs font-black uppercase tracking-widest mb-4 text-on-surface-variant">01-2. 중심성 분석 (Centrality Analysis)</p>
                 <p className="text-[11px] text-on-surface-variant mb-8 leading-relaxed">
                   * 중심성 분석은 네트워크 내에서 특정 키워드나 유저가 가지는 영향력을 측정합니다. 누가, 혹은 무엇이 전체 흐름을 주도하고 연결하는지 파악할 수 있습니다.
                 </p>
@@ -618,7 +618,7 @@ export default function TotalInsight({ courseId }: TotalInsightProps) {
 
               {/* Session Bar Graph */}
               <div className="bg-white border border-outline p-8 rounded-xl shadow-sm">
-                <h3 className="text-sm font-black uppercase tracking-widest text-on-surface-variant mb-8">Session-wise Insight Distribution</h3>
+                <h3 className="text-base font-black uppercase tracking-widest text-on-surface-variant mb-8">Session-wise Insight Distribution</h3>
                 <div className="space-y-6">
                   {sessionStats.sessionCounts.map((session, idx) => {
                     const maxCount = Math.max(...sessionStats.sessionCounts.map(s => s.count));
@@ -627,10 +627,10 @@ export default function TotalInsight({ courseId }: TotalInsightProps) {
                       <div key={idx} className="space-y-2">
                         <div className="flex justify-between items-end">
                           <div className="flex flex-col max-w-[70%]">
-                            <span className="text-xs font-black uppercase tracking-tight text-on-surface truncate">{session.name}</span>
-                            <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Instructor: {session.instructor}</span>
+                            <span className="text-sm font-black uppercase tracking-tight text-on-surface truncate">{session.name}</span>
+                            <span className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">Instructor: {session.instructor}</span>
                           </div>
-                          <span className="text-xs font-black text-primary tabular-nums">{session.count} Keywords</span>
+                          <span className="text-sm font-black text-primary tabular-nums">{session.count} Keywords</span>
                         </div>
                         <div className="h-3 bg-surface-container-low rounded-full overflow-hidden">
                           <motion.div 
@@ -649,7 +649,7 @@ export default function TotalInsight({ courseId }: TotalInsightProps) {
 
             <div className="relative bg-white border border-outline shadow-sm rounded-xl overflow-hidden">
               <div className="p-6 bg-surface-container-low border-b border-outline">
-                <h3 className="text-lg font-black uppercase tracking-tight text-primary">Integrated Keywords</h3>
+                <h3 className="text-xl font-black uppercase tracking-tight text-primary">Integrated Keywords</h3>
               </div>
               <div className={`p-12 transition-all duration-1000 ${!isKeywordRevealed ? 'blur-2xl grayscale opacity-20 pointer-events-none' : ''}`}>
                 {/* Bubble Chart Implementation */}
@@ -662,17 +662,27 @@ export default function TotalInsight({ courseId }: TotalInsightProps) {
                     const size = 80 + ((item.count - minCount) / range) * 120;
                     
                     return (
-                      <motion.button 
+                      <motion.button
                         key={item.id}
                         initial={{ scale: 0 }}
                         animate={{ scale: 1 }}
                         transition={{ type: 'spring', damping: 12, delay: idx * 0.05 }}
                         onClick={() => setSelectedKeywordForPopup(item.id)}
-                        style={{ width: size, height: size }}
-                        className={`rounded-full flex flex-col items-center justify-center p-4 transition-all shadow-lg border-4 ${
-                          selectedTopKeyword === item.id 
-                            ? 'bg-primary border-primary text-white scale-110 z-10' 
-                            : 'bg-white border-outline text-on-surface-variant hover:border-primary hover:text-primary'
+                        style={{
+                          width: size,
+                          height: size,
+                          background: selectedTopKeyword === item.id
+                            ? 'radial-gradient(circle at 38% 35%, #2a5ca8 0%, #002C5F 55%, #001530 100%)'
+                            : 'radial-gradient(circle at 38% 35%, #ffffff 0%, #daeeff 40%, #aad4f5 80%, #88bbec 100%)',
+                          boxShadow: selectedTopKeyword === item.id
+                            ? 'inset -4px -4px 10px rgba(0,0,0,0.35), inset 3px 3px 8px rgba(255,255,255,0.12), 5px 10px 24px rgba(0,44,95,0.45)'
+                            : 'inset -4px -4px 10px rgba(0,0,0,0.12), inset 3px 3px 8px rgba(255,255,255,0.9), 5px 10px 24px rgba(0,0,0,0.18)',
+                          border: selectedTopKeyword === item.id ? '2px solid rgba(255,255,255,0.15)' : '2px solid rgba(100,180,255,0.4)',
+                        }}
+                        className={`rounded-full flex flex-col items-center justify-center p-4 transition-all ${
+                          selectedTopKeyword === item.id
+                            ? 'text-white scale-110 z-10'
+                            : 'text-[#2a5ca8] hover:scale-105'
                         }`}
                       >
                         <span className="text-[10px] font-black opacity-40 mb-1">{(idx + 1).toString().padStart(2, '0')}</span>
@@ -706,8 +716,8 @@ export default function TotalInsight({ courseId }: TotalInsightProps) {
                     <div key={item.keyword} className="bg-white p-8 space-y-8 shadow-sm border border-outline rounded-xl flex flex-col h-full">
                       <div className="flex items-center justify-between border-b-2 border-primary pb-4">
                         <div className="flex items-center gap-4">
-                          <span className="text-3xl font-black text-primary">0{idx + 1}</span>
-                          <h4 className="text-2xl font-black uppercase tracking-tight text-on-surface">#{item.keyword}</h4>
+                          <span className="text-2xl font-black text-primary">0{idx + 1}</span>
+                          <h4 className="text-xl font-black uppercase tracking-tight text-on-surface">#{item.keyword}</h4>
                         </div>
                         <span className="text-[10px] font-black uppercase tracking-widest bg-primary text-on-primary px-3 py-1.5 rounded">
                           {item.count} Opinions
@@ -716,8 +726,8 @@ export default function TotalInsight({ courseId }: TotalInsightProps) {
                       
                       {/* Core Insight Section */}
                       <div className="bg-surface-container-low p-6 border-l-4 border-primary rounded-r-lg flex-1">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-2">AI 핵심 요약</p>
-                        <p className="text-lg font-bold text-on-surface leading-tight">
+                        <p className="text-xs font-black uppercase tracking-widest text-primary mb-2">AI 핵심 요약</p>
+                        <p className="text-base font-bold text-on-surface leading-tight">
                           {aiSummaries[item.id] || "AI가 인사이트를 분석 중입니다..."}
                         </p>
                       </div>

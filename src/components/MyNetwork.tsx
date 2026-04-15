@@ -114,7 +114,7 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
             .pdf-user-header { display: flex !important; align-items: center !important; gap: 0.5rem !important; margin-bottom: 0.25rem !important; flex-wrap: wrap !important; }
             .pdf-user-info-text { font-weight: 700 !important; color: #002c5f !important; font-size: 10pt !important; }
             
-            .pdf-badge { font-size: 8pt !important; font-weight: 900 !important; padding: 0.125rem 0.5rem !important; border-radius: 0.25rem !important; text-transform: uppercase !important; color: #ffffff !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; min-width: 45px !important; }
+            .pdf-badge { font-size: 8pt !important; font-weight: 900 !important; padding: 0.125rem 0.5rem !important; border-radius: 0.25rem !important; text-transform: uppercase !important; color: #ffffff !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; text-align: center !important; min-width: 45px !important; }
             .pdf-badge-giver { background-color: #002c5f !important; }
             .pdf-badge-taker { background-color: #00aad2 !important; }
             .pdf-user-desc { color: #4b5563 !important; font-style: italic !important; line-height: 1.4 !important; font-size: 9.5pt !important; margin-top: 0.25rem !important; }
@@ -180,17 +180,20 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
       let currentOffset = 0;
       while (currentOffset < imgHeight) {
         if (currentOffset > 0) {
+          // Skip near-empty final pages (less than 15mm of real content)
+          const remaining = imgHeight - currentOffset;
+          if (remaining < 15) break;
           pdf.addPage();
         }
-        
+
         // Draw the image slice with top margin offset
         pdf.addImage(imgData, 'JPEG', marginX, marginY - currentOffset, imgWidth, imgHeight);
-        
+
         // Mask top and bottom margins with white rectangles to ensure clean edges
         pdf.setFillColor(255, 255, 255);
         pdf.rect(0, 0, pdfWidth, marginY, 'F'); // Top margin mask
         pdf.rect(0, pdfHeight - marginY, pdfWidth, marginY, 'F'); // Bottom margin mask
-        
+
         currentOffset += contentHeight;
       }
 
@@ -291,6 +294,12 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8 space-y-10" ref={contentRef} data-pdf-content>
+      {/* Page Title */}
+      <div className="pb-3 border-b-2 border-primary/30">
+        <h1 className="font-headline text-2xl font-black uppercase tracking-widest text-primary">MY NETWORK</h1>
+        <p className="text-xs text-on-surface-variant mt-0.5 font-medium">{currentUser?.name}님의 키워드 네트워크</p>
+      </div>
+
       {/* Network Summary */}
       <section data-pdf-section className="bg-surface-container-low rounded-2xl border border-outline p-6 shadow-sm">
         <div className="flex items-center justify-between mb-4">
@@ -298,7 +307,7 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined text-primary">analytics</span>
               <h2 className="font-headline text-lg font-bold tracking-tight text-on-surface">
-                {currentUser?.name}님의 네트워크 요약
+                네트워크 요약
               </h2>
             </div>
             <p className="text-[11px] text-on-surface-variant mt-1 font-medium">

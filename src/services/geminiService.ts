@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || "");
 
 export async function summarizeInsights(keyword: string, insights: string[]): Promise<string> {
   if (!insights || insights.length === 0) return `${keyword} 관련 핵심 인사이트가 집계 중입니다.`;

@@ -12,7 +12,7 @@ export const getEmbedding = async (text: string): Promise<number[] | null> => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.VOYAGE_API_KEY || ""}`,
+        Authorization: `Bearer ${import.meta.env.VITE_VOYAGE_API_KEY || ""}`,
       },
       body: JSON.stringify({
         model: "voyage-3",
