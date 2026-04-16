@@ -200,12 +200,9 @@ export default function MyProfile({ onSave, onLogout, showBack = true, targetUse
                   key={animal.url}
                   onClick={() => setProfilePic(animal.url)}
                   title={animal.name}
-                  className={`flex flex-col items-center gap-0.5 p-1.5 rounded-2xl transition-all ${profilePic === animal.url ? 'border-2 border-primary shadow-md scale-110 bg-primary/10' : 'border border-outline opacity-70 hover:opacity-100 hover:bg-primary/5 bg-surface-container-low'}`}
+                  className={`flex items-center justify-center p-1.5 rounded-2xl transition-all ${profilePic === animal.url ? 'border-2 border-primary shadow-md scale-110 bg-primary/10' : 'border border-outline opacity-70 hover:opacity-100 hover:bg-primary/5 bg-surface-container-low'}`}
                 >
                   <img src={animal.url} alt={animal.name} className="w-9 h-9 object-contain" />
-                  <span className="text-[8px] font-bold text-on-surface-variant leading-none truncate w-full text-center">
-                    {animal.label.split(' ')[1]}
-                  </span>
                 </button>
               ))}
             </div>
