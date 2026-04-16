@@ -345,6 +345,7 @@ function TeaTimeUserCard({
   myKws,
   matchType,
   reqStatus,
+  responseMessage,
   onRequest,
   index,
 }: {
@@ -354,67 +355,80 @@ function TeaTimeUserCard({
   myKws: Set<string>;
   matchType: 'keyword' | 'location';
   reqStatus: TeaReqStatus;
+  responseMessage?: string;
   onRequest: () => void;
   index: number;
 }) {
   const uKws = allInterests.filter(i => i.userId === user.id).map(i => i.keyword.toLowerCase().trim());
   const sharedKws = uKws.filter(k => myKws.has(k));
   const statusCfg = TEA_STATUS_CONFIG[reqStatus];
+  const showResponse = reqStatus === 'accepted' && !!responseMessage;
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.07, duration: 0.3 }}
-      className="bg-surface rounded-xl border border-outline/40 p-3.5 flex gap-3 items-center"
+      className="bg-surface rounded-xl border border-outline/40 p-3.5 space-y-2"
     >
-      <div className="shrink-0">
-        {isUrl(user.profilePic) ? (
-          <img src={user.profilePic} alt={user.name} className="w-10 h-10 rounded-full object-cover border border-outline/30" />
-        ) : (
-          <div className="w-10 h-10 rounded-full bg-secondary/15 flex items-center justify-center border border-secondary/25">
-            <span className="text-secondary font-black text-sm">{user.name.charAt(0)}</span>
-          </div>
-        )}
-      </div>
+      <div className="flex gap-3 items-center">
+        <div className="shrink-0">
+          {isUrl(user.profilePic) ? (
+            <img src={user.profilePic} alt={user.name} className="w-10 h-10 rounded-full object-cover border border-outline/30" />
+          ) : (
+            <div className="w-10 h-10 rounded-full bg-secondary/15 flex items-center justify-center border border-secondary/25">
+              <span className="text-secondary font-black text-sm">{user.name.charAt(0)}</span>
+            </div>
+          )}
+        </div>
 
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-black text-on-surface leading-tight">{user.name}</p>
-        <p className="text-[10px] text-on-surface-variant mt-0.5">
-          {user.company}{user.department ? ` · ${user.department}` : ''}
-        </p>
-        {matchType === 'keyword' && sharedKws.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-1.5">
-            {sharedKws.map(kw => (
-              <span key={kw} className="bg-secondary/10 text-secondary text-[9px] font-bold rounded px-1.5 py-0.5">
-                #{kw}
-              </span>
-            ))}
-          </div>
-        )}
-        {matchType === 'location' && user.location && (
-          <p className="text-[10px] text-on-surface-variant/60 mt-0.5">
-            <span className="material-symbols-outlined text-[10px] align-middle mr-0.5">location_on</span>
-            {user.location}
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-black text-on-surface leading-tight">{user.name}</p>
+          <p className="text-[10px] text-on-surface-variant mt-0.5">
+            {user.company}{user.department ? ` · ${user.department}` : ''}
           </p>
+          {matchType === 'keyword' && sharedKws.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1.5">
+              {sharedKws.map(kw => (
+                <span key={kw} className="bg-secondary/10 text-secondary text-[9px] font-bold rounded px-1.5 py-0.5">
+                  #{kw}
+                </span>
+              ))}
+            </div>
+          )}
+          {matchType === 'location' && user.location && (
+            <p className="text-[10px] text-on-surface-variant/60 mt-0.5">
+              <span className="material-symbols-outlined text-[10px] align-middle mr-0.5">location_on</span>
+              {user.location}
+            </p>
+          )}
+        </div>
+
+        {/* 상태 배지 or 요청 버튼 */}
+        {statusCfg ? (
+          <span className={`shrink-0 flex items-center gap-1 text-[10px] font-black px-2.5 py-1.5 rounded-lg whitespace-nowrap ${statusCfg.cls}`}>
+            <span className="material-symbols-outlined text-[11px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+              {statusCfg.icon}
+            </span>
+            {statusCfg.label}
+          </span>
+        ) : (
+          <button
+            onClick={onRequest}
+            className="shrink-0 text-[10px] font-black px-3 py-1.5 rounded-lg bg-secondary text-on-secondary hover:bg-secondary/90 active:scale-95 transition-all whitespace-nowrap"
+          >
+            티타임 요청
+          </button>
         )}
       </div>
 
-      {/* 상태 배지 or 요청 버튼 */}
-      {statusCfg ? (
-        <span className={`shrink-0 flex items-center gap-1 text-[10px] font-black px-2.5 py-1.5 rounded-lg whitespace-nowrap ${statusCfg.cls}`}>
-          <span className="material-symbols-outlined text-[11px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-            {statusCfg.icon}
-          </span>
-          {statusCfg.label}
-        </span>
-      ) : (
-        <button
-          onClick={onRequest}
-          className="shrink-0 text-[10px] font-black px-3 py-1.5 rounded-lg bg-secondary text-on-secondary hover:bg-secondary/90 active:scale-95 transition-all whitespace-nowrap"
-        >
-          티타임 요청
-        </button>
+      {/* 수락 시 답변 메시지 */}
+      {showResponse && (
+        <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 ml-[52px]">
+          <p className="text-[10px] text-on-surface-variant leading-relaxed">
+            <span className="font-black text-green-700">답변 · </span>{responseMessage}
+          </p>
+        </div>
       )}
     </motion.div>
   );
@@ -485,6 +499,16 @@ function TeaTimeMissionSection({
     return map;
   }, [teaTimeRequests, currentUser.id]);
 
+  // 수락된 요청의 답변 메시지 맵: toUserId → responseMessage
+  const respMap = useMemo(() => {
+    const map = new Map<string, string>();
+    teaTimeRequests
+      .filter(r => r.fromUserId === currentUser.id && r.status === 'accepted' && r.responseMessage)
+      .sort((a, b) => a.id.localeCompare(b.id))
+      .forEach(r => { map.set(r.toUserId, r.responseMessage!); });
+    return map;
+  }, [teaTimeRequests, currentUser.id]);
+
   // 신청 건수 (pending + accepted) → 미션 진행 기준
   const sentCount = reqMap.size;
   // 수락 건수
@@ -521,6 +545,7 @@ function TeaTimeMissionSection({
                 myKws={myKws}
                 matchType={matchType}
                 reqStatus={status}
+                responseMessage={respMap.get(u.id)}
                 onRequest={() => status === 'none' && setModalUser(u)}
                 index={i}
               />
@@ -592,6 +617,14 @@ function TeaTimeMissionSection({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* 미션 진행 중 응원 문구 */}
+      {!missionComplete && (
+        <div className="flex items-center gap-2.5 bg-secondary/6 border border-secondary/20 rounded-xl px-4 py-3">
+          <span className="material-symbols-outlined text-secondary text-base shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>favorite</span>
+          <p className="text-xs text-secondary font-medium leading-relaxed">관심있는 리더에게 티타임을 제안해보세요.</p>
+        </div>
+      )}
 
       {/* 키워드 매칭 */}
       {renderSection('키워드 매칭', '관심사 키워드가 1개 이상 겹치는 리더', keywordMatched, 'keyword')}

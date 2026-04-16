@@ -66,8 +66,8 @@ export default function App() {
     // 정보등록 이력이 있는 경우 선택 페이지로 이동
     if (subView === 'landing') {
       return (
-        <LandingPageView 
-          onSelect={setSubView} 
+        <LandingPageView
+          onSelect={(v) => { if (v === 'app') setAppViewTab('network'); setSubView(v); }}
           onLogout={handleLogout}
           onProfileClick={goToProfile}
           onNotificationClick={handleNotificationClick}
