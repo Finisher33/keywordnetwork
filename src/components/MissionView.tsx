@@ -133,6 +133,8 @@ function PartnerMatchSection({
   onReveal: () => void;
   isConfirmed: boolean;
 }) {
+  const [pendingAlert, setPendingAlert] = useState(false);
+
   const topics = useMemo(
     () => generateTopics(group, allInterests, currentUser),
     [group, allInterests, currentUser]
@@ -147,25 +149,29 @@ function PartnerMatchSection({
       <div className="h-px bg-outline/30 mb-5" />
       <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-3">파트너 매칭</p>
 
-      {!revealed && !loading && !isConfirmed && (
-        <div className="w-full bg-surface-container-low border border-outline/40 rounded-xl py-4 px-4 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-on-surface-variant/10 flex items-center justify-center shrink-0">
-            <span className="material-symbols-outlined text-on-surface-variant text-base">schedule</span>
-          </div>
-          <div>
-            <p className="text-sm font-bold text-on-surface-variant">파트너 매칭 준비중</p>
-            <p className="text-[10px] text-on-surface-variant/60 mt-0.5">관리자가 파트너를 확정하면 확인할 수 있습니다.</p>
-          </div>
-        </div>
-      )}
+      {!revealed && !loading && (
+        <div className="space-y-3">
+          <button
+            onClick={() => isConfirmed ? onReveal() : setPendingAlert(true)}
+            className={`w-full font-bold py-3 rounded-xl text-sm flex items-center justify-center gap-2 transition-all ${
+              isConfirmed
+                ? 'bg-gradient-to-r from-primary to-primary/70 text-white hover:opacity-90 active:scale-95'
+                : 'bg-surface-container border border-outline/60 text-on-surface-variant/60 cursor-default'
+            }`}
+          >
+            <span className="material-symbols-outlined text-base" style={{ fontVariationSettings: "'FILL' 1" }}>hub</span>
+            파트너 확인하기
+          </button>
 
-      {!revealed && !loading && isConfirmed && (
-        <button
-          onClick={onReveal}
-          className="w-full bg-gradient-to-r from-primary to-primary/70 text-white font-bold py-3 rounded-xl text-sm hover:opacity-90 transition-opacity active:scale-95"
-        >
-          파트너 확인하기 →
-        </button>
+          {pendingAlert && !isConfirmed && (
+            <div className="flex items-center gap-2.5 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+              <span className="material-symbols-outlined text-amber-500 text-base shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>schedule</span>
+              <p className="text-xs text-amber-700 font-medium leading-relaxed">
+                파트너 배정중으로 담당자의 안내를 기다려주세요.
+              </p>
+            </div>
+          )}
+        </div>
       )}
 
       {loading && (
@@ -345,6 +351,7 @@ function TeaTimeUserCard({
   myKws,
   matchType,
   reqStatus,
+  sentMessage,
   responseMessage,
   onRequest,
   index,
@@ -355,6 +362,7 @@ function TeaTimeUserCard({
   myKws: Set<string>;
   matchType: 'keyword' | 'location';
   reqStatus: TeaReqStatus;
+  sentMessage?: string;
   responseMessage?: string;
   onRequest: () => void;
   index: number;
@@ -362,6 +370,7 @@ function TeaTimeUserCard({
   const uKws = allInterests.filter(i => i.userId === user.id).map(i => i.keyword.toLowerCase().trim());
   const sharedKws = uKws.filter(k => myKws.has(k));
   const statusCfg = TEA_STATUS_CONFIG[reqStatus];
+  const showThread = reqStatus !== 'none' && !!sentMessage;
   const showResponse = reqStatus === 'accepted' && !!responseMessage;
 
   return (
@@ -369,7 +378,7 @@ function TeaTimeUserCard({
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.07, duration: 0.3 }}
-      className="bg-surface rounded-xl border border-outline/40 p-3.5 space-y-2"
+      className="bg-surface rounded-xl border border-outline/40 p-3.5 space-y-2.5"
     >
       <div className="flex gap-3 items-center">
         <div className="shrink-0">
@@ -422,12 +431,25 @@ function TeaTimeUserCard({
         )}
       </div>
 
-      {/* 수락 시 답변 메시지 */}
-      {showResponse && (
-        <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 ml-[52px]">
-          <p className="text-[10px] text-on-surface-variant leading-relaxed">
-            <span className="font-black text-green-700">답변 · </span>{responseMessage}
-          </p>
+      {/* 제안 메시지 + 답변 댓글 스레드 */}
+      {showThread && (
+        <div className="ml-[52px] space-y-1.5">
+          {/* 내가 보낸 제안 메시지 */}
+          <div className="bg-primary/8 border border-primary/20 rounded-xl rounded-tl-sm px-3 py-2">
+            <p className="text-[9px] font-black text-primary uppercase tracking-widest mb-1">내 제안</p>
+            <p className="text-[10px] text-on-surface-variant leading-relaxed whitespace-pre-line">{sentMessage}</p>
+          </div>
+
+          {/* 수락 시 상대방 답변 (댓글 형태) */}
+          {showResponse && (
+            <div className="flex items-start gap-1.5 pl-3">
+              <div className="w-px self-stretch bg-green-300 shrink-0 rounded-full" />
+              <div className="bg-green-50 border border-green-200 rounded-xl rounded-tl-sm px-3 py-2 flex-1">
+                <p className="text-[9px] font-black text-green-700 uppercase tracking-widest mb-1">{user.name}님의 답변</p>
+                <p className="text-[10px] text-on-surface-variant leading-relaxed whitespace-pre-line">{responseMessage}</p>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </motion.div>
@@ -509,6 +531,16 @@ function TeaTimeMissionSection({
     return map;
   }, [teaTimeRequests, currentUser.id]);
 
+  // 보낸 제안 메시지 맵: toUserId → message
+  const sentMsgMap = useMemo(() => {
+    const map = new Map<string, string>();
+    teaTimeRequests
+      .filter(r => r.fromUserId === currentUser.id)
+      .sort((a, b) => a.id.localeCompare(b.id))
+      .forEach(r => { map.set(r.toUserId, r.message); });
+    return map;
+  }, [teaTimeRequests, currentUser.id]);
+
   // 신청 건수 (pending + accepted) → 미션 진행 기준
   const sentCount = reqMap.size;
   // 수락 건수
@@ -545,6 +577,7 @@ function TeaTimeMissionSection({
                 myKws={myKws}
                 matchType={matchType}
                 reqStatus={status}
+                sentMessage={sentMsgMap.get(u.id)}
                 responseMessage={respMap.get(u.id)}
                 onRequest={() => status === 'none' && setModalUser(u)}
                 index={i}

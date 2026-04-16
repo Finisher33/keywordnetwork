@@ -193,16 +193,15 @@ export default function MyProfile({ onSave, onLogout, showBack = true, targetUse
           </div>
 
           <div className="space-y-3 w-full">
-            <p className="text-[10px] font-bold text-on-surface-variant uppercase text-center tracking-widest">12지신 프로필 아이콘 선택</p>
+            <p className="text-[10px] font-bold text-on-surface-variant uppercase text-center tracking-widest">프로필 아이콘 선택</p>
             <div className="grid grid-cols-6 gap-2">
               {ZODIAC_ANIMALS.map(animal => (
                 <button
                   key={animal.url}
                   onClick={() => setProfilePic(animal.url)}
-                  title={animal.name}
                   className={`flex items-center justify-center p-1.5 rounded-2xl transition-all ${profilePic === animal.url ? 'border-2 border-primary shadow-md scale-110 bg-primary/10' : 'border border-outline opacity-70 hover:opacity-100 hover:bg-primary/5 bg-surface-container-low'}`}
                 >
-                  <img src={animal.url} alt={animal.name} className="w-9 h-9 object-contain" />
+                  <img src={animal.url} alt="" className="w-9 h-9 object-contain" />
                 </button>
               ))}
             </div>
