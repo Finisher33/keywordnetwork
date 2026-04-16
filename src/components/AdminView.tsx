@@ -235,6 +235,7 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
       const groupId = `${userListCourseId}_${matchResetConfirm}`;
       await deleteMissionGroup(groupId);
       setMatchResetConfirm(null);
+      setMatchingPreview(null);
       showStatus('success', `${matchResetConfirm === 'lunch' ? '런치' : '저녁'} 매칭이 초기화되었습니다.`);
     } catch {
       showStatus('error', '매칭 초기화에 실패했습니다.');

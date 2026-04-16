@@ -168,7 +168,7 @@ function PartnerMatchSection({
             <div className="flex items-center gap-2.5 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
               <span className="material-symbols-outlined text-amber-500 text-base shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>schedule</span>
               <p className="text-xs text-amber-700 font-medium leading-relaxed">
-                파트너 배정중으로 담당자의 안내를 기다려주세요.
+                담당자가 파트너 매칭중입니다. 잠시만 기다려주세요.
               </p>
             </div>
           )}
