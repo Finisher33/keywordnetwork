@@ -83,6 +83,7 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
   const [matchingPreview, setMatchingPreview] = useState<{
     type: 'lunch' | 'evening';
     groups: string[][];  // each group = array of userIds
+    rematchCount: number; // 재매칭 횟수 (시드 변형에 사용)
   } | null>(null);
   const [isSavingMatch, setIsSavingMatch] = useState(false);
 
@@ -173,33 +174,35 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
     }
   };
 
-  const handlePreviewMatch = (type: 'lunch' | 'evening') => {
+  const handlePreviewMatch = (type: 'lunch' | 'evening', rematchCount = 0) => {
     if (!userListCourseId) return;
     const courseUsers = db.users
       .filter(u => u.courseId === userListCourseId)
       .sort((a, b) => a.id.localeCompare(b.id));
 
+    // 재매칭 시 시드를 다르게 해서 다른 조편성을 생성
+    const seedSuffix = rematchCount > 0 ? `_r${rematchCount}` : '';
+
     let groups: string[][];
     if (type === 'lunch') {
-      const idxGroups = computeGroups(courseUsers, db.interests, userListCourseId + 'lunch');
+      const idxGroups = computeGroups(courseUsers, db.interests, userListCourseId + 'lunch' + seedSuffix);
       groups = groupIndicesToUserIds(idxGroups, courseUsers);
     } else {
       // Evening avoids lunch groups
       const confirmedLunch = db.missionGroups.find(g => g.courseId === userListCourseId && g.type === 'lunch');
       if (confirmedLunch) {
-        // Convert confirmed lunch userId groups to index groups for avoidGroups param
         const lunchIdxGroups = confirmedLunch.groups.map(g =>
           g.map(uid => courseUsers.findIndex(u => u.id === uid)).filter(i => i !== -1)
         );
-        const idxGroups = computeGroups(courseUsers, db.interests, userListCourseId + 'evening', lunchIdxGroups);
+        const idxGroups = computeGroups(courseUsers, db.interests, userListCourseId + 'evening' + seedSuffix, lunchIdxGroups);
         groups = groupIndicesToUserIds(idxGroups, courseUsers);
       } else {
-        const lunchIdxGroups = computeGroups(courseUsers, db.interests, userListCourseId + 'lunch');
-        const idxGroups = computeGroups(courseUsers, db.interests, userListCourseId + 'evening', lunchIdxGroups);
+        const lunchIdxGroups = computeGroups(courseUsers, db.interests, userListCourseId + 'lunch' + seedSuffix);
+        const idxGroups = computeGroups(courseUsers, db.interests, userListCourseId + 'evening' + seedSuffix, lunchIdxGroups);
         groups = groupIndicesToUserIds(idxGroups, courseUsers);
       }
     }
-    setMatchingPreview({ type, groups });
+    setMatchingPreview({ type, groups, rematchCount });
   };
 
   const handleConfirmMatch = async () => {
@@ -1553,23 +1556,34 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
       {matchingPreview && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white rounded-2xl p-6 sm:p-8 max-w-lg w-full shadow-2xl border border-outline max-h-[85vh] flex flex-col">
+            {/* 모달 헤더 */}
             <div className="flex items-center gap-3 mb-4 shrink-0">
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${matchingPreview.type === 'lunch' ? 'bg-primary/10' : 'bg-[#b5944c]/10'}`}>
                 <span className={`material-symbols-outlined ${matchingPreview.type === 'lunch' ? 'text-primary' : 'text-[#b5944c]'}`}>
                   {matchingPreview.type === 'lunch' ? 'restaurant' : 'nightlife'}
                 </span>
               </div>
-              <div>
-                <h3 className="text-base font-black text-on-surface uppercase tracking-tight">
-                  {matchingPreview.type === 'lunch' ? '런치' : '저녁'} 파트너 매칭 결과
-                </h3>
-                <p className="text-xs text-on-surface-variant mt-0.5">총 {matchingPreview.groups.length}개 조 편성 — 확정 후 유저에게 공개됩니다</p>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-base font-black text-on-surface uppercase tracking-tight">
+                    {matchingPreview.type === 'lunch' ? '런치' : '저녁'} 파트너 매칭 결과
+                  </h3>
+                  {matchingPreview.rematchCount > 0 && (
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-secondary/15 text-secondary">
+                      재매칭 #{matchingPreview.rematchCount}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-on-surface-variant mt-0.5">
+                  총 {matchingPreview.groups.length}개 조 편성 — 결과가 마음에 들면 확정하세요
+                </p>
               </div>
-              <button onClick={() => setMatchingPreview(null)} className="ml-auto p-1.5 rounded-lg hover:bg-surface-container-low text-on-surface-variant">
+              <button onClick={() => setMatchingPreview(null)} className="p-1.5 rounded-lg hover:bg-surface-container-low text-on-surface-variant shrink-0">
                 <span className="material-symbols-outlined text-base">close</span>
               </button>
             </div>
 
+            {/* 조편성 목록 */}
             <div className="overflow-y-auto flex-1 space-y-3 pr-1">
               {matchingPreview.groups.map((group, gi) => (
                 <div key={gi} className="border border-outline/50 rounded-xl p-3">
@@ -1586,7 +1600,7 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
                             <span className="text-[10px] font-black text-on-surface-variant">{user.name.charAt(0)}</span>
                           </div>
                           <span className="text-xs font-bold text-on-surface">{user.name}</span>
-                          <span className="text-[10px] text-on-surface-variant/60">{user.company} · {user.title}</span>
+                          <span className="text-[10px] text-on-surface-variant/60">{user.company}{user.title ? ` · ${user.title}` : ''}</span>
                         </div>
                       );
                     })}
@@ -1595,12 +1609,21 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
               ))}
             </div>
 
-            <div className="flex gap-3 mt-4 shrink-0">
+            {/* 버튼 행: 취소 | 재매칭 | 확정하기 */}
+            <div className="flex gap-2 mt-4 shrink-0">
               <button
                 onClick={() => setMatchingPreview(null)}
-                className="flex-1 px-4 py-3 border border-outline rounded-xl text-on-surface font-black text-sm hover:bg-surface-container-low transition-colors"
+                disabled={isSavingMatch}
+                className="px-3 py-3 border border-outline rounded-xl text-on-surface font-black text-xs hover:bg-surface-container-low transition-colors disabled:opacity-40 whitespace-nowrap"
               >
                 취소
+              </button>
+              <button
+                onClick={() => handlePreviewMatch(matchingPreview.type, matchingPreview.rematchCount + 1)}
+                disabled={isSavingMatch}
+                className="flex-1 px-4 py-3 border-2 border-secondary text-secondary font-black text-sm rounded-xl flex items-center justify-center gap-2 hover:bg-secondary/8 transition-colors disabled:opacity-40"
+              >
+                <span className="material-symbols-outlined text-base">shuffle</span> 재매칭
               </button>
               <button
                 onClick={handleConfirmMatch}

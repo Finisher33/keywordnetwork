@@ -95,6 +95,12 @@ service cloud.firestore {
       allow write: if isAuthenticated();
     }
 
+    // Mission Groups (파트너 매칭 결과)
+    match /missionGroups/{groupId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
     // Legacy data doc
     match /giveandtake/data {
       allow read, write: if isAuthenticated();
