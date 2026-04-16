@@ -174,6 +174,7 @@ interface StoreContextType {
   addPresetInterest: (keyword: string) => Promise<void>;
   deletePresetInterest: (id: string) => Promise<void>;
   saveMissionGroups: (group: MissionGroup) => Promise<void>;
+  deleteMissionGroup: (groupId: string) => Promise<void>;
   isDemoMode: boolean;
   toggleDemoMode: (active: boolean, role?: 'user' | 'admin') => void;
   resetDemoData: () => void;
@@ -1044,6 +1045,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }),
   });
 
+  const deleteMissionGroup = async (groupId: string) => {
+    try {
+      await deleteDoc(doc(firestore, 'missionGroups', groupId));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `missionGroups/${groupId}`);
+      throw error;
+    }
+  };
+
   const saveMissionGroups = async (group: MissionGroup) => {
     try {
       // 중첩 배열 → 각 그룹을 JSON 문자열로 직렬화
@@ -1064,7 +1074,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addSession, updateSession, deleteSession,
       saveInterests, updateUser, deleteUser, updateUserProfile, sendTeaTimeRequest, updateTeaTimeRequest,
       toggleSessionActive, saveUserInsight, toggleInsightLike, fetchData,
-      addPresetInterest, deletePresetInterest, saveMissionGroups,
+      addPresetInterest, deletePresetInterest, saveMissionGroups, deleteMissionGroup,
       isDemoMode, toggleDemoMode, resetDemoData
     }}>
       {children}

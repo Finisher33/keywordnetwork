@@ -15,7 +15,7 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
 export default function AdminView({ onBack, onLogout }: { onBack: () => void, onLogout: () => void }) {
-  const { db, addCourse, updateCourse, deleteCourse, addSession, updateSession, deleteSession, toggleSessionActive, deleteUser, resetCourseData, fetchData, addPresetInterest, deletePresetInterest, saveMissionGroups } = useStore();
+  const { db, addCourse, updateCourse, deleteCourse, addSession, updateSession, deleteSession, toggleSessionActive, deleteUser, resetCourseData, fetchData, addPresetInterest, deletePresetInterest, saveMissionGroups, deleteMissionGroup } = useStore();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -82,10 +82,12 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
   // Mission Matching State
   const [matchingPreview, setMatchingPreview] = useState<{
     type: 'lunch' | 'evening';
-    groups: string[][];  // each group = array of userIds
-    rematchCount: number; // 재매칭 횟수 (시드 변형에 사용)
+    groups: string[][];
+    rematchCount: number;
   } | null>(null);
   const [isSavingMatch, setIsSavingMatch] = useState(false);
+  const [matchResetConfirm, setMatchResetConfirm] = useState<'lunch' | 'evening' | null>(null);
+  const [isResettingMatch, setIsResettingMatch] = useState(false);
 
   const showStatus = (type: 'success' | 'error', text: string) => {
     setStatusMessage({ type, text });
@@ -223,6 +225,21 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
       showStatus('error', '파트너 매칭 저장에 실패했습니다.');
     } finally {
       setIsSavingMatch(false);
+    }
+  };
+
+  const handleResetMatch = async () => {
+    if (!matchResetConfirm || !userListCourseId) return;
+    setIsResettingMatch(true);
+    try {
+      const groupId = `${userListCourseId}_${matchResetConfirm}`;
+      await deleteMissionGroup(groupId);
+      setMatchResetConfirm(null);
+      showStatus('success', `${matchResetConfirm === 'lunch' ? '런치' : '저녁'} 매칭이 초기화되었습니다.`);
+    } catch {
+      showStatus('error', '매칭 초기화에 실패했습니다.');
+    } finally {
+      setIsResettingMatch(false);
     }
   };
 
@@ -1202,28 +1219,52 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
                   </select>
                 </div>
                 <div className="flex gap-3 w-full sm:w-auto overflow-x-auto no-scrollbar pb-2 sm:pb-0">
-                  <button
-                    onClick={() => handlePreviewMatch('lunch')}
-                    disabled={!userListCourseId}
-                    className="flex-1 sm:flex-none px-4 py-3 bg-primary text-on-primary font-black rounded-lg flex items-center justify-center gap-2 uppercase tracking-widest hover:bg-primary/90 transition-all disabled:opacity-30 disabled:cursor-not-allowed text-xs whitespace-nowrap"
-                    title="런치 파트너 매칭"
-                  >
-                    <span className="material-symbols-outlined text-sm">restaurant</span> 런치 매칭
+                  {/* 런치 매칭 버튼 + 초기화 */}
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handlePreviewMatch('lunch')}
+                      disabled={!userListCourseId}
+                      className="flex-1 sm:flex-none px-4 py-3 bg-primary text-on-primary font-black rounded-lg flex items-center justify-center gap-2 uppercase tracking-widest hover:bg-primary/90 transition-all disabled:opacity-30 disabled:cursor-not-allowed text-xs whitespace-nowrap"
+                      title="런치 파트너 매칭"
+                    >
+                      <span className="material-symbols-outlined text-sm">restaurant</span> 런치 매칭
+                      {db.missionGroups.some(g => g.courseId === userListCourseId && g.type === 'lunch') && (
+                        <span className="ml-1 w-2 h-2 rounded-full bg-green-400 inline-block" />
+                      )}
+                    </button>
                     {db.missionGroups.some(g => g.courseId === userListCourseId && g.type === 'lunch') && (
-                      <span className="ml-1 w-2 h-2 rounded-full bg-green-400 inline-block" />
+                      <button
+                        onClick={() => setMatchResetConfirm('lunch')}
+                        title="런치 매칭 초기화"
+                        className="w-9 h-9 flex items-center justify-center rounded-lg border border-primary/40 text-primary hover:bg-primary/10 transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-base">restart_alt</span>
+                      </button>
                     )}
-                  </button>
-                  <button
-                    onClick={() => handlePreviewMatch('evening')}
-                    disabled={!userListCourseId}
-                    className="flex-1 sm:flex-none px-4 py-3 bg-[#b5944c] text-white font-black rounded-lg flex items-center justify-center gap-2 uppercase tracking-widest hover:bg-[#b5944c]/90 transition-all disabled:opacity-30 disabled:cursor-not-allowed text-xs whitespace-nowrap"
-                    title="저녁 파트너 매칭"
-                  >
-                    <span className="material-symbols-outlined text-sm">nightlife</span> 저녁 매칭
+                  </div>
+                  {/* 저녁 매칭 버튼 + 초기화 */}
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handlePreviewMatch('evening')}
+                      disabled={!userListCourseId}
+                      className="flex-1 sm:flex-none px-4 py-3 bg-[#b5944c] text-white font-black rounded-lg flex items-center justify-center gap-2 uppercase tracking-widest hover:bg-[#b5944c]/90 transition-all disabled:opacity-30 disabled:cursor-not-allowed text-xs whitespace-nowrap"
+                      title="저녁 파트너 매칭"
+                    >
+                      <span className="material-symbols-outlined text-sm">nightlife</span> 저녁 매칭
+                      {db.missionGroups.some(g => g.courseId === userListCourseId && g.type === 'evening') && (
+                        <span className="ml-1 w-2 h-2 rounded-full bg-green-400 inline-block" />
+                      )}
+                    </button>
                     {db.missionGroups.some(g => g.courseId === userListCourseId && g.type === 'evening') && (
-                      <span className="ml-1 w-2 h-2 rounded-full bg-green-400 inline-block" />
+                      <button
+                        onClick={() => setMatchResetConfirm('evening')}
+                        title="저녁 매칭 초기화"
+                        className="w-9 h-9 flex items-center justify-center rounded-lg border border-[#b5944c]/40 text-[#b5944c] hover:bg-[#b5944c]/10 transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-base">restart_alt</span>
+                      </button>
                     )}
-                  </button>
+                  </div>
                   <button
                     onClick={() => setCourseToReset(userListCourseId)}
                     disabled={!userListCourseId}
@@ -1640,6 +1681,48 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
                   </>
                 )}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Match Reset Confirmation Modal */}
+      {matchResetConfirm && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl p-6 sm:p-8 max-w-sm w-full shadow-2xl border border-outline animate-in fade-in zoom-in duration-200">
+            <div className="flex flex-col items-center text-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-error/10 flex items-center justify-center">
+                <span className="material-symbols-outlined text-error text-3xl">restart_alt</span>
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-on-surface">
+                  {matchResetConfirm === 'lunch' ? '런치' : '저녁'} 매칭 초기화
+                </h3>
+                <p className="text-sm text-on-surface-variant mt-2 leading-relaxed">
+                  확정된 <strong>{matchResetConfirm === 'lunch' ? '런치' : '저녁'} 파트너 매칭</strong>을 삭제합니다.<br/>
+                  유저 화면에서도 매칭 정보가 사라집니다. 계속할까요?
+                </p>
+              </div>
+              <div className="flex gap-3 w-full mt-2">
+                <button
+                  onClick={() => setMatchResetConfirm(null)}
+                  disabled={isResettingMatch}
+                  className="flex-1 px-4 py-3 border border-outline rounded-xl text-on-surface font-black text-sm hover:bg-surface-container-low transition-colors disabled:opacity-40"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleResetMatch}
+                  disabled={isResettingMatch}
+                  className="flex-1 px-4 py-3 bg-error text-white font-black text-sm rounded-xl flex items-center justify-center gap-2 hover:bg-error/90 transition-colors disabled:opacity-50"
+                >
+                  {isResettingMatch ? (
+                    <><span className="material-symbols-outlined text-base animate-spin">sync</span> 초기화 중...</>
+                  ) : (
+                    <><span className="material-symbols-outlined text-base">delete</span> 초기화</>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
