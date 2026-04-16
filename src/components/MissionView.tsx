@@ -508,9 +508,15 @@ function TeaTimeMissionSection({
   teaTimeRequests: TeaTimeRequest[];
   onRequest: (toUser: User, message: string) => Promise<void>;
 }) {
-  const { updateTeaTimeRequest, db } = useStore();
+  const { updateTeaTimeRequest, db, fetchData } = useStore();
   const [modalUser, setModalUser] = useState<User | null>(null);
   const [replyModalReq, setReplyModalReq] = useState<TeaTimeRequest | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try { await fetchData(); } finally { setIsRefreshing(false); }
+  };
 
   const myInterests = useMemo(
     () => allInterests.filter(i => i.userId === currentUser.id),
@@ -646,6 +652,18 @@ function TeaTimeMissionSection({
   return (
     <div className="mt-5 space-y-5">
       <div className="h-px bg-outline/30" />
+
+      {/* 새로고침 버튼 */}
+      <div className="flex justify-end">
+        <button
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          className={`flex items-center gap-1.5 text-[10px] font-bold text-on-surface-variant border border-outline/60 rounded-lg px-3 py-1.5 hover:bg-surface-container-low transition-all ${isRefreshing ? 'opacity-60' : ''}`}
+        >
+          <span className={`material-symbols-outlined text-sm ${isRefreshing ? 'animate-spin' : ''}`}>refresh</span>
+          {isRefreshing ? '업데이트 중...' : '최신 데이터로 업데이트'}
+        </button>
+      </div>
 
       {/* 안내 문구 */}
       <div className="bg-secondary/8 border border-secondary/25 rounded-xl px-4 py-3 flex items-start gap-2.5">
@@ -789,30 +807,6 @@ const MISSIONS: MissionConfig[] = [
     hasTeaTimeMatch: false,
   },
   {
-    id: 'evening',
-    title: '저녁 교류회 미션',
-    icon: 'nightlife',
-    badge: 'EVENING MISSION',
-    badgeColor: 'bg-[#b5944c]/10 text-[#b5944c] border-[#b5944c]/30',
-    summary: '런치타임과 다른 멤버들과의 저녁 교류회로 네트워킹을 확장하세요.',
-    sections: [
-      {
-        heading: '미션 목표',
-        body: '런치타임과 다른 구성의 리더들과 저녁 교류회에서 더 깊은 네트워킹을 경험해보세요.',
-      },
-      {
-        heading: '미션 방법',
-        body: '1. 런치타임과 다른 파트너들로 구성된 나의 저녁 그룹을 확인하세요.\n2. 자신의 Giver 키워드를 중심으로 서로의 고민과 해결 경험을 나눠보세요.',
-      },
-      {
-        heading: '미션 포인트',
-        body: '저녁 교류회는 더 편안한 분위기에서 진행됩니다. 런치에서 나누지 못한 이야기들을 이어가 보세요.',
-      },
-    ],
-    hasPartnerMatch: true,
-    hasTeaTimeMatch: false,
-  },
-  {
     id: 'teatime',
     title: '티타임 제안 미션',
     icon: 'coffee',
@@ -869,11 +863,6 @@ export default function MissionView() {
     return db.missionGroups.find(g => g.courseId === currentUser.courseId && g.type === 'lunch') ?? null;
   }, [db.missionGroups, currentUser]);
 
-  const confirmedEveningGroup = useMemo(() => {
-    if (!currentUser) return null;
-    return db.missionGroups.find(g => g.courseId === currentUser.courseId && g.type === 'evening') ?? null;
-  }, [db.missionGroups, currentUser]);
-
   // 확정된 그룹에서 내 파트너 찾기
   const getMyConfirmedGroup = (confirmedGroups: string[][]): User[] => {
     if (!currentUser) return [];
@@ -887,12 +876,6 @@ export default function MissionView() {
     [confirmedLunchGroup, db.users, currentUser]
   );
   const lunchPartners = lunchGroup.filter(u => u.id !== currentUser?.id);
-
-  const eveningGroup = useMemo(
-    () => confirmedEveningGroup ? getMyConfirmedGroup(confirmedEveningGroup.groups) : [],
-    [confirmedEveningGroup, db.users, currentUser]
-  );
-  const eveningPartners = eveningGroup.filter(u => u.id !== currentUser?.id);
 
   // 티타임 요청 핸들러
   const handleTeaTimeRequest = async (toUser: User, message: string) => {
@@ -925,10 +908,9 @@ export default function MissionView() {
           const loading = loadingMap[mission.id] ?? false;
 
           const isLunch = mission.id === 'lunch';
-          const isEvening = mission.id === 'evening';
-          const partners = isLunch ? lunchPartners : isEvening ? eveningPartners : [];
-          const group = isLunch ? lunchGroup : isEvening ? eveningGroup : [];
-          const isConfirmed = isLunch ? !!confirmedLunchGroup : isEvening ? !!confirmedEveningGroup : false;
+          const partners = isLunch ? lunchPartners : [];
+          const group = isLunch ? lunchGroup : [];
+          const isConfirmed = isLunch ? !!confirmedLunchGroup : false;
 
           // 티타임 미션 완료 여부 (카드 헤더 배지용)
           const isTeatime = mission.id === 'teatime';
@@ -993,7 +975,7 @@ export default function MissionView() {
                     </div>
                   ))}
 
-                  {/* 파트너 매칭 (런치 & 저녁) */}
+                  {/* 파트너 매칭 (런치) */}
                   {mission.hasPartnerMatch && (
                     <PartnerMatchSection
                       missionLabel={mission.title}

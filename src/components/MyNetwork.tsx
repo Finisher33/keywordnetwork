@@ -195,7 +195,7 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
         <div className="flex items-center gap-2 pb-2 border-b border-outline/40">
           <span className="material-symbols-outlined text-primary text-xl">analytics</span>
           <h2 className="font-headline text-base font-black uppercase tracking-widest text-on-surface leading-tight">
-            SNS
+            SNA
             <span className="text-[0.55em] font-semibold normal-case tracking-normal text-on-surface/60"> (Social Network Analysis)</span>
             {' '}유형 분석
           </h2>
@@ -250,9 +250,9 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
               </div>
             </div>
 
-            {/* 3 metric bars */}
+            {/* 나머지 유형 bars (dominant 제외) */}
             <div className="space-y-4">
-              {snaResult.types.map((t, idx) => (
+              {snaResult.types.filter(t => t.type !== snaResult.dominant!.type).map((t, idx) => (
                 <div key={idx} className="bg-surface border border-outline rounded-xl p-4 space-y-2">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">

@@ -1243,29 +1243,6 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
                       </button>
                     )}
                   </div>
-                  {/* 저녁 매칭 버튼 + 초기화 */}
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => handlePreviewMatch('evening')}
-                      disabled={!userListCourseId}
-                      className="flex-1 sm:flex-none px-4 py-3 bg-[#b5944c] text-white font-black rounded-lg flex items-center justify-center gap-2 uppercase tracking-widest hover:bg-[#b5944c]/90 transition-all disabled:opacity-30 disabled:cursor-not-allowed text-xs whitespace-nowrap"
-                      title="저녁 파트너 매칭"
-                    >
-                      <span className="material-symbols-outlined text-sm">nightlife</span> 저녁 매칭
-                      {db.missionGroups.some(g => g.courseId === userListCourseId && g.type === 'evening') && (
-                        <span className="ml-1 w-2 h-2 rounded-full bg-green-400 inline-block" />
-                      )}
-                    </button>
-                    {db.missionGroups.some(g => g.courseId === userListCourseId && g.type === 'evening') && (
-                      <button
-                        onClick={() => setMatchResetConfirm('evening')}
-                        title="저녁 매칭 초기화"
-                        className="w-9 h-9 flex items-center justify-center rounded-lg border border-[#b5944c]/40 text-[#b5944c] hover:bg-[#b5944c]/10 transition-colors"
-                      >
-                        <span className="material-symbols-outlined text-base">restart_alt</span>
-                      </button>
-                    )}
-                  </div>
                   <button
                     onClick={() => setCourseToReset(userListCourseId)}
                     disabled={!userListCourseId}
@@ -1294,7 +1271,6 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
 
               {userListCourseId && (() => {
                 const confirmedLunch = db.missionGroups.find(g => g.courseId === userListCourseId && g.type === 'lunch');
-                const confirmedEvening = db.missionGroups.find(g => g.courseId === userListCourseId && g.type === 'evening');
 
                 const getUserGroupLabel = (confirmedGroup: typeof confirmedLunch, userId: string): string => {
                   if (!confirmedGroup) return '-';
@@ -1334,11 +1310,6 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
                               <span className="material-symbols-outlined text-xs">restaurant</span> 런치조
                             </div>
                           </th>
-                          <th className="p-4 text-[10px] font-black uppercase tracking-widest text-[#b5944c] text-center whitespace-nowrap">
-                            <div className="flex items-center gap-1 justify-center">
-                              <span className="material-symbols-outlined text-xs">nightlife</span> 저녁조
-                            </div>
-                          </th>
                           <th className="p-4 text-[10px] font-black uppercase tracking-widest text-on-surface-variant text-center">관리</th>
                         </tr>
                       </thead>
@@ -1348,7 +1319,6 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
                           const giverInterests = userInterests.filter(i => i.type === 'giver');
                           const takerInterests = userInterests.filter(i => i.type === 'taker');
                           const lunchLabel = getUserGroupLabel(confirmedLunch, user.id);
-                          const eveningLabel = getUserGroupLabel(confirmedEvening, user.id);
 
                           return (
                             <tr key={user.id} className="hover:bg-surface-container-low transition-colors">
@@ -1378,11 +1348,6 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
                               <td className="p-4 text-center">
                                 <span className={`text-xs font-black px-2.5 py-1 rounded-lg ${lunchLabel !== '-' ? 'bg-primary/10 text-primary' : 'text-on-surface-variant/40'}`}>
                                   {lunchLabel}
-                                </span>
-                              </td>
-                              <td className="p-4 text-center">
-                                <span className={`text-xs font-black px-2.5 py-1 rounded-lg ${eveningLabel !== '-' ? 'bg-[#b5944c]/10 text-[#b5944c]' : 'text-on-surface-variant/40'}`}>
-                                  {eveningLabel}
                                 </span>
                               </td>
                               <td className="p-4 text-center">
