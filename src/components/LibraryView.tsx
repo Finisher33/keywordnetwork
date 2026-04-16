@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
-import { useStore, User, Interest } from '../store';
+import { useStore, User, Interest, TeaTimeRequest } from '../store';
+import { TeaReplyModal } from './TeaTimeModal';
 
 // ── Library 전용 티타임 모달 (다른 페이지의 TeaTimeModal과 완전 분리) ──────────
 function LibraryTeaTimeModal({
@@ -80,8 +81,9 @@ function LibraryTeaTimeModal({
 }
 
 export default function LibraryView() {
-  const { db, currentUser, sendTeaTimeRequest } = useStore();
+  const { db, currentUser, sendTeaTimeRequest, updateTeaTimeRequest } = useStore();
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [replyingToReq, setReplyingToReq] = useState<TeaTimeRequest | null>(null);
   const [search, setSearch] = useState('');
   const [selectedKeywords, setSelectedKeywords] = useState<Set<string>>(new Set());
 
@@ -149,13 +151,12 @@ export default function LibraryView() {
   }, [courseUsers, search, selectedKeywords, db.interests]);
 
   const handleSend = (toUserId: string, message: string) => {
-    sendTeaTimeRequest({
-      id: Date.now().toString(),
-      fromUserId: currentUser!.id,
-      toUserId,
-      message,
-      status: 'pending',
-    });
+    const exists = db.teaTimeRequests.find(r =>
+      (r.fromUserId === currentUser!.id && r.toUserId === toUserId) ||
+      (r.fromUserId === toUserId && r.toUserId === currentUser!.id)
+    );
+    if (exists) { setSelectedUser(null); return; }
+    sendTeaTimeRequest({ id: Date.now().toString(), fromUserId: currentUser!.id, toUserId, message, status: 'pending' });
     alert('티타임 요청을 보냈습니다.');
     setSelectedUser(null);
   };
@@ -247,6 +248,16 @@ export default function LibraryView() {
             const takers = uInterests.filter((i: Interest) => i.type === 'taker');
             const isMe = u.id === currentUser?.id;
 
+            // 티타임 관계 계산
+            const sentReq = !isMe ? db.teaTimeRequests.find(r => r.fromUserId === currentUser?.id && r.toUserId === u.id) : undefined;
+            const receivedReq = !isMe && !sentReq ? db.teaTimeRequests.find(r => r.fromUserId === u.id && r.toUserId === currentUser?.id) : undefined;
+
+            const handlePicClick = () => {
+              if (isMe) return;
+              if (receivedReq) setReplyingToReq(receivedReq);
+              else if (!sentReq) setSelectedUser(u);
+            };
+
             return (
               <div
                 key={u.id}
@@ -257,7 +268,7 @@ export default function LibraryView() {
                 {/* Profile header */}
                 <div className="flex items-center gap-3">
                   <button
-                    onClick={() => !isMe && setSelectedUser(u)}
+                    onClick={handlePicClick}
                     className={`w-12 h-12 rounded-xl overflow-hidden flex items-center justify-center border shrink-0 ${
                       isMe ? 'border-primary/30 bg-primary/10 cursor-default' : 'border-outline bg-surface-container-low hover:opacity-80 transition-opacity'
                     }`}
@@ -324,14 +335,42 @@ export default function LibraryView() {
                   <p className="text-xs text-on-surface-variant italic">등록된 관심사 없음</p>
                 )}
 
-                {/* Tea time button */}
+                {/* Tea time button / status */}
                 {!isMe && (
-                  <button
-                    onClick={() => setSelectedUser(u)}
-                    className="w-full py-2 text-xs font-bold bg-primary/10 text-primary border border-primary/20 rounded-xl hover:bg-primary/20 active:scale-95 transition-all mt-auto"
-                  >
-                    티타임 요청
-                  </button>
+                  sentReq ? (
+                    <div className={`w-full py-2 text-xs font-bold text-center rounded-xl mt-auto border ${
+                      sentReq.status === 'accepted' ? 'bg-green-50 text-green-700 border-green-200' :
+                      sentReq.status === 'rejected' ? 'bg-surface-container text-on-surface-variant border-outline/40' :
+                      'bg-blue-50 text-blue-600 border-blue-200'
+                    }`}>
+                      {sentReq.status === 'accepted' ? '수락됨 ✓' : sentReq.status === 'rejected' ? '거절됨' : '신청 완료'}
+                    </div>
+                  ) : receivedReq ? (
+                    receivedReq.status === 'pending' ? (
+                      <button
+                        onClick={() => setReplyingToReq(receivedReq)}
+                        className="w-full py-2 text-xs font-bold bg-amber-500 text-white rounded-xl hover:bg-amber-600 active:scale-95 transition-all mt-auto"
+                      >
+                        받은 요청 · 응답하기
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => setReplyingToReq(receivedReq)}
+                        className={`w-full py-2 text-xs font-bold text-center rounded-xl mt-auto border ${
+                          receivedReq.status === 'accepted' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-surface-container text-on-surface-variant border-outline/40'
+                        }`}
+                      >
+                        {receivedReq.status === 'accepted' ? '수락한 요청 보기' : '거절한 요청 보기'}
+                      </button>
+                    )
+                  ) : (
+                    <button
+                      onClick={() => setSelectedUser(u)}
+                      className="w-full py-2 text-xs font-bold bg-primary/10 text-primary border border-primary/20 rounded-xl hover:bg-primary/20 active:scale-95 transition-all mt-auto"
+                    >
+                      티타임 요청
+                    </button>
+                  )
                 )}
               </div>
             );
@@ -339,7 +378,7 @@ export default function LibraryView() {
         </div>
       )}
 
-      {/* Library 전용 티타임 요청 모달 — be Giver/Taker 정보 없이 요청 폼만 표시 */}
+      {/* Library 전용 티타임 요청 모달 */}
       {selectedUser && currentUser && (
         <LibraryTeaTimeModal
           targetUser={selectedUser}
@@ -348,6 +387,23 @@ export default function LibraryView() {
           onClose={() => setSelectedUser(null)}
         />
       )}
+
+      {/* 받은 티타임 요청 응답 모달 */}
+      {replyingToReq && currentUser && (() => {
+        const fromUser = db.users.find(u => u.id === replyingToReq.fromUserId);
+        if (!fromUser) return null;
+        return (
+          <TeaReplyModal
+            request={replyingToReq}
+            fromUser={fromUser}
+            onReply={async (status, msg) => {
+              await updateTeaTimeRequest(replyingToReq.id, status, msg);
+              setReplyingToReq(null);
+            }}
+            onClose={() => setReplyingToReq(null)}
+          />
+        );
+      })()}
     </div>
   );
 }

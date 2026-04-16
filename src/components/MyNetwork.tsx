@@ -4,7 +4,8 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import UserReportPDF from './UserReportPDF';
 import { calculateUserNetworkData, calculateSNAScores, calculateHotKeywords, HotKeyword } from '../utils/networkUtils';
-import TeaTimeModal from './TeaTimeModal';
+import TeaTimeModal, { TeaReplyModal } from './TeaTimeModal';
+import { TeaTimeRequest } from '../store';
 
 interface MyNetworkProps {
   targetUser?: User;
@@ -37,6 +38,7 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
 
   // ── state ──────────────────────────────────────────────────────────────────
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [replyingToReq, setReplyingToReq] = useState<TeaTimeRequest | null>(null);
   const [replyMsg, setReplyMsg] = useState('');
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [selectedKeyword, setSelectedKeyword] = useState<HotKeyword | null>(null);
@@ -99,6 +101,11 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
   };
 
   const handleSendTeaTime = (toUserId: string, message: string) => {
+    const exists = db.teaTimeRequests.find(r =>
+      (r.fromUserId === currentUser!.id && r.toUserId === toUserId) ||
+      (r.fromUserId === toUserId && r.toUserId === currentUser!.id)
+    );
+    if (exists) { setSelectedUser(null); return; }
     sendTeaTimeRequest({ id: Date.now().toString(), fromUserId: currentUser!.id, toUserId, message, status: 'pending' });
     alert('티타임 요청을 보냈습니다.');
     setSelectedUser(null);
@@ -444,14 +451,14 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
           <div className="grid grid-cols-1 gap-4">
             {recommendedLeaders.map(({ user: u, count, keywords }) => {
               const uInterests = db.interests.filter((i: Interest) => i.userId === u.id);
+              const sentReq = db.teaTimeRequests.find(r => r.fromUserId === currentUser?.id && r.toUserId === u.id);
+              const receivedReq = !sentReq ? db.teaTimeRequests.find(r => r.fromUserId === u.id && r.toUserId === currentUser?.id) : undefined;
               return (
                 <div key={u.id} className="bg-surface rounded-2xl border-2 border-primary/25 p-5 shadow-sm hover:shadow-md transition-all">
                   <div className="flex items-start gap-3 mb-4">
-                    {/* 아이콘 클릭 → 티타임 요청 */}
                     <button
-                      onClick={() => setSelectedUser(u)}
+                      onClick={() => receivedReq ? setReplyingToReq(receivedReq) : (!sentReq && setSelectedUser(u))}
                       className="w-12 h-12 rounded-xl bg-surface-container-low overflow-hidden flex items-center justify-center border border-outline shrink-0 hover:border-primary/50 hover:scale-105 transition-all"
-                      title="티타임 요청"
                     >
                       {u.profilePic
                         ? <img src={u.profilePic} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
@@ -465,12 +472,35 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
                       </div>
                       <p className="text-[10px] text-on-surface-variant truncate">{u.title}</p>
                     </div>
-                    <button
-                      onClick={() => setSelectedUser(u)}
-                      className="shrink-0 text-[10px] font-bold bg-primary/10 text-primary border border-primary/20 px-3 py-1.5 rounded-lg hover:bg-primary/20 transition-colors"
-                    >
-                      티타임 요청
-                    </button>
+                    {sentReq ? (
+                      <span className={`shrink-0 text-[10px] font-bold px-3 py-1.5 rounded-lg border ${
+                        sentReq.status === 'accepted' ? 'bg-green-50 text-green-700 border-green-200' :
+                        sentReq.status === 'rejected' ? 'bg-surface-container text-on-surface-variant border-outline/40' :
+                        'bg-blue-50 text-blue-600 border-blue-200'
+                      }`}>
+                        {sentReq.status === 'accepted' ? '수락됨 ✓' : sentReq.status === 'rejected' ? '거절됨' : '신청 완료'}
+                      </span>
+                    ) : receivedReq ? (
+                      <button
+                        onClick={() => setReplyingToReq(receivedReq)}
+                        className={`shrink-0 text-[10px] font-bold px-3 py-1.5 rounded-lg border transition-colors ${
+                          receivedReq.status === 'pending'
+                            ? 'bg-amber-500 text-white border-amber-500 hover:bg-amber-600'
+                            : receivedReq.status === 'accepted'
+                            ? 'bg-green-50 text-green-700 border-green-200'
+                            : 'bg-surface-container text-on-surface-variant border-outline/40'
+                        }`}
+                      >
+                        {receivedReq.status === 'pending' ? '받은 요청 · 응답' : receivedReq.status === 'accepted' ? '수락함 ✓' : '거절함'}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => setSelectedUser(u)}
+                        className="shrink-0 text-[10px] font-bold bg-primary/10 text-primary border border-primary/20 px-3 py-1.5 rounded-lg hover:bg-primary/20 transition-colors"
+                      >
+                        티타임 요청
+                      </button>
+                    )}
                   </div>
 
                   <div className="mb-3">
@@ -655,6 +685,22 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
           onClose={() => setSelectedUser(null)}
         />
       )}
+
+      {replyingToReq && (() => {
+        const fromUser = db.users.find(u => u.id === replyingToReq.fromUserId);
+        if (!fromUser) return null;
+        return (
+          <TeaReplyModal
+            request={replyingToReq}
+            fromUser={fromUser}
+            onReply={async (status, msg) => {
+              await updateTeaTimeRequest(replyingToReq.id, status, msg);
+              setReplyingToReq(null);
+            }}
+            onClose={() => setReplyingToReq(null)}
+          />
+        );
+      })()}
 
       {/* PDF Report (hidden) */}
       <div className="fixed left-[-9999px] top-0 overflow-hidden bg-white" style={{ width: '210mm' }}>

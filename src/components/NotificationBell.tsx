@@ -6,6 +6,7 @@ export default function NotificationBell({ onNotificationClick }: { onNotificati
   const { currentUser, db, updateTeaTimeRequest } = useStore();
   const [showNotifications, setShowNotifications] = useState(false);
   const [seenRequestIds, setSeenRequestIds] = useState<string[]>([]);
+  const [panelRequests, setPanelRequests] = useState<TeaTimeRequest[]>([]);
   const [replyingTo, setReplyingTo] = useState<TeaTimeRequest | null>(null);
   const [replyMessage, setReplyMessage] = useState('');
 
@@ -17,18 +18,23 @@ export default function NotificationBell({ onNotificationClick }: { onNotificati
       setSeenRequestIds([]);
     }
   }, [currentUser]);
-  
+
   const myRequests = db.teaTimeRequests.filter(r => r.toUserId === currentUser?.id && r.status === 'pending');
   const unseenRequests = myRequests.filter(r => !seenRequestIds.includes(r.id));
   const hasNewNotifications = unseenRequests.length > 0;
 
   const handleBellClick = () => {
-    setShowNotifications(!showNotifications);
-    if (hasNewNotifications) {
-      const newSeenIds = [...new Set([...seenRequestIds, ...myRequests.map(r => r.id)])];
-      setSeenRequestIds(newSeenIds);
-      localStorage.setItem(`seenRequests_${currentUser?.id}`, JSON.stringify(newSeenIds));
+    if (!showNotifications) {
+      // 열릴 때: 현재 미확인 목록을 패널용으로 저장하고 즉시 읽음 처리
+      const toShow = unseenRequests;
+      setPanelRequests(toShow);
+      if (toShow.length > 0) {
+        const newSeenIds = [...new Set([...seenRequestIds, ...toShow.map(r => r.id)])];
+        setSeenRequestIds(newSeenIds);
+        localStorage.setItem(`seenRequests_${currentUser?.id}`, JSON.stringify(newSeenIds));
+      }
     }
+    setShowNotifications(prev => !prev);
   };
 
   const handleReply = async (status: 'accepted' | 'rejected') => {
@@ -83,16 +89,18 @@ export default function NotificationBell({ onNotificationClick }: { onNotificati
               >
                 <div className="p-4 border-b border-outline bg-surface-container-low flex justify-between items-center">
                   <span className="text-sm font-black text-primary uppercase tracking-tight">알림</span>
-                  <span className="text-[10px] font-bold text-on-surface-variant/60">{myRequests.length}개의 새로운 요청</span>
+                  {panelRequests.length > 0 && (
+                    <span className="text-[10px] font-bold text-on-surface-variant/60">{panelRequests.length}건의 새로운 요청</span>
+                  )}
                 </div>
                 <div className="max-h-96 overflow-y-auto">
-                  {myRequests.length === 0 ? (
+                  {panelRequests.length === 0 ? (
                     <div className="p-8 text-center space-y-2">
                       <span className="material-symbols-outlined text-4xl text-on-surface-variant/20">notifications_off</span>
                       <p className="text-xs text-on-surface-variant font-medium">새로운 알림이 없습니다.</p>
                     </div>
                   ) : (
-                    myRequests.map(req => {
+                    panelRequests.map(req => {
                       const fromUser = db.users.find(u => u.id === req.fromUserId);
                       return (
                         <div 

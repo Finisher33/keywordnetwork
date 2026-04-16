@@ -2,6 +2,7 @@ import { useState, useMemo, Key } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useStore, User, Interest, TeaTimeRequest } from '../store';
 import { computeGroups } from '../utils/missionUtils';
+import { TeaReplyModal } from './TeaTimeModal';
 
 // ─── 공통 관심사 & 대화 주제 ──────────────────────────────────────────────────
 
@@ -353,7 +354,9 @@ function TeaTimeUserCard({
   reqStatus,
   sentMessage,
   responseMessage,
+  receivedReq,
   onRequest,
+  onReplyClick,
   index,
 }: {
   key?: Key | null;
@@ -364,13 +367,15 @@ function TeaTimeUserCard({
   reqStatus: TeaReqStatus;
   sentMessage?: string;
   responseMessage?: string;
+  receivedReq?: TeaTimeRequest;
   onRequest: () => void;
+  onReplyClick?: () => void;
   index: number;
 }) {
   const uKws = allInterests.filter(i => i.userId === user.id).map(i => i.keyword.toLowerCase().trim());
   const sharedKws = uKws.filter(k => myKws.has(k));
   const statusCfg = TEA_STATUS_CONFIG[reqStatus];
-  const showThread = reqStatus !== 'none' && !!sentMessage;
+  const showSentThread = reqStatus !== 'none' && !!sentMessage && !receivedReq;
   const showResponse = reqStatus === 'accepted' && !!responseMessage;
 
   return (
@@ -414,7 +419,23 @@ function TeaTimeUserCard({
         </div>
 
         {/* 상태 배지 or 요청 버튼 */}
-        {statusCfg ? (
+        {receivedReq ? (
+          // 받은 요청 상태
+          receivedReq.status === 'pending' ? (
+            <button
+              onClick={onReplyClick}
+              className="shrink-0 text-[10px] font-black px-2.5 py-1.5 rounded-lg bg-amber-500 text-white hover:bg-amber-600 active:scale-95 transition-all whitespace-nowrap"
+            >
+              받은 요청 · 응답
+            </button>
+          ) : (
+            <span className={`shrink-0 text-[10px] font-black px-2.5 py-1.5 rounded-lg whitespace-nowrap border ${
+              receivedReq.status === 'accepted' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-surface-container text-on-surface-variant border-outline/40'
+            }`}>
+              {receivedReq.status === 'accepted' ? '수락함 ✓' : '거절함'}
+            </span>
+          )
+        ) : statusCfg ? (
           <span className={`shrink-0 flex items-center gap-1 text-[10px] font-black px-2.5 py-1.5 rounded-lg whitespace-nowrap ${statusCfg.cls}`}>
             <span className="material-symbols-outlined text-[11px]" style={{ fontVariationSettings: "'FILL' 1" }}>
               {statusCfg.icon}
@@ -431,16 +452,32 @@ function TeaTimeUserCard({
         )}
       </div>
 
-      {/* 제안 메시지 + 답변 댓글 스레드 */}
-      {showThread && (
+      {/* 받은 요청 메시지 스레드 */}
+      {receivedReq && (
         <div className="ml-[52px] space-y-1.5">
-          {/* 내가 보낸 제안 메시지 */}
+          <div className="bg-amber-50 border border-amber-200 rounded-xl rounded-tl-sm px-3 py-2">
+            <p className="text-[9px] font-black text-amber-700 uppercase tracking-widest mb-1">받은 티타임 제안</p>
+            <p className="text-[10px] text-on-surface-variant leading-relaxed whitespace-pre-line">{receivedReq.message}</p>
+          </div>
+          {receivedReq.responseMessage && (
+            <div className="flex items-start gap-1.5 pl-3">
+              <div className="w-px self-stretch bg-primary/30 shrink-0 rounded-full" />
+              <div className="bg-primary/8 border border-primary/20 rounded-xl rounded-tl-sm px-3 py-2 flex-1">
+                <p className="text-[9px] font-black text-primary uppercase tracking-widest mb-1">나의 응답</p>
+                <p className="text-[10px] text-on-surface-variant leading-relaxed whitespace-pre-line">{receivedReq.responseMessage}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 보낸 제안 메시지 + 답변 댓글 스레드 */}
+      {showSentThread && (
+        <div className="ml-[52px] space-y-1.5">
           <div className="bg-primary/8 border border-primary/20 rounded-xl rounded-tl-sm px-3 py-2">
             <p className="text-[9px] font-black text-primary uppercase tracking-widest mb-1">내 제안</p>
             <p className="text-[10px] text-on-surface-variant leading-relaxed whitespace-pre-line">{sentMessage}</p>
           </div>
-
-          {/* 수락 시 상대방 답변 (댓글 형태) */}
           {showResponse && (
             <div className="flex items-start gap-1.5 pl-3">
               <div className="w-px self-stretch bg-green-300 shrink-0 rounded-full" />
@@ -471,7 +508,9 @@ function TeaTimeMissionSection({
   teaTimeRequests: TeaTimeRequest[];
   onRequest: (toUser: User, message: string) => Promise<void>;
 }) {
+  const { updateTeaTimeRequest, db } = useStore();
   const [modalUser, setModalUser] = useState<User | null>(null);
+  const [replyModalReq, setReplyModalReq] = useState<TeaTimeRequest | null>(null);
 
   const myInterests = useMemo(
     () => allInterests.filter(i => i.userId === currentUser.id),
@@ -541,6 +580,17 @@ function TeaTimeMissionSection({
     return map;
   }, [teaTimeRequests, currentUser.id]);
 
+  // 받은 요청 맵: fromUserId → TeaTimeRequest (내가 보내지 않은 경우만)
+  const courseUserIds = useMemo(() => new Set(courseUsers.map(u => u.id)), [courseUsers]);
+  const receivedMap = useMemo(() => {
+    const map = new Map<string, TeaTimeRequest>();
+    teaTimeRequests
+      .filter(r => r.toUserId === currentUser.id && courseUserIds.has(r.fromUserId))
+      .sort((a, b) => a.id.localeCompare(b.id))
+      .forEach(r => { map.set(r.fromUserId, r); });
+    return map;
+  }, [teaTimeRequests, currentUser.id, courseUserIds]);
+
   // 신청 건수 (pending + accepted) → 미션 진행 기준
   const sentCount = reqMap.size;
   // 수락 건수
@@ -568,7 +618,9 @@ function TeaTimeMissionSection({
       ) : (
         <div className="space-y-2">
           {users.map((u, i) => {
-            const status = reqMap.get(u.id) ?? 'none';
+            const sentStatus = reqMap.get(u.id) ?? 'none';
+            // 내가 보내지 않은 경우에만 받은 요청 표시
+            const receivedReq = sentStatus === 'none' ? receivedMap.get(u.id) : undefined;
             return (
               <TeaTimeUserCard
                 key={u.id}
@@ -576,10 +628,12 @@ function TeaTimeMissionSection({
                 allInterests={allInterests}
                 myKws={myKws}
                 matchType={matchType}
-                reqStatus={status}
+                reqStatus={sentStatus}
                 sentMessage={sentMsgMap.get(u.id)}
                 responseMessage={respMap.get(u.id)}
-                onRequest={() => status === 'none' && setModalUser(u)}
+                receivedReq={receivedReq}
+                onRequest={() => sentStatus === 'none' && !receivedReq && setModalUser(u)}
+                onReplyClick={() => receivedReq && setReplyModalReq(receivedReq)}
                 index={i}
               />
             );
@@ -665,7 +719,7 @@ function TeaTimeMissionSection({
       {/* 근무지 매칭 */}
       {renderSection('근무지 매칭', '근무지가 동일한 리더', locationMatched, 'location')}
 
-      {/* 티타임 요청 모달 */}
+      {/* 티타임 제안 모달 */}
       {modalUser && (
         <TeaTimeMissionModal
           targetUser={modalUser}
@@ -674,6 +728,23 @@ function TeaTimeMissionSection({
           onClose={() => setModalUser(null)}
         />
       )}
+
+      {/* 받은 티타임 요청 응답 모달 */}
+      {replyModalReq && (() => {
+        const fromUser = db.users.find(u => u.id === replyModalReq.fromUserId);
+        if (!fromUser) return null;
+        return (
+          <TeaReplyModal
+            request={replyModalReq}
+            fromUser={fromUser}
+            onReply={async (status, msg) => {
+              await updateTeaTimeRequest(replyModalReq.id, status, msg);
+              setReplyModalReq(null);
+            }}
+            onClose={() => setReplyModalReq(null)}
+          />
+        );
+      })()}
     </div>
   );
 }
