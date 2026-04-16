@@ -49,7 +49,7 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
   // Prevent duplicate: reuse existing insight ID if one exists for this session
   const handleSaveInsight = (sessionId: string) => {
     if (!keyword.trim() || !description.trim()) {
-      alert('키워드와 설명을 모두 입력해주세요.');
+      alert('인사이트 키워드와 키워드 작성 이유를 모두 입력해주세요.');
       return;
     }
 
@@ -400,20 +400,12 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
               className="max-w-2xl mx-auto space-y-8"
             >
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center">
                   <button
                     onClick={() => setSelectedSessionId(null)}
-                    className="flex items-center gap-1 text-xs font-bold text-on-surface-variant hover:text-secondary transition-colors"
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-highest transition-colors"
                   >
-                    <span className="material-symbols-outlined text-sm">arrow_back</span> 목록으로 돌아가기
-                  </button>
-                  {/* Navigate to KEYWORD BUBBLE */}
-                  <button
-                    onClick={() => { setSelectedSessionId(null); setActiveTab('classroom'); }}
-                    className="flex items-center gap-1.5 text-xs font-bold text-primary hover:text-primary/70 transition-colors bg-primary/5 border border-primary/20 px-3 py-1.5 rounded-full"
-                  >
-                    <span className="material-symbols-outlined text-sm">bubble_chart</span>
-                    KEYWORD BUBBLE 보기
+                    <span className="material-symbols-outlined text-xl">arrow_back</span>
                   </button>
                 </div>
                 <h2 className="text-xl md:text-2xl font-headline font-bold text-on-surface break-keep">
@@ -463,24 +455,24 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
                     )}
                     <div className="space-y-2">
                       <label className="text-xs font-bold text-on-surface-variant flex items-center gap-1.5">
-                        <span className="material-symbols-outlined text-sm">key</span> 핵심 키워드 (1개)
+                        <span className="material-symbols-outlined text-sm">key</span> 인사이트 키워드 (1개)
                       </label>
                       <input
                         type="text"
                         value={keyword}
                         onChange={e => setKeyword(e.target.value)}
-                        placeholder="예: 생성형 AI 활용"
+                        placeholder="피지컬AI"
                         className="w-full bg-surface border border-outline rounded-xl px-4 py-3 text-sm text-on-surface outline-none focus:border-secondary transition-all"
                       />
                     </div>
                     <div className="space-y-2">
                       <label className="text-xs font-bold text-on-surface-variant flex items-center gap-1.5">
-                        <span className="material-symbols-outlined text-sm">description</span> 상세 설명
+                        <span className="material-symbols-outlined text-sm">description</span> 키워드 작성 이유
                       </label>
                       <textarea
                         value={description}
                         onChange={e => setDescription(e.target.value)}
-                        placeholder="학습한 내용과 인사이트를 자유롭게 적어주세요."
+                        placeholder="위에서 키워드를 입력하신 이유와 소감을 상세히 기재해주세요. 다른 리더분들과 입력된 내용을 공유합니다."
                         rows={5}
                         className="w-full bg-surface border border-outline rounded-xl px-4 py-3 text-sm text-on-surface outline-none focus:border-secondary transition-all resize-none"
                       />
@@ -539,17 +531,18 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
                           {insight ? (
                             <button
                               onClick={() => startInput(session.id)}
-                              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-secondary text-on-secondary text-xs font-bold shadow-md active:scale-95 transition-all"
+                              className="w-10 h-10 rounded-lg flex items-center justify-center bg-secondary/10 text-secondary hover:bg-secondary/20 active:scale-95 transition-all"
+                              title="수정하기"
                             >
-                              <span className="material-symbols-outlined text-sm">edit</span>
-                              수정하기
+                              <span className="material-symbols-outlined text-xl">edit_note</span>
                             </button>
                           ) : (
                             <button
                               onClick={() => startInput(session.id)}
-                              className="w-10 h-10 rounded-lg flex items-center justify-center bg-surface-container-highest text-on-surface-variant hover:bg-secondary/20 transition-all"
+                              className="w-10 h-10 rounded-lg flex items-center justify-center bg-primary/10 text-primary hover:bg-primary/20 active:scale-95 transition-all"
+                              title="작성하기"
                             >
-                              <span className="material-symbols-outlined text-sm">add</span>
+                              <span className="material-symbols-outlined text-xl">add_circle</span>
                             </button>
                           )}
                         </div>
