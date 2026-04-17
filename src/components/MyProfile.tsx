@@ -473,20 +473,12 @@ export default function MyProfile({ onSave, onLogout, showBack = true, targetUse
           <div className="space-y-12">
             {/* Giver */}
             <div className="space-y-6">
-              <div className="flex items-center justify-between border-b border-primary/20 pb-2">
+              <div className="border-b border-primary/20 pb-2">
                 <h3 className="flex items-center gap-2 min-w-0 overflow-hidden text-primary">
                   <span className="material-symbols-outlined shrink-0">volunteer_activism</span>
                   <span className="text-base font-headline font-bold shrink-0">Giver</span>
                   <span className="text-xs font-normal text-on-surface-variant truncate">· 도움을 드릴 수 있어요.</span>
                 </h3>
-                {givers.length < 5 && (
-                  <button
-                    onClick={addGiver}
-                    className="flex items-center gap-1 text-xs font-bold text-primary hover:bg-primary/5 px-3 py-1.5 rounded-full transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-sm">add</span> 추가하기
-                  </button>
-                )}
               </div>
               <p className="text-[11px] text-on-surface-variant/70 leading-relaxed">
                 자신이 다른 리더들에게 줄 수 있는 가치나 도움을 키워드와 함께 상세히 적어주세요. (최소 2개, 최대 5개)
@@ -494,24 +486,25 @@ export default function MyProfile({ onSave, onLogout, showBack = true, targetUse
               <div className="grid gap-6">
                 {givers.map((g, idx) => renderKeywordCard(g, idx, 'giver', givers, setGivers, removeGiver, 'primary'))}
               </div>
+              {givers.length < 5 && (
+                <button
+                  onClick={addGiver}
+                  className="w-full py-3 flex items-center justify-center gap-2 text-sm font-bold text-primary border-2 border-dashed border-primary/40 rounded-2xl hover:bg-primary/5 hover:border-primary/70 transition-all"
+                >
+                  <span className="material-symbols-outlined text-lg">add_circle</span>
+                  관심사 추가하기 ({givers.length}/5)
+                </button>
+              )}
             </div>
 
             {/* Taker */}
             <div className="space-y-6">
-              <div className="flex items-center justify-between border-b border-secondary/20 pb-2">
+              <div className="border-b border-secondary/20 pb-2">
                 <h3 className="flex items-center gap-2 min-w-0 overflow-hidden text-secondary">
                   <span className="material-symbols-outlined shrink-0">pan_tool</span>
                   <span className="text-base font-headline font-bold shrink-0">Taker</span>
                   <span className="text-xs font-normal text-on-surface-variant truncate">· 도움을 받고 싶어요.</span>
                 </h3>
-                {takers.length < 5 && (
-                  <button
-                    onClick={addTaker}
-                    className="flex items-center gap-1 text-xs font-bold text-secondary hover:bg-secondary/5 px-3 py-1.5 rounded-full transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-sm">add</span> 추가하기
-                  </button>
-                )}
               </div>
               <p className="text-[11px] text-on-surface-variant/70 leading-relaxed">
                 다른 리더들로부터 배우고 싶거나 도움을 받고 싶은 분야를 키워드와 함께 적어주세요. (최소 2개, 최대 5개)
@@ -519,6 +512,15 @@ export default function MyProfile({ onSave, onLogout, showBack = true, targetUse
               <div className="grid gap-6">
                 {takers.map((t, idx) => renderKeywordCard(t, idx, 'taker', takers, setTakers, removeTaker, 'secondary'))}
               </div>
+              {takers.length < 5 && (
+                <button
+                  onClick={addTaker}
+                  className="w-full py-3 flex items-center justify-center gap-2 text-sm font-bold text-secondary border-2 border-dashed border-secondary/40 rounded-2xl hover:bg-secondary/5 hover:border-secondary/70 transition-all"
+                >
+                  <span className="material-symbols-outlined text-lg">add_circle</span>
+                  관심사 추가하기 ({takers.length}/5)
+                </button>
+              )}
             </div>
           </div>
         </section>
