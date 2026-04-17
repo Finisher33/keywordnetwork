@@ -703,7 +703,7 @@ const MISSIONS: MissionConfig[] = [
       },
       {
         heading: '미션 포인트',
-        body: '짧은 시간이지만, 새로운 연결이 만들어집니다. Weak tie가 Strong Tie가 될 수도 있는데요. 서로 많은 대화를 나눠보시기를 추천드립니다. :)',
+        body: '짧은 시간이지만, 소중한 Weak tie가 형성됩니다. Weak tie가 Strong Tie가 될 수 있도록 서로 많은 대화를 나눠보시기를 추천드립니다. :)',
       },
     ],
     hasPartnerMatch: true,
