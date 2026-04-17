@@ -67,9 +67,9 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
 
   // Grouping State
   const [groupingCourseId, setGroupingCourseId] = useState('');
-  const [groupingCriteria, setGroupingCriteria] = useState<'location' | 'keyword'>('location');
+  const [groupingCriteria, setGroupingCriteria] = useState<'keyword_top5' | 'keyword_top6_10'>('keyword_top5');
   const [groupCount, setGroupCount] = useState(1);
-  const [groupingResults, setGroupingResults] = useState<{ groupIndex: number, users: any[] }[]>([]);
+  const [groupingResults, setGroupingResults] = useState<{ groupIndex: number, users: any[], keyword?: string }[]>([]);
   const [isGroupingPopupOpen, setIsGroupingPopupOpen] = useState(false);
   
   const [isProcessing, setIsProcessing] = useState(false);
@@ -405,122 +405,61 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
     }
 
     setIsProcessing(true);
-    
+
     try {
-      // Initialize groups
-      const results: { groupIndex: number, users: any[], criteriaSummary: string }[] = Array.from({ length: groupCount }, (_, i) => ({
-        groupIndex: i + 1,
-        users: [],
-        criteriaSummary: ''
-      }));
+      const courseUserIds = new Set(courseUsers.map(u => u.id));
+      const courseInterests = db.interests.filter(i => courseUserIds.has(i.userId));
 
-      const unassignedUsers = [...courseUsers];
-      
-      // Greedy grouping algorithm
-      for (let i = 0; i < groupCount; i++) {
-        if (unassignedUsers.length === 0) break;
-        
-        // Pick a seed user for the group
-        const seedIdx = 0;
-        const seed = unassignedUsers.splice(seedIdx, 1)[0];
-        results[i].users.push(seed);
-
-        const targetGroupSize = Math.ceil(courseUsers.length / groupCount);
-        
-        while (results[i].users.length < targetGroupSize && unassignedUsers.length > 0) {
-          let bestMatchIdx = -1;
-          let bestScore = -1;
-
-          for (let j = 0; j < unassignedUsers.length; j++) {
-            const candidate = unassignedUsers[j];
-            let score = 0;
-
-            if (groupingCriteria === 'location') {
-              // Compare with all users currently in the group and take average
-              const totalLocScore = results[i].users.reduce((acc, u) => acc + calculateLocationScore(u.location, candidate.location), 0);
-              score = totalLocScore / results[i].users.length;
-            } else {
-              // Keyword similarity (Semantic matching)
-              const candInterests = db.interests.filter(int => int.userId === candidate.id);
-              const candEmbeddings = candInterests
-                .map(int => db.canonicalTerms.find(ct => ct.id === int.canonicalId)?.embedding)
-                .filter(Boolean) as number[][];
-
-              if (candEmbeddings.length > 0) {
-                let totalSim = 0;
-                let comparisons = 0;
-
-                for (const groupUser of results[i].users) {
-                  const guInterests = db.interests.filter(int => int.userId === groupUser.id);
-                  const guEmbeddings = guInterests
-                    .map(int => db.canonicalTerms.find(ct => ct.id === int.canonicalId)?.embedding)
-                    .filter(Boolean) as number[][];
-                  
-                  if (guEmbeddings.length > 0) {
-                    let userMaxSim = 0;
-                    for (const ce of candEmbeddings) {
-                      for (const ge of guEmbeddings) {
-                        const sim = cosineSimilarity(ce, ge);
-                        if (sim > userMaxSim) userMaxSim = sim;
-                      }
-                    }
-                    totalSim += userMaxSim;
-                    comparisons++;
-                  }
-                }
-                
-                // If group is not empty, use average similarity to the group
-                // This helps in forming "cohesive" clusters rather than just matching one person
-                score = comparisons > 0 ? (totalSim / comparisons) * 100 : 0;
-                
-                // Boost score if there's an exact keyword match (meaning judgment fallback)
-                const groupKeywords = results[i].users.flatMap(gu => 
-                  db.interests.filter(int => int.userId === gu.id).map(int => int.keyword.toLowerCase())
-                );
-                const candKeywords = candInterests.map(int => int.keyword.toLowerCase());
-                if (candKeywords.some(ck => groupKeywords.includes(ck))) {
-                  score += 20; // Exact match bonus
-                }
-              }
-            }
-
-            if (score > bestScore) {
-              bestScore = score;
-              bestMatchIdx = j;
-            }
-          }
-
-          if (bestMatchIdx !== -1) {
-            results[i].users.push(unassignedUsers.splice(bestMatchIdx, 1)[0]);
-          } else {
-            // If no score (e.g. no embeddings), just pick the next one
-            results[i].users.push(unassignedUsers.splice(0, 1)[0]);
-          }
-        }
-      }
-
-      // Generate criteria summary for each group
-      results.forEach(group => {
-        const counts: Record<string, number> = {};
-        group.users.forEach(u => {
-          let val = '';
-          if (groupingCriteria === 'location') {
-            val = u.location || '미지정';
-          } else {
-            val = db.interests.find(i => i.userId === u.id)?.keyword || '없음';
-          }
-          counts[val] = (counts[val] || 0) + 1;
-        });
-        
-        const summary = Object.entries(counts)
-          .sort((a, b) => b[1] - a[1])
-          .map(([val, count]) => `${val}(${count})`)
-          .join(', ');
-        
-        group.criteriaSummary = summary;
+      // 키워드 빈도 계산 (전체 과정 유저의 관심사 기준)
+      const kwFreq: Record<string, number> = {};
+      courseInterests.forEach(i => {
+        const kw = i.keyword.trim().toLowerCase();
+        if (kw) kwFreq[kw] = (kwFreq[kw] || 0) + 1;
       });
 
-      setGroupingResults(results);
+      // 빈도순 정렬
+      const sortedKws = Object.entries(kwFreq)
+        .sort((a, b) => b[1] - a[1])
+        .map(([kw]) => kw);
+
+      // 기준에 따라 대상 키워드 범위 선택 (0-indexed: top1~5 → 0~4, top6~10 → 5~9)
+      const [from, to] = groupingCriteria === 'keyword_top5' ? [0, 5] : [5, 10];
+      const targetKws = sortedKws.slice(from, to);
+
+      if (targetKws.length === 0) {
+        showStatus('error', '해당 범위에 해당하는 관심사 키워드가 없습니다.');
+        setIsProcessing(false);
+        return;
+      }
+
+      // 각 키워드별 조 편성 (한 유저는 가장 먼저 매칭된 키워드 조에만 편성)
+      const assignedUserIds = new Set<string>();
+      const results: { groupIndex: number; keyword: string; users: any[]; criteriaSummary: string }[] = [];
+
+      targetKws.forEach((kw, idx) => {
+        // 이 키워드를 가진 미배정 유저 찾기 (원본 대소문자 유지)
+        const usersWithKw = courseUsers.filter(u => {
+          if (assignedUserIds.has(u.id)) return false;
+          return courseInterests.some(i => i.userId === u.id && i.keyword.trim().toLowerCase() === kw);
+        });
+
+        usersWithKw.forEach(u => assignedUserIds.add(u.id));
+
+        // 원본 키워드 표기 (대소문자 원본)
+        const originalKw = courseInterests.find(i => i.keyword.trim().toLowerCase() === kw)?.keyword.trim() || kw;
+
+        results.push({
+          groupIndex: idx + 1,
+          keyword: originalKw,
+          users: usersWithKw,
+          criteriaSummary: `#${originalKw} · ${usersWithKw.length}명`,
+        });
+      });
+
+      // 빈 조 제외
+      const nonEmptyResults = results.filter(g => g.users.length > 0);
+
+      setGroupingResults(nonEmptyResults.length > 0 ? nonEmptyResults : results);
       setIsGroupingPopupOpen(true);
     } catch (error) {
       console.error("Grouping error:", error);
@@ -1134,10 +1073,10 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
             <section className="bg-white p-4 sm:p-8 rounded-xl border border-outline shadow-sm space-y-8">
               <h3 className="font-headline text-base sm:text-lg font-black text-tertiary uppercase tracking-tight">과정별 조편성</h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-8">
                 <div className="space-y-2">
                   <label className="text-[9px] sm:text-[10px] font-black text-on-surface-variant uppercase tracking-widest px-1">과정 선택</label>
-                  <select 
+                  <select
                     value={groupingCourseId}
                     onChange={(e) => setGroupingCourseId(e.target.value)}
                     className="w-full bg-surface-container-low border border-outline rounded-lg px-4 py-3 text-sm sm:text-base text-on-surface outline-none focus:border-tertiary focus:ring-1 focus:ring-tertiary font-medium"
@@ -1151,29 +1090,19 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
 
                 <div className="space-y-2">
                   <label className="text-[9px] sm:text-[10px] font-black text-on-surface-variant uppercase tracking-widest px-1">조편성 기준</label>
-                  <select 
+                  <select
                     value={groupingCriteria}
-                    onChange={(e) => setGroupingCriteria(e.target.value as 'location' | 'keyword')}
+                    onChange={(e) => setGroupingCriteria(e.target.value as 'keyword_top5' | 'keyword_top6_10')}
                     className="w-full bg-surface-container-low border border-outline rounded-lg px-4 py-3 text-sm sm:text-base text-on-surface outline-none focus:border-tertiary focus:ring-1 focus:ring-tertiary font-medium"
                   >
-                    <option value="location">근무지</option>
-                    <option value="keyword">관심사 키워드</option>
-                  </select>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[9px] sm:text-[10px] font-black text-on-surface-variant uppercase tracking-widest px-1">조 숫자 (1-12)</label>
-                  <select 
-                    value={groupCount}
-                    onChange={(e) => setGroupCount(parseInt(e.target.value))}
-                    className="w-full bg-surface-container-low border border-outline rounded-lg px-4 py-3 text-sm sm:text-base text-on-surface outline-none focus:border-tertiary focus:ring-1 focus:ring-tertiary font-medium"
-                  >
-                    {Array.from({ length: 12 }, (_, i) => i + 1).map(n => (
-                      <option key={n} value={n}>{n}개 조</option>
-                    ))}
+                    <option value="keyword_top5">관심사 키워드 Top 1~5</option>
+                    <option value="keyword_top6_10">관심사 키워드 Top 6~10</option>
                   </select>
                 </div>
               </div>
+              <p className="text-[11px] text-on-surface-variant/70 leading-relaxed">
+                선택된 키워드 범위에서 빈도 Top 순위대로 각 키워드를 1개 조로 편성합니다. 한 유저는 가장 높은 순위의 키워드 조에 1번만 배정됩니다.
+              </p>
 
               <div className="flex justify-center pt-4">
                 <button 
@@ -1846,7 +1775,7 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
               <div>
                 <h3 className="font-headline font-black text-2xl text-tertiary uppercase tracking-tight">조편성 결과</h3>
                 <p className="text-[10px] text-on-surface-variant mt-1 font-black uppercase tracking-widest">
-                  {db.courses.find(c => c.id === groupingCourseId)?.name} • {groupingCriteria === 'location' ? '근무지' : '키워드'} 기준 • {groupCount}개 조
+                  {db.courses.find(c => c.id === groupingCourseId)?.name} • {groupingCriteria === 'keyword_top5' ? '키워드 Top 1~5' : '키워드 Top 6~10'} 기준 • {groupingResults.length}개 조
                 </p>
               </div>
               <button 
@@ -1866,9 +1795,13 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
                         <span className="font-black text-tertiary uppercase tracking-widest text-sm">{group.groupIndex}조</span>
                         <span className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest">{group.users.length}명</span>
                       </div>
-                      <div className="text-[10px] text-tertiary/80 font-black truncate mt-1 uppercase tracking-widest" title={group.criteriaSummary}>
-                        기준: {group.criteriaSummary}
-                      </div>
+                      {(group as any).keyword && (
+                        <div className="mt-1.5">
+                          <span className="text-[10px] font-black bg-tertiary text-on-tertiary px-2 py-0.5 rounded-full uppercase tracking-widest">
+                            #{(group as any).keyword}
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <div className="p-4">
                       <table className="w-full text-xs">

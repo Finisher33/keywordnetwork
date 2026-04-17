@@ -96,6 +96,11 @@ function PartnerCard({
         {partner.title && (
           <p className="text-[11px] text-on-surface-variant/70">{partner.title}</p>
         )}
+        {partner.location && (
+          <p className="text-[11px] text-on-surface-variant/60 flex items-center gap-0.5 mt-0.5">
+            <span className="material-symbols-outlined text-[12px]">location_on</span>{partner.location}
+          </p>
+        )}
         {sharedWith.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-2">
             {sharedWith.map(kw => (

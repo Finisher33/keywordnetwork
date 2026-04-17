@@ -292,6 +292,11 @@ export default function LibraryView() {
                       {isMe && <span className="text-[8px] font-black bg-primary text-on-primary px-1.5 py-0.5 rounded uppercase tracking-widest shrink-0">나</span>}
                     </div>
                     <p className="text-[10px] text-primary font-medium truncate">{u.title}</p>
+                    {u.location && (
+                      <p className="text-[10px] text-on-surface-variant/70 truncate flex items-center gap-0.5 mt-0.5">
+                        <span className="material-symbols-outlined text-[11px]">location_on</span>{u.location}
+                      </p>
+                    )}
                   </div>
                 </div>
 
