@@ -8,7 +8,7 @@ import LandingPageView from './components/LandingPageView';
 import InsightView from './components/InsightView';
 
 export default function App() {
-  const { currentUser, db, logout, isDbLoaded } = useStore();
+  const { currentUser, db, logout, isDbLoaded, networkError, clearNetworkError } = useStore();
   const [view, setView] = useState<'main' | 'admin'>('main');
   const [subView, setSubView] = useState<'landing' | 'app' | 'insight' | 'profile'>('landing');
   const [lastSubView, setLastSubView] = useState<'landing' | 'app' | 'insight'>('landing');
@@ -16,7 +16,7 @@ export default function App() {
 
   const handleNotificationClick = () => {
     setSubView('app');
-    setAppViewTab('network');
+    setAppViewTab('mission');
   };
 
   const handleLogout = () => {
@@ -100,6 +100,20 @@ export default function App() {
 
   return (
     <div className="absolute inset-0 flex flex-col bg-background overflow-hidden">
+      {networkError && (
+        <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between gap-2 bg-red-600 px-4 py-3 text-sm text-white shadow-md">
+          <span>⚠ {networkError}</span>
+          <div className="flex items-center gap-3 shrink-0">
+            <button
+              onClick={() => window.location.reload()}
+              className="underline underline-offset-2 hover:no-underline"
+            >
+              새로고침
+            </button>
+            <button onClick={clearNetworkError} className="opacity-70 hover:opacity-100">✕</button>
+          </div>
+        </div>
+      )}
       {renderContent()}
     </div>
   );

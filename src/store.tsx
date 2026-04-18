@@ -29,6 +29,27 @@ function translateFirestoreError(error: any, path: string | null): Error {
   return new Error('오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
 }
 
+// 일시적 Firestore 오류(네트워크 순단, 서버 과부하)에만 재시도하는 코드. 권한/인증 오류는 재시도 없이 즉시 실패.
+const RETRYABLE_CODES = new Set(['unavailable', 'deadline-exceeded', 'resource-exhausted', 'internal']);
+
+async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3, baseDelayMs = 1000): Promise<T> {
+  let lastError: any;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      lastError = error;
+      if (!RETRYABLE_CODES.has(error?.code || '')) throw error;
+      if (attempt < maxAttempts - 1) {
+        const delay = baseDelayMs * Math.pow(2, attempt);
+        console.warn(`Firestore 재시도 ${attempt + 1}/${maxAttempts - 1} (${delay}ms 후, 오류: ${error?.code})`);
+        await new Promise(r => setTimeout(r, delay));
+      }
+    }
+  }
+  throw lastError;
+}
+
 export interface Course {
   id: string;
   name: string;
@@ -165,6 +186,8 @@ interface StoreContextType {
   isDemoMode: boolean;
   toggleDemoMode: (active: boolean, role?: 'user' | 'admin') => void;
   resetDemoData: () => void;
+  networkError: string | null;
+  clearNetworkError: () => void;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -182,6 +205,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isDbLoaded, setIsDbLoaded] = useState(false);
+  const [networkError, setNetworkError] = useState<string | null>(null);
+  const clearNetworkError = () => setNetworkError(null);
 
   // Demo Mode State
   const [isDemoMode, setIsDemoMode] = useState(false);
@@ -225,36 +250,31 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const fetchData = async () => {
     try {
-      const usersSnap = await getDocs(collection(firestore, 'users'));
+      await ensureAuth();
+      const [usersSnap, coursesSnap, sessionsSnap, interestsSnap, requestsSnap, insightsSnap, termsSnap, presetsSnap, missionGroupsSnap] = await Promise.all([
+        withRetry(() => getDocs(collection(firestore, 'users'))),
+        withRetry(() => getDocs(collection(firestore, 'courses'))),
+        withRetry(() => getDocs(collection(firestore, 'sessions'))),
+        withRetry(() => getDocs(collection(firestore, 'interests'))),
+        withRetry(() => getDocs(collection(firestore, 'teaTimeRequests'))),
+        withRetry(() => getDocs(collection(firestore, 'userInsights'))),
+        withRetry(() => getDocs(collection(firestore, 'canonicalTerms'))),
+        withRetry(() => getDocs(collection(firestore, 'presetInterests'))),
+        withRetry(() => getDocs(collection(firestore, 'missionGroups'))),
+      ]);
       setUsers(usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as User)));
-
-      const coursesSnap = await getDocs(collection(firestore, 'courses'));
       setCourses(coursesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Course)));
-
-      const sessionsSnap = await getDocs(collection(firestore, 'sessions'));
       setSessions(sessionsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Session)));
-
-      const interestsSnap = await getDocs(collection(firestore, 'interests'));
       setInterests(interestsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Interest)));
-
-      const requestsSnap = await getDocs(collection(firestore, 'teaTimeRequests'));
       setTeaTimeRequests(requestsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as TeaTimeRequest)));
-
-      const insightsSnap = await getDocs(collection(firestore, 'userInsights'));
       setUserInsights(insightsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserInsight)));
-
-      const termsSnap = await getDocs(collection(firestore, 'canonicalTerms'));
       setCanonicalTerms(termsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CanonicalTerm)));
-
-      const presetsSnap = await getDocs(collection(firestore, 'presetInterests'));
       setPresetInterests(presetsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as PresetInterest)));
-
-      const missionGroupsSnap = await getDocs(collection(firestore, 'missionGroups'));
       setMissionGroups(missionGroupsSnap.docs.map(doc => parseMissionGroup(doc.data(), doc.id)));
-      
       console.log("Manual data fetch complete.");
     } catch (error) {
-      console.error("Error fetching data:", error);
+      // 에러를 상위로 전파 — 호출자가 사용자에게 알림을 표시할 수 있도록
+      throw translateFirestoreError(error, 'fetchData');
     }
   };
 
@@ -339,16 +359,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     // 마이그레이션 및 초기화 로직 (Migration and Initialization)
     const initializeData = async () => {
       await authReady; // Firebase 익명 인증 완료 후 Firestore 접근
+
+      // 인증 실패 시 리스너 설정 자체가 불가 → 즉시 오류 표시
+      if (!auth.currentUser) {
+        console.error('익명 인증 실패: Firestore 접근 불가');
+        setNetworkError('서버 인증에 실패했습니다. 페이지를 새로고침해 주세요.');
+        setIsDbLoaded(true);
+        return;
+      }
+
       try {
         const oldDocRef = doc(firestore, 'giveandtake', 'data');
-        const oldSnap = await getDoc(oldDocRef);
+        const oldSnap = await withRetry(() => getDoc(oldDocRef));
 
         if (oldSnap.exists()) {
           const oldData = oldSnap.data() as Database;
           console.log("Old data found. Migrating to granular collections...");
-          
+
           const batch = writeBatch(firestore);
-          
+
           // Migrate Users
           if (oldData.users) {
             oldData.users.forEach(u => batch.set(doc(firestore, 'users', u.id), u));
@@ -380,23 +409,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
           // Delete old doc
           batch.delete(oldDocRef);
-          await batch.commit();
+          await withRetry(() => batch.commit());
           console.log("Migration complete.");
         } else {
           // Check if collections are empty, if so, seed default courses
-          const coursesSnap = await getDocs(collection(firestore, 'courses'));
+          const coursesSnap = await withRetry(() => getDocs(collection(firestore, 'courses')));
           if (coursesSnap.empty) {
             console.log("Seeding default courses...");
             const batch = writeBatch(firestore);
             defaultDb.courses.forEach(c => batch.set(doc(firestore, 'courses', c.id), c));
-            await batch.commit();
+            await withRetry(() => batch.commit());
           }
         }
-        
+
         setupListeners();
-      } catch (error) {
+      } catch (error: any) {
         console.error("Initialization error:", error);
-        setupListeners(); // Still setup listeners even if migration fails
+        const code = error?.code || '';
+        const isFatal = code === 'permission-denied' || code === 'unauthenticated' || error?.message === 'AUTH_FAILED';
+        if (isFatal) {
+          // 권한/인증 오류는 리스너도 동일하게 실패하므로 설정하지 않음
+          setNetworkError('데이터 접근 권한이 없습니다. 관리자에게 문의하거나 페이지를 새로고침해 주세요.');
+          setIsDbLoaded(true);
+        } else {
+          // 일시적 네트워크 오류: withRetry 재시도 소진 후 도달. 리스너는 자체 재연결 로직이 있으므로 계속 시도
+          setNetworkError('초기화 중 네트워크 오류가 발생했습니다. 일부 기능이 제한될 수 있습니다.');
+          setupListeners();
+        }
       }
     };
 
@@ -1097,7 +1136,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       saveInterests, updateUser, deleteUser, updateUserProfile, sendTeaTimeRequest, updateTeaTimeRequest,
       toggleSessionActive, saveUserInsight, toggleInsightLike, fetchData,
       addPresetInterest, deletePresetInterest, saveMissionGroups, deleteMissionGroup,
-      isDemoMode, toggleDemoMode, resetDemoData
+      isDemoMode, toggleDemoMode, resetDemoData,
+      networkError, clearNetworkError,
     }}>
       {children}
     </StoreContext.Provider>

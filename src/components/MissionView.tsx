@@ -1,4 +1,4 @@
-import { useState, useMemo, Key, useRef } from 'react';
+import { useState, useMemo, Key, useRef, type CSSProperties } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useStore, User, Interest, TeaTimeRequest } from '../store';
 import { TeaReplyModal } from './TeaTimeModal';
@@ -223,7 +223,7 @@ function GiftBoxButton({
               <motion.span
                 key={i}
                 className="absolute text-xs"
-                style={pos as React.CSSProperties}
+                style={pos as CSSProperties}
                 animate={{ opacity: [0, 1, 0], scale: [0.5, 1.2, 0.5] }}
                 transition={{ duration: 1.2, repeat: Infinity, delay: pos.delay, ease: 'easeInOut' }}
               >
