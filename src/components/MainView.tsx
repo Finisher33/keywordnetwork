@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from '../store';
 import LocationAutocomplete from './LocationAutocomplete';
 import { HYUNDAI_COMPANIES } from '../constants/companies';
+import DemoLauncher from '../demo/DemoLauncher';
 
 // ── 3D 네트워크 캔버스 배경 ───────────────────────────────────────────────────
 function NetworkCanvas() {
@@ -148,9 +149,12 @@ export default function MainView({ onAdminClick }: { onAdminClick: () => void })
     setIsRegisteringInProgress(true);
     try {
       await register({ id: Date.now().toString(), company: finalCompany, name, courseId, department, title, location });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Registration failed:", error);
-      alert('등록 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
+      const msg = error?.message?.includes('인증에 실패')
+        ? '네트워크 연결을 확인한 후 다시 시도해 주세요.'
+        : '등록 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.';
+      alert(msg);
     } finally {
       setIsRegisteringInProgress(false);
     }
@@ -324,6 +328,9 @@ export default function MainView({ onAdminClick }: { onAdminClick: () => void })
                 </button>
               )}
             </div>
+
+            {/* 데모 체험 */}
+            <DemoLauncher onAdminClick={onAdminClick} />
 
             {/* 저작권 */}
             <p className="text-center text-[8px] font-medium tracking-wider text-white/30 pb-2">
