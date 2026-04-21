@@ -85,9 +85,9 @@ export interface User {
   name: string;
   department: string;
   title: string;
-  location: string;
   courseId: string;
   profilePic?: string;
+  location?: string;
 }
 
 export interface Interest {
@@ -120,14 +120,6 @@ export interface PresetInterest {
   group: 'work' | 'hobby';
 }
 
-export interface MissionGroup {
-  id: string;         // `${courseId}_${type}`
-  courseId: string;
-  type: 'lunch' | 'evening';
-  groups: string[][];  // array of groups, each group = array of userIds
-  confirmedAt: string;
-}
-
 interface Database {
   courses: Course[];
   sessions: Session[];
@@ -137,7 +129,6 @@ interface Database {
   userInsights: UserInsight[];
   canonicalTerms: CanonicalTerm[];
   presetInterests: PresetInterest[];
-  missionGroups: MissionGroup[];
 }
 
 const defaultDb: Database = {
@@ -152,7 +143,6 @@ const defaultDb: Database = {
   userInsights: [],
   canonicalTerms: [],
   presetInterests: [],
-  missionGroups: []
 };
 
 interface StoreContextType {
@@ -181,8 +171,6 @@ interface StoreContextType {
   fetchData: () => Promise<void>;
   addPresetInterest: (keyword: string, group: 'work' | 'hobby') => Promise<void>;
   deletePresetInterest: (id: string) => Promise<void>;
-  saveMissionGroups: (group: MissionGroup) => Promise<void>;
-  deleteMissionGroup: (groupId: string) => Promise<void>;
   isDemoMode: boolean;
   toggleDemoMode: (active: boolean, role?: 'user' | 'admin') => void;
   resetDemoData: () => void;
@@ -201,7 +189,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [userInsights, setUserInsights] = useState<UserInsight[]>([]);
   const [canonicalTerms, setCanonicalTerms] = useState<CanonicalTerm[]>([]);
   const [presetInterests, setPresetInterests] = useState<PresetInterest[]>([]);
-  const [missionGroups, setMissionGroups] = useState<MissionGroup[]>([]);
 
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isDbLoaded, setIsDbLoaded] = useState(false);
@@ -222,7 +209,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     userInsights,
     canonicalTerms,
     presetInterests,
-    missionGroups
   };
 
   const effectiveCurrentUser = isDemoMode ? demoUser : currentUser;
@@ -251,7 +237,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const fetchData = async () => {
     try {
       await ensureAuth();
-      const [usersSnap, coursesSnap, sessionsSnap, interestsSnap, requestsSnap, insightsSnap, termsSnap, presetsSnap, missionGroupsSnap] = await Promise.all([
+      const [usersSnap, coursesSnap, sessionsSnap, interestsSnap, requestsSnap, insightsSnap, termsSnap, presetsSnap] = await Promise.all([
         withRetry(() => getDocs(collection(firestore, 'users'))),
         withRetry(() => getDocs(collection(firestore, 'courses'))),
         withRetry(() => getDocs(collection(firestore, 'sessions'))),
@@ -260,7 +246,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         withRetry(() => getDocs(collection(firestore, 'userInsights'))),
         withRetry(() => getDocs(collection(firestore, 'canonicalTerms'))),
         withRetry(() => getDocs(collection(firestore, 'presetInterests'))),
-        withRetry(() => getDocs(collection(firestore, 'missionGroups'))),
       ]);
       setUsers(usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as User)));
       setCourses(coursesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Course)));
@@ -270,7 +255,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setUserInsights(insightsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserInsight)));
       setCanonicalTerms(termsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CanonicalTerm)));
       setPresetInterests(presetsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as PresetInterest)));
-      setMissionGroups(missionGroupsSnap.docs.map(doc => parseMissionGroup(doc.data(), doc.id)));
       console.log("Manual data fetch complete.");
     } catch (error) {
       // 에러를 상위로 전파 — 호출자가 사용자에게 알림을 표시할 수 있도록
@@ -281,7 +265,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // 1단계: Firestore 실시간 리스너 설정 (Step 1: Setup Firestore real-time listeners for each collection)
   useEffect(() => {
     const unsubscribers: (() => void)[] = [];
-    const collectionsToLoad = ['users', 'courses', 'sessions', 'interests', 'teaTimeRequests', 'userInsights', 'canonicalTerms', 'presetInterests', 'missionGroups'];
+    const collectionsToLoad = ['users', 'courses', 'sessions', 'interests', 'teaTimeRequests', 'userInsights', 'canonicalTerms', 'presetInterests'];
     const loadedCollections = new Set<string>();
 
     const checkAllLoaded = (collectionName: string) => {
@@ -349,11 +333,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         checkAllLoaded('presetInterests');
       }, (error) => handleError(error, 'presetInterests')));
 
-      // MissionGroups (groups는 JSON 문자열 배열로 저장 → 역직렬화)
-      unsubscribers.push(onSnapshot(collection(firestore, 'missionGroups'), (snap) => {
-        setMissionGroups(snap.docs.map(doc => parseMissionGroup(doc.data(), doc.id)));
-        checkAllLoaded('missionGroups');
-      }, (error) => handleError(error, 'missionGroups')));
     };
 
     // 마이그레이션 및 초기화 로직 (Migration and Initialization)
@@ -808,8 +787,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    // Similarity threshold: 0.85
-    if (bestMatch && maxSimilarity > 0.85) {
+    // Similarity threshold: 0.75 (synonym-level grouping)
+    if (bestMatch && maxSimilarity > 0.75) {
       return { canonicalId: bestMatch.id, term: bestMatch.term };
     } else {
       const newId = Date.now().toString();
@@ -979,6 +958,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       await batch.commit();
 
+      // onSnapshot 응답을 기다리지 않고 로컬 상태 즉시 갱신
+      // (카카오톡 인앱브라우저 등 WKWebView 환경에서 onSnapshot 지연으로 인한 페이지 전환 불가 방지)
+      setInterests(prev => [
+        ...prev.filter(i => i.userId !== user.id),
+        ...newInterests,
+      ]);
+
       if (currentUser?.id === user.id) {
         setCurrentUser(user);
         localStorage.setItem('currentUser', JSON.stringify(user));
@@ -1093,49 +1079,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Firestore는 중첩 배열(string[][])을 지원하지 않으므로,
-  // groups의 각 요소를 JSON 문자열로 직렬화하여 저장하고 읽을 때 역직렬화한다.
-  const parseMissionGroup = (data: any, id: string): MissionGroup => ({
-    ...data,
-    id,
-    groups: (data.groups || []).map((g: any) => {
-      if (typeof g === 'string') {
-        try { return JSON.parse(g) as string[]; } catch { return [] as string[]; }
-      }
-      return (Array.isArray(g) ? g : []) as string[];
-    }),
-  });
-
-  const deleteMissionGroup = async (groupId: string) => {
-    await ensureAuth();
-    try {
-      await deleteDoc(doc(firestore, 'missionGroups', groupId));
-    } catch (error: any) {
-      throw translateFirestoreError(error, `missionGroups/${groupId}`);
-    }
-  };
-
-  const saveMissionGroups = async (group: MissionGroup) => {
-    await ensureAuth();
-    try {
-      // 중첩 배열 → 각 그룹을 JSON 문자열로 직렬화
-      const firestoreData = {
-        ...group,
-        groups: group.groups.map(g => JSON.stringify(g)),
-      };
-      await setDoc(doc(firestore, 'missionGroups', group.id), sanitize(firestoreData));
-    } catch (error: any) {
-      throw translateFirestoreError(error, `missionGroups/${group.id}`);
-    }
-  };
-
   return (
     <StoreContext.Provider value={{
       db, currentUser: effectiveCurrentUser, isDbLoaded, login, register, logout, addCourse, updateCourse, deleteCourse, resetCourseData,
       addSession, updateSession, deleteSession,
       saveInterests, updateUser, deleteUser, updateUserProfile, sendTeaTimeRequest, updateTeaTimeRequest,
       toggleSessionActive, saveUserInsight, toggleInsightLike, fetchData,
-      addPresetInterest, deletePresetInterest, saveMissionGroups, deleteMissionGroup,
+      addPresetInterest, deletePresetInterest,
       isDemoMode, toggleDemoMode, resetDemoData,
       networkError, clearNetworkError,
     }}>

@@ -35,17 +35,6 @@ export default function UserReportPDF({
     );
   }, [groupedNetwork, user.id]);
 
-  const locationGroup = useMemo(() => {
-    const location = user.location || '미지정';
-    const sameLocationUsers = user.location 
-      ? allUsers.filter(u => u.id !== user.id && u.location === user.location)
-      : [];
-    return {
-      title: `근무지: ${location}`,
-      users: sameLocationUsers,
-      hasLocation: !!user.location
-    };
-  }, [allUsers, user]);
 
   return (
     <div className="pdf-report w-[210mm] bg-white px-[10mm] py-[20mm] text-[#111827] font-sans" style={{ colorScheme: 'light', fontSize: '10pt' }}>
@@ -187,30 +176,6 @@ export default function UserReportPDF({
                 </div>
               </div>
             ))
-          )}
-        </div>
-      </div>
-
-      {/* 4. 근무지 기반 추천 */}
-      <div className="pdf-section mb-8 p-6 border border-[#e5e7eb] bg-[#F9FAFB] rounded-xl" style={{ breakInside: 'avoid' }}>
-        <div className="pdf-section-title-container border-t-2 border-[#002C5F] pt-2 mb-4">
-          <h3 className="pdf-section-title text-[14pt] font-bold text-[#002C5F]">04. 근무지 기반 추천</h3>
-        </div>
-        <div className="pdf-location-box border border-[#e5e7eb] p-5 rounded-lg bg-white shadow-sm">
-          <p className="pdf-location-title text-[11pt] font-black text-[#002C5F] mb-4 border-b border-[#F3F4F6] pb-2">{locationGroup.title}</p>
-          {!locationGroup.hasLocation ? (
-            <p className="pdf-empty text-[10pt] text-[#9ca3af] italic">근무지 정보가 없습니다.</p>
-          ) : locationGroup.users.length === 0 ? (
-            <p className="pdf-empty text-[10pt] text-[#9ca3af] italic">동일 근무지 동료가 없습니다.</p>
-          ) : (
-            <div className="pdf-location-list grid grid-cols-1 gap-3">
-              {locationGroup.users.slice(0, 15).map(u => (
-                <div key={u.id} className="pdf-location-item text-[10pt] text-[#4B5563] font-medium flex items-center gap-2" style={{ breakInside: 'avoid' }}>
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#00AAD2]"></span>
-                  {formatLeaderInfo(u)}
-                </div>
-              ))}
-            </div>
           )}
         </div>
       </div>

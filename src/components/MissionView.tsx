@@ -32,11 +32,6 @@ function ProfileModal({ user, allInterests, onClose }: { user: User; allInterest
               </p>
               <h3 className="font-headline font-black text-xl text-on-surface uppercase tracking-tight">{user.name}</h3>
               {user.title && <p className="text-sm text-secondary font-bold uppercase tracking-widest">{user.title}</p>}
-              {user.location && (
-                <p className="text-[11px] text-on-surface-variant/70 flex items-center gap-0.5 mt-0.5">
-                  <span className="material-symbols-outlined text-sm">location_on</span>{user.location}
-                </p>
-              )}
             </div>
           </div>
           <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-surface-container-highest transition-colors shrink-0">

@@ -664,7 +664,6 @@ export default function NetworkMap({ adminCourseId }: { adminCourseId?: string }
                                 {isMe && <span className="text-[11px] font-black bg-primary text-on-primary px-1.5 py-0.5 rounded uppercase tracking-widest">나</span>}
                               </div>
                               <p className="text-xs text-on-surface-variant font-medium uppercase tracking-widest">{u.title}</p>
-                              {u.location && <p className="text-xs text-on-surface-variant/60 flex items-center gap-0.5"><span className="material-symbols-outlined text-sm">location_on</span>{u.location}</p>}
                             </div>
                         </div>
                         <span className={`px-3 py-1 rounded-md font-black text-xs uppercase border ${interest.type === 'giver' ? 'bg-primary text-on-primary border-primary' : 'bg-secondary text-on-secondary border-secondary'}`}>
@@ -716,7 +715,6 @@ export default function NetworkMap({ adminCourseId }: { adminCourseId?: string }
                     <p className="text-xs text-on-surface-variant uppercase font-bold tracking-widest">{selectedUser.company} • {selectedUser.department}</p>
                     <h3 className="font-headline font-black text-3xl text-on-surface uppercase tracking-tight">{selectedUser.name}</h3>
                     <p className="text-base text-secondary font-black uppercase tracking-widest">{selectedUser.title}</p>
-                    {selectedUser.location && <p className="text-sm text-on-surface-variant/70 flex items-center gap-0.5 mt-0.5"><span className="material-symbols-outlined text-[13px]">location_on</span>{selectedUser.location}</p>}
                   </div>
                 </div>
                 <button onClick={() => setSelectedUser(null)} className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-surface-container-highest transition-colors">

@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useToast } from '../hooks/useToast';
 import Toast from './Toast';
 import { useStore } from '../store';
-import LocationAutocomplete from './LocationAutocomplete';
 import { HYUNDAI_COMPANIES } from '../constants/companies';
 import DemoLauncher from '../demo/DemoLauncher';
 
@@ -130,7 +129,6 @@ export default function MainView({ onAdminClick }: { onAdminClick: () => void })
   const [registerSuccess, setRegisterSuccess] = useState(false);
   const [department, setDepartment] = useState('');
   const [title, setTitle] = useState('');
-  const [location, setLocation] = useState('');
   const [agreed, setAgreed] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
@@ -148,11 +146,11 @@ export default function MainView({ onAdminClick }: { onAdminClick: () => void })
 
   const handleRegister = async () => {
     const finalCompany = company === '직접입력' ? customCompany : company;
-    if (!department || !title || !location || !finalCompany) { showToast('모든 정보를 입력해주세요.', 'error'); return; }
+    if (!department || !title || !finalCompany) { showToast('모든 정보를 입력해주세요.', 'error'); return; }
     if (!agreed) { showToast('개인정보 수집 및 이용에 동의해 주세요.', 'error'); return; }
     setIsRegisteringInProgress(true);
     try {
-      await register({ id: Date.now().toString(), company: finalCompany, name, courseId, department, title, location });
+      await register({ id: Date.now().toString(), company: finalCompany, name, courseId, department, title });
       setRegisterSuccess(true);
     } catch (error: any) {
       console.error("Registration failed:", error);
@@ -269,11 +267,6 @@ export default function MainView({ onAdminClick }: { onAdminClick: () => void })
                   <Field label="직책" icon="badge">
                     <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="직책을 입력하세요" className={inputCls} />
                   </Field>
-                  <Field label="근무지" icon="location_on">
-                    <div className="flex-1 min-w-0">
-                      <LocationAutocomplete value={location} onChange={setLocation} placeholder="근무지를 입력하세요" />
-                    </div>
-                  </Field>
                 </>
               )}
 
@@ -289,7 +282,7 @@ export default function MainView({ onAdminClick }: { onAdminClick: () => void })
                   <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
                     {[
                       ['수집 목적', '사용자 식별 및 서비스 제공'],
-                      ['수집 정보', '소속, 성명, 담당조직, 직책, 근무지, 관심사'],
+                      ['수집 정보', '소속, 성명, 담당조직, 직책, 관심사'],
                       ['보유 기간', '과정 종료 후 7일 이내 파기'],
                       ['제3자 제공', '해당 없음'],
                     ].map(([k, v]) => (
@@ -369,7 +362,7 @@ export default function MainView({ onAdminClick }: { onAdminClick: () => void })
             <div className="flex-1 overflow-y-auto p-5 sm:p-8 space-y-7 text-sm text-white/60 leading-relaxed">
               {[
                 ['제1조 (개인정보의 처리 목적)', '회사는 다음의 목적을 위하여 개인정보를 처리하며, 목적 이외의 용도로는 이용되지 않습니다.\n1. 사용자 식별: 교육 서비스 이용에 따른 본인 확인 및 식별\n2. 서비스 제공: 해당 교육 과정 내 콘텐츠 및 관련 기능 제공'],
-                ['제2조 (처리하는 개인정보 항목)', '회사는 서비스 제공을 위해 아래와 같은 필수 항목을 처리하고 있습니다.\n* 항목: 소속(회사), 성명, 담당조직, 직책, 근무지, 관심사, 세션별 학습 인사이트'],
+                ['제2조 (처리하는 개인정보 항목)', '회사는 서비스 제공을 위해 아래와 같은 필수 항목을 처리하고 있습니다.\n* 항목: 소속(회사), 성명, 담당조직, 직책, 관심사, 세션별 학습 인사이트'],
                 ['제3조 (개인정보의 처리 및 보유 기간)', '① 회사는 정보주체로부터 수집 시에 동의받은 개인정보 보유·이용기간 내에서 처리·보유합니다.\n② 개인정보 보유 및 이용기간: 해당 교육 과정 종료 후 7일(일주일) 이내\n③ 보유 기간이 경과하거나 처리 목적이 달성된 개인정보는 지체 없이 파기합니다.'],
                 ['제4조 (개인정보의 제3자 제공)', '회사는 정보주체의 개인정보를 제3자에게 제공하지 않습니다. 단, 법률의 특별한 규정 등 「개인정보 보호법」 제17조 및 제18조에 해당하는 경우에만 예외적으로 제공합니다.'],
                 ['제5조 (개인정보의 파기절차 및 방법)', '① 개인정보 보유기간의 경과, 처리목적 달성 등으로 불필요하게 되었을 때 지체 없이 파기합니다.\n② 전자적 파일 형태의 정보는 기록을 재생할 수 없는 기술적 방법을 사용하여 파기합니다.'],

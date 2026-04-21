@@ -315,11 +315,6 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
                         <span className="text-[10px] font-black bg-primary text-on-primary px-2 py-0.5 rounded-full">공통 {count}개</span>
                       </div>
                       <p className="text-[11px] text-on-surface-variant truncate">{u.title}</p>
-                      {u.location && (
-                        <p className="text-[11px] text-on-surface-variant/60 flex items-center gap-0.5 mt-0.5 truncate">
-                          <span className="material-symbols-outlined text-xs">location_on</span>{u.location}
-                        </p>
-                      )}
                     </div>
                     {sentReq ? (
                       <span className={`shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-lg border ${
@@ -489,11 +484,6 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
                             <div className="min-w-0">
                               <p className="text-xs font-bold text-on-surface truncate">{user.name}</p>
                               <p className="text-[10px] text-on-surface-variant truncate">{user.company} · {user.department} · {user.title}</p>
-                              {user.location && (
-                                <p className="text-[10px] text-on-surface-variant/60 flex items-center gap-0.5 truncate">
-                                  <span className="material-symbols-outlined text-[11px]">location_on</span>{user.location}
-                                </p>
-                              )}
                             </div>
                           </div>
                           {i.description && <p className="text-[11px] text-on-surface-variant leading-relaxed italic">"{i.description}"</p>}
@@ -526,11 +516,6 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
                             <div className="min-w-0">
                               <p className="text-xs font-bold text-on-surface truncate">{user.name}</p>
                               <p className="text-[10px] text-on-surface-variant truncate">{user.company} · {user.department} · {user.title}</p>
-                              {user.location && (
-                                <p className="text-[10px] text-on-surface-variant/60 flex items-center gap-0.5 truncate">
-                                  <span className="material-symbols-outlined text-[11px]">location_on</span>{user.location}
-                                </p>
-                              )}
                             </div>
                           </div>
                           {i.description && <p className="text-[11px] text-on-surface-variant leading-relaxed italic">"{i.description}"</p>}

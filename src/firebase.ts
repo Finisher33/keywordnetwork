@@ -25,3 +25,16 @@ export const authReady = new Promise<void>((resolve) => {
     resolve(); // 실패해도 앱은 계속 동작
   });
 });
+
+// 모든 Firestore write 전 호출 — 인증 완료 보장 및 실패 시 재시도
+export const ensureAuth = async (): Promise<void> => {
+  await authReady;
+  if (!auth.currentUser) {
+    try {
+      await signInAnonymously(auth);
+    } catch (err) {
+      console.error('익명 인증 재시도 실패:', err);
+      throw new Error('AUTH_FAILED');
+    }
+  }
+};

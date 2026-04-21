@@ -292,31 +292,68 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
     return () => bubbleContainerEl.removeEventListener('wheel', onWheel);
   }, [bubbleContainerEl]);
 
-  // ── 터치 핀치 줌 (non-passive, 직접 DOM 업데이트) ─────────────────────────────
+  // ── 터치: 핀치 줌 + 단일 터치 패닝 (non-passive, 직접 DOM 업데이트) ────────────
   useEffect(() => {
     if (!bubbleContainerEl) return;
     let lastDist: number | null = null;
+    // 단일 터치 패닝용 기준점
+    let touchPanStart: { x: number; y: number; px: number; py: number } | null = null;
+
     const getTouchDist = (t: TouchList) => {
       const dx = t[0].clientX - t[1].clientX;
       const dy = t[0].clientY - t[1].clientY;
       return Math.sqrt(dx * dx + dy * dy);
     };
+
     const onTouchStart = (e: TouchEvent) => {
-      if (e.touches.length === 2) lastDist = getTouchDist(e.touches);
-    };
-    const onTouchMove = (e: TouchEvent) => {
-      if (e.touches.length !== 2 || lastDist === null) return;
-      e.preventDefault();
-      const d = getTouchDist(e.touches);
-      const newZoom = Math.min(5, Math.max(0.2, liveState.current.zoom * (d / lastDist!)));
-      liveState.current.zoom = newZoom;
-      if (panLayerRef.current) {
-        panLayerRef.current.style.transform = `translate(${liveState.current.x}px, ${liveState.current.y}px) scale(${newZoom})`;
+      if (e.touches.length === 2) {
+        lastDist = getTouchDist(e.touches);
+        touchPanStart = null; // 핀치 시작 시 패닝 취소
+      } else if (e.touches.length === 1) {
+        touchPanStart = {
+          x: e.touches[0].clientX,
+          y: e.touches[0].clientY,
+          px: liveState.current.x,
+          py: liveState.current.y,
+        };
       }
-      setBubbleZoom(newZoom);
-      lastDist = d;
     };
-    const onTouchEnd = () => { lastDist = null; };
+
+    const onTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      if (e.touches.length === 2 && lastDist !== null) {
+        // 핀치 줌
+        const d = getTouchDist(e.touches);
+        const newZoom = Math.min(5, Math.max(0.2, liveState.current.zoom * (d / lastDist)));
+        liveState.current.zoom = newZoom;
+        if (panLayerRef.current) {
+          panLayerRef.current.style.transform = `translate(${liveState.current.x}px, ${liveState.current.y}px) scale(${newZoom})`;
+        }
+        setBubbleZoom(newZoom);
+        lastDist = d;
+      } else if (e.touches.length === 1 && touchPanStart !== null) {
+        // 단일 터치 패닝
+        const dx = e.touches[0].clientX - touchPanStart.x;
+        const dy = e.touches[0].clientY - touchPanStart.y;
+        const nx = touchPanStart.px + dx;
+        const ny = touchPanStart.py + dy;
+        liveState.current.x = nx;
+        liveState.current.y = ny;
+        if (panLayerRef.current) {
+          panLayerRef.current.style.transform = `translate(${nx}px, ${ny}px) scale(${liveState.current.zoom})`;
+        }
+      }
+    };
+
+    const onTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length < 2) lastDist = null;
+      if (e.touches.length === 0) {
+        // 패닝 종료 시 React state 동기화
+        setBubblePan({ x: liveState.current.x, y: liveState.current.y });
+        touchPanStart = null;
+      }
+    };
+
     bubbleContainerEl.addEventListener('touchstart', onTouchStart, { passive: false });
     bubbleContainerEl.addEventListener('touchmove',  onTouchMove,  { passive: false });
     bubbleContainerEl.addEventListener('touchend',   onTouchEnd);
@@ -682,30 +719,25 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
                   className={`bg-surface-container-low rounded-xl border border-outline-variant/10 relative overflow-hidden ${isBubbleFullScreen ? 'fixed inset-0 z-[9999] rounded-none' : ''}`}
                 >
                   {/* Header */}
-                  <div className="flex items-center justify-between px-4 sm:px-6 pt-5 pb-3 gap-2 min-w-0">
-                    <div className="min-w-0 flex-1">
-                      <h3 className="text-primary font-headline font-bold text-base sm:text-xl truncate">KEYWORD BUBBLE</h3>
-                      <p className="text-[10px] text-on-surface-variant mt-0.5 hidden sm:block">탭 → 공개 · +/− → 줌 · 드래그 → 이동</p>
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
+                  <div className="flex items-start justify-between px-4 sm:px-6 pt-5 pb-3 gap-2 min-w-0">
+                    {/* 왼쪽: 타이틀 + 줌 버튼 */}
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <h3 className="text-primary font-headline font-bold text-base sm:text-xl shrink-0">KEYWORD BUBBLE</h3>
                       {/* 줌 아웃 */}
                       <button
                         onClick={() => setBubbleZoom(z => { const nz = Math.max(0.2, z / 1.3); liveState.current.zoom = nz; return nz; })}
-                        className="w-8 h-8 rounded-full bg-white/80 border border-outline flex items-center justify-center shadow-sm hover:bg-white transition-all text-on-surface-variant font-black text-lg"
+                        className="w-8 h-8 rounded-full bg-white/80 border border-outline flex items-center justify-center shadow-sm hover:bg-white transition-all text-on-surface-variant font-black text-lg shrink-0"
                         title="줌 아웃"
                       >−</button>
-                      {/* 줌 퍼센트 / 초기화 */}
-                      <button
-                        onClick={() => { setBubbleZoom(1); setBubblePan({ x: 0, y: 0 }); }}
-                        className="h-8 px-2 rounded-full bg-white/80 border border-outline flex items-center justify-center shadow-sm hover:bg-white transition-all text-[10px] font-bold text-primary min-w-[40px]"
-                        title="줌 초기화"
-                      >{Math.round(bubbleZoom * 100)}%</button>
                       {/* 줌 인 */}
                       <button
                         onClick={() => setBubbleZoom(z => { const nz = Math.min(5, z * 1.3); liveState.current.zoom = nz; return nz; })}
-                        className="w-8 h-8 rounded-full bg-white/80 border border-outline flex items-center justify-center shadow-sm hover:bg-white transition-all text-on-surface-variant font-black text-lg"
+                        className="w-8 h-8 rounded-full bg-white/80 border border-outline flex items-center justify-center shadow-sm hover:bg-white transition-all text-on-surface-variant font-black text-lg shrink-0"
                         title="줌 인"
                       >+</button>
+                    </div>
+                    {/* 오른쪽: 새로고침 + 전체화면 (모바일에서 세로 배치) */}
+                    <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1 shrink-0">
                       {/* 새로고침 */}
                       <button
                         onClick={handleBubbleRefresh}

@@ -1,6 +1,5 @@
 ﻿import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useStore, Interest, User } from '../store';
-import LocationAutocomplete from './LocationAutocomplete';
 import { HYUNDAI_COMPANIES } from '../constants/companies';
 
 const ZODIAC_ANIMALS = [
@@ -52,7 +51,6 @@ export default function MyProfile({ onSave, onLogout, showBack = true, targetUse
   const [name, setName] = useState(userToEdit?.name || '');
   const [department, setDepartment] = useState(userToEdit?.department || '');
   const [title, setTitle] = useState(userToEdit?.title || '');
-  const [location, setLocation] = useState(userToEdit?.location || '');
   const [profilePic, setProfilePic] = useState(() => {
     if (userToEdit?.profilePic) return userToEdit.profilePic;
     return ZODIAC_ANIMALS[Math.floor(Math.random() * ZODIAC_ANIMALS.length)].url;
@@ -167,7 +165,7 @@ export default function MyProfile({ onSave, onLogout, showBack = true, targetUse
       await updateUserProfile({
         ...userToEdit,
         company: company === '직접입력' ? customCompany : company,
-        name, department, title, location, profilePic
+        name, department, title, profilePic
       }, newInterests);
       onSave();
     } catch (error: any) {
@@ -483,16 +481,6 @@ export default function MyProfile({ onSave, onLogout, showBack = true, targetUse
               <label className="text-xs font-bold text-on-surface-variant uppercase ml-1 tracking-widest">직책</label>
               <div className="bg-surface-container-low rounded-xl px-4 py-3 border border-outline focus-within:border-primary transition-colors">
                 <input type="text" value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-transparent border-none p-0 text-base outline-none text-on-surface" />
-              </div>
-            </div>
-            <div className="space-y-1.5 md:col-span-2">
-              <label className="text-xs font-bold text-on-surface-variant uppercase ml-1 tracking-widest">근무지</label>
-              <div className="bg-surface-container-low rounded-xl px-4 py-3 border border-outline focus-within:border-primary transition-colors">
-                <LocationAutocomplete
-                  value={location}
-                  onChange={setLocation}
-                  placeholder="근무지를 입력하세요"
-                />
               </div>
             </div>
           </div>

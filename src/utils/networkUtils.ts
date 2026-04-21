@@ -124,10 +124,10 @@ export function calculateSNAScores(currentUser: User, db: any): SNAResult | null
 
   const types: SNATypeResult[] = [
     {
-      type: '마당발',
+      type: '마당발(인플루언서)',
       score: degreeScore,
       icon: '🤝',
-      description: '당신은 이 네트워크의 핵심 연결자입니다. 다양한 키워드와 많은 리더와 연결되어 있어 폭넓은 영향력을 발휘합니다.',
+      description: '당신은 이 네트워크의 핵심 인플루언서입니다. 다양한 키워드와 많은 리더와 직접 연결되어, 한마디만 해도 즉각 반응하는 넓은 직속 네트워크를 보유하고 있습니다.',
       metricName: '연결 중심성',
       detail: `관심사 키워드 ${myKwCount}개 · 키워드별 연결 리더 합산 ${keywordLinkedLeadersSum}명`,
     },
@@ -135,15 +135,15 @@ export function calculateSNAScores(currentUser: User, db: any): SNAResult | null
       type: '게이트키퍼',
       score: betweennessScore,
       icon: '🌉',
-      description: '당신은 정보와 사람을 잇는 다리 역할을 합니다. 서로 다른 그룹 사이에서 핵심 매개자로 네트워크 흐름을 조율합니다.',
+      description: '당신은 서로 다른 두 세계를 잇는 대체 불가능한 다리 역할을 합니다. 당신이 없으면 정보 흐름이 단절되거나 크게 우회해야 하는 핵심 위치에 있습니다.',
       metricName: '매개 중심성',
       detail: `${pathsThroughMe}개 경로 매개 / 전체 ${totalConnectedPairs}쌍`,
     },
     {
-      type: '전파자',
+      type: '안테나',
       score: closenessScore,
       icon: '📡',
-      description: '당신은 네트워크 전체에 정보를 빠르게 퍼뜨릴 수 있는 위치에 있습니다. 모든 구성원과 짧은 거리로 연결되어 소통 허브 역할을 합니다.',
+      description: '당신은 남에게 의존하지 않고 네트워크 전체에 가장 빠르게 직접 도달할 수 있는 최적의 위치에 있습니다. 독립적인 전파 속도와 효율성이 강점입니다.',
       metricName: '근접 중심성',
       detail: `평균 ${avgDist}단계 거리 · ${reachableCount}명 도달 가능`,
     },

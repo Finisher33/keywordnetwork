@@ -12,9 +12,11 @@ interface TeaTimeModalProps {
 
 export default function TeaTimeModal({ targetUser, currentUser, myInterests, targetInterests, onSend, onClose }: TeaTimeModalProps) {
   const [msg, setMsg] = useState('');
+  const [msgError, setMsgError] = useState(false);
 
   const handleSend = () => {
-    if (!msg.trim()) { alert('메시지를 입력해주세요.'); return; }
+    if (!msg.trim()) { setMsgError(true); return; }
+    setMsgError(false);
     const myHashtags = myInterests.map(i => `#${i.keyword}`).join(' ');
     onSend(targetUser.id, `${myHashtags}\n\n${msg}`);
     onClose();
@@ -95,11 +97,17 @@ export default function TeaTimeModal({ targetUser, currentUser, myInterests, tar
           </div>
           <textarea
             value={msg}
-            onChange={e => setMsg(e.target.value)}
+            onChange={e => { setMsg(e.target.value); if (e.target.value.trim()) setMsgError(false); }}
             placeholder={`${targetUser.name}님에게 보낼 메시지를 작성하세요...`}
-            className="w-full bg-surface-container-low border border-outline rounded-xl p-4 text-sm resize-none outline-none focus:border-primary"
+            className={`w-full bg-surface-container-low border rounded-xl p-4 text-sm resize-none outline-none focus:border-primary ${msgError ? 'border-error' : 'border-outline'}`}
             rows={4}
           />
+          {msgError && (
+            <p className="text-[11px] text-error font-medium flex items-center gap-1 -mt-1">
+              <span className="material-symbols-outlined text-sm">warning</span>
+              메시지를 입력해주세요.
+            </p>
+          )}
           <button
             onClick={handleSend}
             className="w-full py-4 bg-primary text-on-primary font-bold rounded-xl shadow-lg active:scale-95 transition-all"
@@ -185,20 +193,14 @@ export function TeaReplyModal({
             <textarea
               value={replyMsg}
               onChange={e => setReplyMsg(e.target.value)}
-              placeholder="수락 또는 거절 메시지를 입력해주세요."
+              placeholder="티타임 요청에 대한 답변을 입력해주세요."
               rows={3}
               className="w-full bg-surface-container-low border border-outline rounded-xl p-3 text-sm resize-none outline-none focus:border-primary"
             />
-            <div className="grid grid-cols-2 gap-2.5">
-              <button onClick={() => handleReply('rejected')} disabled={sending}
-                className="py-3 border-2 border-outline text-on-surface-variant font-black rounded-xl hover:bg-surface-container-low transition-all disabled:opacity-50 text-xs">
-                거절하기
-              </button>
-              <button onClick={() => handleReply('accepted')} disabled={sending}
-                className="py-3 bg-primary text-on-primary font-black rounded-xl shadow-lg hover:bg-primary/90 transition-all disabled:opacity-50 text-xs">
-                수락하기
-              </button>
-            </div>
+            <button onClick={() => handleReply('accepted')} disabled={sending}
+              className="w-full py-3 bg-primary text-on-primary font-black rounded-xl shadow-lg hover:bg-primary/90 transition-all disabled:opacity-50 text-xs">
+              수락하기
+            </button>
           </div>
         )}
       </div>

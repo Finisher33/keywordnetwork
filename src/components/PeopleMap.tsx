@@ -430,11 +430,6 @@ export default function PeopleMap({ adminCourseId }: { adminCourseId?: string })
                     <p className="text-xs text-on-surface-variant uppercase font-bold tracking-widest">{selectedUser.company} · {selectedUser.department}</p>
                     <h3 className="font-headline font-black text-2xl text-on-surface uppercase tracking-tight">{selectedUser.name}</h3>
                     <p className="text-base text-secondary font-black uppercase tracking-widest">{selectedUser.title}</p>
-                    {selectedUser.location && (
-                      <p className="text-xs text-on-surface-variant/70 flex items-center gap-0.5 mt-0.5">
-                        <span className="material-symbols-outlined text-sm">location_on</span>{selectedUser.location}
-                      </p>
-                    )}
                   </div>
                 </div>
                 <button onClick={() => setSelectedUser(null)} className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-surface-container-highest transition-colors">

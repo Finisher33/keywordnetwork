@@ -27,7 +27,6 @@ export function computeGroups(
 ): number[][] {
   if (users.length === 0) return [];
   const sorted = [...users].sort((a, b) => a.id.localeCompare(b.id));
-  // keyword가 없는 interest는 방어적으로 제외 (Firestore 데이터 누락 대비)
   const kwSets = sorted.map(u =>
     new Set(
       interests
@@ -44,22 +43,32 @@ export function computeGroups(
   if (avoidGroups) {
     avoidGroups.forEach(g => g.forEach(a => g.forEach(b => { if (a !== b) avoidSet.add(`${a}_${b}`); })));
   }
+
+  const n = sorted.length;
   const seed = stringToSeed(seedStr);
   const order = seededShuffle(sorted.map((_, i) => i), seed);
+
+  // 4명 기본, 나머지는 3명으로 분배 (최소 3명, 최대 4명)
+  const numGroups = Math.max(1, Math.ceil(n / 4));
+  const groupSizes = Array(numGroups).fill(Math.floor(n / numGroups));
+  const remainder = n % numGroups;
+  for (let i = 0; i < remainder; i++) groupSizes[i]++;
+
   const assigned = new Set<number>();
   const groups: number[][] = [];
-  for (const anchor of order) {
-    if (assigned.has(anchor)) continue;
+
+  for (let g = 0; g < numGroups; g++) {
+    const anchor = order.find(i => !assigned.has(i));
+    if (anchor === undefined) break;
     const group = [anchor];
     assigned.add(anchor);
     const remaining = order.filter(i => !assigned.has(i));
     const scored = remaining.map(i => {
       let score = 0;
-      group.forEach(g => { score += pairSim(g, i); if (avoidSet.has(`${g}_${i}`)) score -= 50; });
+      group.forEach(gm => { score += pairSim(gm, i); if (avoidSet.has(`${gm}_${i}`)) score -= 50; });
       return { i, score };
     }).sort((a, b) => b.score - a.score || a.i - b.i);
-    const targetExtra = ((seed ^ anchor) & 1) ? 3 : 2;
-    for (let k = 0; k < Math.min(targetExtra, scored.length); k++) {
+    for (let k = 0; k < Math.min(groupSizes[g] - 1, scored.length); k++) {
       group.push(scored[k].i);
       assigned.add(scored[k].i);
     }

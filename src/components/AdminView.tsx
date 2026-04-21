@@ -1,7 +1,5 @@
 import { useState, FormEvent, useRef, useMemo } from 'react';
-import { useStore, User, MissionGroup } from '../store';
-import { cosineSimilarity } from '../services/embeddingService';
-import { computeGroups, groupIndicesToUserIds } from '../utils/missionUtils';
+import { useStore, User } from '../store';
 import NetworkMap from './NetworkMap';
 import PeopleMap from './PeopleMap';
 import InsightView from './InsightView';
@@ -15,7 +13,7 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
 export default function AdminView({ onBack, onLogout }: { onBack: () => void, onLogout: () => void }) {
-  const { db, addCourse, updateCourse, deleteCourse, addSession, updateSession, deleteSession, toggleSessionActive, deleteUser, resetCourseData, fetchData, addPresetInterest, deletePresetInterest, saveMissionGroups, deleteMissionGroup } = useStore();
+  const { db, addCourse, updateCourse, deleteCourse, addSession, updateSession, deleteSession, toggleSessionActive, deleteUser, resetCourseData, fetchData, addPresetInterest, deletePresetInterest } = useStore();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -80,15 +78,6 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
   const [printProgress, setPrintProgress] = useState(0);
   const printRef = useRef<HTMLDivElement>(null);
 
-  // Mission Matching State
-  const [matchingPreview, setMatchingPreview] = useState<{
-    type: 'lunch' | 'evening';
-    groups: string[][];
-    rematchCount: number;
-  } | null>(null);
-  const [isSavingMatch, setIsSavingMatch] = useState(false);
-  const [matchResetConfirm, setMatchResetConfirm] = useState<'lunch' | 'evening' | null>(null);
-  const [isResettingMatch, setIsResettingMatch] = useState(false);
 
   const showStatus = (type: 'success' | 'error', text: string) => {
     setStatusMessage({ type, text });
@@ -175,73 +164,6 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
     }
   };
 
-  const handlePreviewMatch = (type: 'lunch' | 'evening', rematchCount = 0) => {
-    if (!userListCourseId) return;
-    const courseUsers = db.users
-      .filter(u => u.courseId === userListCourseId)
-      .sort((a, b) => a.id.localeCompare(b.id));
-
-    // 재매칭 시 시드를 다르게 해서 다른 조편성을 생성
-    const seedSuffix = rematchCount > 0 ? `_r${rematchCount}` : '';
-
-    let groups: string[][];
-    if (type === 'lunch') {
-      const idxGroups = computeGroups(courseUsers, db.interests, userListCourseId + 'lunch' + seedSuffix);
-      groups = groupIndicesToUserIds(idxGroups, courseUsers);
-    } else {
-      // Evening avoids lunch groups
-      const confirmedLunch = db.missionGroups.find(g => g.courseId === userListCourseId && g.type === 'lunch');
-      if (confirmedLunch) {
-        const lunchIdxGroups = confirmedLunch.groups.map(g =>
-          g.map(uid => courseUsers.findIndex(u => u.id === uid)).filter(i => i !== -1)
-        );
-        const idxGroups = computeGroups(courseUsers, db.interests, userListCourseId + 'evening' + seedSuffix, lunchIdxGroups);
-        groups = groupIndicesToUserIds(idxGroups, courseUsers);
-      } else {
-        const lunchIdxGroups = computeGroups(courseUsers, db.interests, userListCourseId + 'lunch' + seedSuffix);
-        const idxGroups = computeGroups(courseUsers, db.interests, userListCourseId + 'evening' + seedSuffix, lunchIdxGroups);
-        groups = groupIndicesToUserIds(idxGroups, courseUsers);
-      }
-    }
-    setMatchingPreview({ type, groups, rematchCount });
-  };
-
-  const handleConfirmMatch = async () => {
-    if (!matchingPreview || !userListCourseId) return;
-    setIsSavingMatch(true);
-    try {
-      const group: MissionGroup = {
-        id: `${userListCourseId}_${matchingPreview.type}`,
-        courseId: userListCourseId,
-        type: matchingPreview.type,
-        groups: matchingPreview.groups,
-        confirmedAt: new Date().toISOString(),
-      };
-      await saveMissionGroups(group);
-      setMatchingPreview(null);
-      showStatus('success', `${matchingPreview.type === 'lunch' ? '런치' : '저녁'} 파트너 매칭이 확정되었습니다.`);
-    } catch {
-      showStatus('error', '파트너 매칭 저장에 실패했습니다.');
-    } finally {
-      setIsSavingMatch(false);
-    }
-  };
-
-  const handleResetMatch = async () => {
-    if (!matchResetConfirm || !userListCourseId) return;
-    setIsResettingMatch(true);
-    try {
-      const groupId = `${userListCourseId}_${matchResetConfirm}`;
-      await deleteMissionGroup(groupId);
-      setMatchResetConfirm(null);
-      setMatchingPreview(null);
-      showStatus('success', `${matchResetConfirm === 'lunch' ? '런치' : '저녁'} 매칭이 초기화되었습니다.`);
-    } catch {
-      showStatus('error', '매칭 초기화에 실패했습니다.');
-    } finally {
-      setIsResettingMatch(false);
-    }
-  };
 
   const handleAddSession = async () => {
     if (!selectedCourseId || !sessionName || !sessionTime || !sessionModule || !sessionDay) {
@@ -345,53 +267,6 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
     setSessionInstructor(s.instructor || '');
   };
 
-  const calculateLocationScore = (loc1: string, loc2: string) => {
-    if (!loc1 || !loc2) return 0;
-    
-    // Normalize names (e.g., "서울특별시" -> "서울")
-    const normalize = (l: string) => l.replace(/(특별시|광역시|특별자치시|특별자치도|도|시)$/, '').trim();
-    
-    const parts1 = loc1.split(' ');
-    const parts2 = loc2.split(' ');
-    
-    const city1 = normalize(parts1[0]);
-    const city2 = normalize(parts2[0]);
-    const dist1 = parts1[1] ? normalize(parts1[1]) : '';
-    const dist2 = parts2[1] ? normalize(parts2[1]) : '';
-
-    // 1순위: 시/도와 구/군이 모두 일치 (가장 가까움)
-    if (city1 === city2 && dist1 === dist2 && dist1) return 100;
-    
-    // 2순위: 시/도가 일치
-    if (city1 === city2) return 70;
-
-    // 3순위: 인접 권역 (수도권: 서울/인천/경기)
-    const sudo = ['서울', '인천', '경기'];
-    const isSudo1 = sudo.some(s => city1.includes(s));
-    const isSudo2 = sudo.some(s => city2.includes(s));
-    if (isSudo1 && isSudo2) return 40;
-
-    // 4순위: 인접 권역 (충청권: 대전/세종/충남/충북)
-    const chung = ['대전', '세종', '충남', '충북'];
-    const isChung1 = chung.some(s => city1.includes(s));
-    const isChung2 = chung.some(s => city2.includes(s));
-    if (isChung1 && isChung2) return 30;
-
-    // 5순위: 인접 권역 (경상권: 부산/대구/울산/경남/경북)
-    const gyeong = ['부산', '대구', '울산', '경남', '경북'];
-    const isGyeong1 = gyeong.some(s => city1.includes(s));
-    const isGyeong2 = gyeong.some(s => city2.includes(s));
-    if (isGyeong1 && isGyeong2) return 30;
-
-    // 6순위: 인접 권역 (전라권: 광주/전남/전북)
-    const jeolla = ['광주', '전남', '전북'];
-    const isJeolla1 = jeolla.some(s => city1.includes(s));
-    const isJeolla2 = jeolla.some(s => city2.includes(s));
-    if (isJeolla1 && isJeolla2) return 30;
-
-    return 0;
-  };
-
   const handleStartGrouping = async () => {
     if (!groupingCourseId) {
       showStatus('error', '과정을 선택해주세요.');
@@ -424,7 +299,8 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
 
       // 기준에 따라 대상 키워드 범위 선택 (0-indexed: top1~5 → 0~4, top6~10 → 5~9)
       const [from, to] = groupingCriteria === 'keyword_top5' ? [0, 5] : [5, 10];
-      const targetKws = sortedKws.slice(from, to);
+      // 설정한 조 수만큼만 키워드 사용
+      const targetKws = sortedKws.slice(from, from + Math.min(groupCount, to - from));
 
       if (targetKws.length === 0) {
         showStatus('error', '해당 범위에 해당하는 관심사 키워드가 없습니다.');
@@ -456,10 +332,18 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
         });
       });
 
-      // 빈 조 제외
-      const nonEmptyResults = results.filter(g => g.users.length > 0);
+      // 미배정 유저 → 기타조
+      const unassignedUsers = courseUsers.filter(u => !assignedUserIds.has(u.id));
+      if (unassignedUsers.length > 0) {
+        results.push({
+          groupIndex: -1,
+          keyword: '',
+          users: unassignedUsers,
+          criteriaSummary: `기타조 · ${unassignedUsers.length}명`,
+        });
+      }
 
-      setGroupingResults(nonEmptyResults.length > 0 ? nonEmptyResults : results);
+      setGroupingResults(results);
       setIsGroupingPopupOpen(true);
     } catch (error) {
       console.error("Grouping error:", error);
@@ -513,7 +397,7 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
       return;
     }
 
-    const headers = ['회사', '성함', '담당조직', '직책', '근무지', 'be Giver', 'be Taker'];
+    const headers = ['회사', '성함', '담당조직', '직책', 'be Giver', 'be Taker'];
     const rows = courseUsers.map(u => {
       const userInterests = db.interests.filter(i => i.userId === u.id);
       const giverKeywords = userInterests.filter(i => i.type === 'giver').map(i => i.keyword).join(', ');
@@ -523,7 +407,6 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
         u.name || '',
         u.department || '',
         u.title || '',
-        u.location || '',
         giverKeywords,
         takerKeywords
       ];
@@ -1073,7 +956,7 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
             <section className="bg-white p-4 sm:p-8 rounded-xl border border-outline shadow-sm space-y-8">
               <h3 className="font-headline text-base sm:text-lg font-black text-tertiary uppercase tracking-tight">과정별 조편성</h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-8">
                 <div className="space-y-2">
                   <label className="text-[9px] sm:text-[10px] font-black text-on-surface-variant uppercase tracking-widest px-1">과정 선택</label>
                   <select
@@ -1099,9 +982,22 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
                     <option value="keyword_top6_10">관심사 키워드 Top 6~10</option>
                   </select>
                 </div>
+
+                <div className="space-y-2">
+                  <label className="text-[9px] sm:text-[10px] font-black text-on-surface-variant uppercase tracking-widest px-1">조 숫자 설정</label>
+                  <select
+                    value={groupCount}
+                    onChange={(e) => setGroupCount(Number(e.target.value))}
+                    className="w-full bg-surface-container-low border border-outline rounded-lg px-4 py-3 text-sm sm:text-base text-on-surface outline-none focus:border-tertiary focus:ring-1 focus:ring-tertiary font-medium"
+                  >
+                    {[1,2,3,4,5,6,7,8].map(n => (
+                      <option key={n} value={n}>{n}조</option>
+                    ))}
+                  </select>
+                </div>
               </div>
               <p className="text-[11px] text-on-surface-variant/70 leading-relaxed">
-                선택된 키워드 범위에서 빈도 Top 순위대로 각 키워드를 1개 조로 편성합니다. 한 유저는 가장 높은 순위의 키워드 조에 1번만 배정됩니다.
+                선택된 키워드 범위에서 빈도 Top 순위대로 설정한 조 수만큼 편성합니다. 한 유저는 가장 높은 순위의 키워드 조에 1번만 배정되며, 해당 관심사가 없는 유저는 기타조에 배정됩니다.
               </p>
 
               <div className="flex justify-center pt-4">
@@ -1148,29 +1044,6 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
                   </select>
                 </div>
                 <div className="flex gap-3 w-full sm:w-auto overflow-x-auto no-scrollbar pb-2 sm:pb-0">
-                  {/* 런치 매칭 버튼 + 초기화 */}
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => handlePreviewMatch('lunch')}
-                      disabled={!userListCourseId}
-                      className="flex-1 sm:flex-none px-4 py-3 bg-primary text-on-primary font-black rounded-lg flex items-center justify-center gap-2 uppercase tracking-widest hover:bg-primary/90 transition-all disabled:opacity-30 disabled:cursor-not-allowed text-xs whitespace-nowrap"
-                      title="런치 파트너 매칭"
-                    >
-                      <span className="material-symbols-outlined text-sm">restaurant</span> 런치 매칭
-                      {db.missionGroups.some(g => g.courseId === userListCourseId && g.type === 'lunch') && (
-                        <span className="ml-1 w-2 h-2 rounded-full bg-green-400 inline-block" />
-                      )}
-                    </button>
-                    {db.missionGroups.some(g => g.courseId === userListCourseId && g.type === 'lunch') && (
-                      <button
-                        onClick={() => setMatchResetConfirm('lunch')}
-                        title="런치 매칭 초기화"
-                        className="w-9 h-9 flex items-center justify-center rounded-lg border border-primary/40 text-primary hover:bg-primary/10 transition-colors"
-                      >
-                        <span className="material-symbols-outlined text-base">restart_alt</span>
-                      </button>
-                    )}
-                  </div>
                   <button
                     onClick={() => setCourseToReset(userListCourseId)}
                     disabled={!userListCourseId}
@@ -1198,17 +1071,9 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
               </div>
 
               {userListCourseId && (() => {
-                const confirmedLunch = db.missionGroups.find(g => g.courseId === userListCourseId && g.type === 'lunch');
-
-                const getUserGroupLabel = (confirmedGroup: typeof confirmedLunch, userId: string): string => {
-                  if (!confirmedGroup) return '-';
-                  const idx = confirmedGroup.groups.findIndex(g => g.includes(userId));
-                  return idx !== -1 ? `${idx + 1}조` : '-';
-                };
-
                 return (
                   <div className="overflow-x-auto border border-outline rounded-xl">
-                    <table className="w-full text-left border-collapse min-w-[1000px]">
+                    <table className="w-full text-left border-collapse min-w-[800px]">
                       <thead>
                         <tr className="bg-surface-container-low border-b border-outline">
                           {[
@@ -1216,7 +1081,6 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
                             { key: 'name', label: '성함' },
                             { key: 'department', label: '담당조직' },
                             { key: 'title', label: '직책' },
-                            { key: 'location', label: '근무지' },
                             { key: 'giver', label: 'be Giver' },
                             { key: 'taker', label: 'be Taker' },
                           ].map((col) => (
@@ -1233,11 +1097,6 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
                               </div>
                             </th>
                           ))}
-                          <th className="p-4 text-[10px] font-black uppercase tracking-widest text-primary text-center whitespace-nowrap">
-                            <div className="flex items-center gap-1 justify-center">
-                              <span className="material-symbols-outlined text-xs">restaurant</span> 런치조
-                            </div>
-                          </th>
                           <th className="p-4 text-[10px] font-black uppercase tracking-widest text-on-surface-variant text-center">관리</th>
                         </tr>
                       </thead>
@@ -1246,7 +1105,6 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
                           const userInterests = db.interests.filter(i => i.userId === user.id);
                           const giverInterests = userInterests.filter(i => i.type === 'giver');
                           const takerInterests = userInterests.filter(i => i.type === 'taker');
-                          const lunchLabel = getUserGroupLabel(confirmedLunch, user.id);
 
                           return (
                             <tr key={user.id} className="hover:bg-surface-container-low transition-colors">
@@ -1254,7 +1112,6 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
                               <td className="p-4 text-sm font-bold text-primary">{user.name}</td>
                               <td className="p-4 text-sm text-on-surface-variant">{user.department}</td>
                               <td className="p-4 text-sm text-on-surface-variant">{user.title}</td>
-                              <td className="p-4 text-sm text-on-surface-variant">{user.location}</td>
                               <td className="p-4 text-sm text-on-surface-variant">
                                 <div className="flex flex-wrap gap-1.5">
                                   {giverInterests.map((i, idx) => (
@@ -1272,11 +1129,6 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
                                     </span>
                                   ))}
                                 </div>
-                              </td>
-                              <td className="p-4 text-center">
-                                <span className={`text-xs font-black px-2.5 py-1 rounded-lg ${lunchLabel !== '-' ? 'bg-primary/10 text-primary' : 'text-on-surface-variant/40'}`}>
-                                  {lunchLabel}
-                                </span>
                               </td>
                               <td className="p-4 text-center">
                                 <div className="flex items-center justify-center gap-2">
@@ -1308,7 +1160,7 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
                         })}
                         {getSortedUsers().length === 0 && (
                           <tr>
-                            <td colSpan={11} className="p-12 text-center text-on-surface-variant italic font-medium">등록된 인원이 없습니다.</td>
+                            <td colSpan={7} className="p-12 text-center text-on-surface-variant italic font-medium">등록된 인원이 없습니다.</td>
                           </tr>
                         )}
                       </tbody>
@@ -1524,141 +1376,6 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
         </div>
       )}
 
-      {/* Mission Matching Preview Modal */}
-      {matchingPreview && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl p-6 sm:p-8 max-w-lg w-full shadow-2xl border border-outline max-h-[85vh] flex flex-col">
-            {/* 모달 헤더 */}
-            <div className="flex items-center gap-3 mb-4 shrink-0">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${matchingPreview.type === 'lunch' ? 'bg-primary/10' : 'bg-[#b5944c]/10'}`}>
-                <span className={`material-symbols-outlined ${matchingPreview.type === 'lunch' ? 'text-primary' : 'text-[#b5944c]'}`}>
-                  {matchingPreview.type === 'lunch' ? 'restaurant' : 'nightlife'}
-                </span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="text-base font-black text-on-surface uppercase tracking-tight">
-                    {matchingPreview.type === 'lunch' ? '런치' : '저녁'} 파트너 매칭 결과
-                  </h3>
-                  {matchingPreview.rematchCount > 0 && (
-                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-secondary/15 text-secondary">
-                      재매칭 #{matchingPreview.rematchCount}
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-on-surface-variant mt-0.5">
-                  총 {matchingPreview.groups.length}개 조 편성 — 결과가 마음에 들면 확정하세요
-                </p>
-              </div>
-              <button onClick={() => setMatchingPreview(null)} className="p-1.5 rounded-lg hover:bg-surface-container-low text-on-surface-variant shrink-0">
-                <span className="material-symbols-outlined text-base">close</span>
-              </button>
-            </div>
-
-            {/* 조편성 목록 */}
-            <div className="overflow-y-auto flex-1 space-y-3 pr-1">
-              {matchingPreview.groups.map((group, gi) => (
-                <div key={gi} className="border border-outline/50 rounded-xl p-3">
-                  <p className={`text-[10px] font-black uppercase tracking-widest mb-2 ${matchingPreview.type === 'lunch' ? 'text-primary' : 'text-[#b5944c]'}`}>
-                    {gi + 1}조
-                  </p>
-                  <div className="space-y-1.5">
-                    {group.map(uid => {
-                      const user = db.users.find(u => u.id === uid);
-                      if (!user) return null;
-                      return (
-                        <div key={uid} className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-surface-container-high flex items-center justify-center shrink-0">
-                            <span className="text-[10px] font-black text-on-surface-variant">{user.name.charAt(0)}</span>
-                          </div>
-                          <span className="text-xs font-bold text-on-surface">{user.name}</span>
-                          <span className="text-[10px] text-on-surface-variant/60">{user.company}{user.title ? ` · ${user.title}` : ''}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* 버튼 행: 취소 | 재매칭 | 확정하기 */}
-            <div className="flex gap-2 mt-4 shrink-0">
-              <button
-                onClick={() => setMatchingPreview(null)}
-                disabled={isSavingMatch}
-                className="px-3 py-3 border border-outline rounded-xl text-on-surface font-black text-xs hover:bg-surface-container-low transition-colors disabled:opacity-40 whitespace-nowrap"
-              >
-                취소
-              </button>
-              <button
-                onClick={() => handlePreviewMatch(matchingPreview.type, matchingPreview.rematchCount + 1)}
-                disabled={isSavingMatch}
-                className="flex-1 px-4 py-3 border-2 border-secondary text-secondary font-black text-sm rounded-xl flex items-center justify-center gap-2 hover:bg-secondary/8 transition-colors disabled:opacity-40"
-              >
-                <span className="material-symbols-outlined text-base">shuffle</span> 재매칭
-              </button>
-              <button
-                onClick={handleConfirmMatch}
-                disabled={isSavingMatch}
-                className={`flex-1 px-4 py-3 rounded-xl text-white font-black text-sm flex items-center justify-center gap-2 transition-colors disabled:opacity-50 ${matchingPreview.type === 'lunch' ? 'bg-primary hover:bg-primary/90' : 'bg-[#b5944c] hover:bg-[#b5944c]/90'}`}
-              >
-                {isSavingMatch ? (
-                  <>
-                    <span className="material-symbols-outlined text-base animate-spin">sync</span> 저장 중...
-                  </>
-                ) : (
-                  <>
-                    <span className="material-symbols-outlined text-base">check_circle</span> 확정하기
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Match Reset Confirmation Modal */}
-      {matchResetConfirm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl p-6 sm:p-8 max-w-sm w-full shadow-2xl border border-outline animate-in fade-in zoom-in duration-200">
-            <div className="flex flex-col items-center text-center gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-error/10 flex items-center justify-center">
-                <span className="material-symbols-outlined text-error text-3xl">restart_alt</span>
-              </div>
-              <div>
-                <h3 className="text-lg font-black text-on-surface">
-                  {matchResetConfirm === 'lunch' ? '런치' : '저녁'} 매칭 초기화
-                </h3>
-                <p className="text-sm text-on-surface-variant mt-2 leading-relaxed">
-                  확정된 <strong>{matchResetConfirm === 'lunch' ? '런치' : '저녁'} 파트너 매칭</strong>을 삭제합니다.<br/>
-                  유저 화면에서도 매칭 정보가 사라집니다. 계속할까요?
-                </p>
-              </div>
-              <div className="flex gap-3 w-full mt-2">
-                <button
-                  onClick={() => setMatchResetConfirm(null)}
-                  disabled={isResettingMatch}
-                  className="flex-1 px-4 py-3 border border-outline rounded-xl text-on-surface font-black text-sm hover:bg-surface-container-low transition-colors disabled:opacity-40"
-                >
-                  취소
-                </button>
-                <button
-                  onClick={handleResetMatch}
-                  disabled={isResettingMatch}
-                  className="flex-1 px-4 py-3 bg-error text-white font-black text-sm rounded-xl flex items-center justify-center gap-2 hover:bg-error/90 transition-colors disabled:opacity-50"
-                >
-                  {isResettingMatch ? (
-                    <><span className="material-symbols-outlined text-base animate-spin">sync</span> 초기화 중...</>
-                  ) : (
-                    <><span className="material-symbols-outlined text-base">delete</span> 초기화</>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Delete Confirmation Modal */}
       {userToDelete && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -1775,7 +1492,7 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
               <div>
                 <h3 className="font-headline font-black text-2xl text-tertiary uppercase tracking-tight">조편성 결과</h3>
                 <p className="text-[10px] text-on-surface-variant mt-1 font-black uppercase tracking-widest">
-                  {db.courses.find(c => c.id === groupingCourseId)?.name} • {groupingCriteria === 'keyword_top5' ? '키워드 Top 1~5' : '키워드 Top 6~10'} 기준 • {groupingResults.length}개 조
+                  {db.courses.find(c => c.id === groupingCourseId)?.name} • {groupingCriteria === 'keyword_top5' ? '키워드 Top 1~5' : '키워드 Top 6~10'} 기준 • {groupCount}조 설정 • {groupingResults.filter(g => g.groupIndex !== -1).length}개 키워드조{groupingResults.some(g => g.groupIndex === -1) ? ' + 기타조' : ''}
                 </p>
               </div>
               <button 
@@ -1788,19 +1505,26 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
 
             <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {groupingResults.map(group => (
-                  <div key={group.groupIndex} className="bg-white border border-outline rounded-lg overflow-hidden shadow-sm">
-                    <div className="bg-tertiary/10 px-4 py-3 border-b border-tertiary/20">
+                {groupingResults.map(group => {
+                  const isEtc = group.groupIndex === -1;
+                  return (
+                  <div key={group.groupIndex} className={`bg-white border rounded-lg overflow-hidden shadow-sm ${isEtc ? 'border-outline/50' : 'border-outline'}`}>
+                    <div className={`px-4 py-3 border-b ${isEtc ? 'bg-surface-container-low border-outline/30' : 'bg-tertiary/10 border-tertiary/20'}`}>
                       <div className="flex justify-between items-center">
-                        <span className="font-black text-tertiary uppercase tracking-widest text-sm">{group.groupIndex}조</span>
+                        <span className={`font-black uppercase tracking-widest text-sm ${isEtc ? 'text-on-surface-variant' : 'text-tertiary'}`}>
+                          {isEtc ? '기타조' : `${group.groupIndex}조`}
+                        </span>
                         <span className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest">{group.users.length}명</span>
                       </div>
-                      {(group as any).keyword && (
+                      {!isEtc && (group as any).keyword && (
                         <div className="mt-1.5">
                           <span className="text-[10px] font-black bg-tertiary text-on-tertiary px-2 py-0.5 rounded-full uppercase tracking-widest">
                             #{(group as any).keyword}
                           </span>
                         </div>
+                      )}
+                      {isEtc && (
+                        <p className="text-[9px] text-on-surface-variant/60 mt-0.5">해당 관심사 없는 유저 자유선택</p>
                       )}
                     </div>
                     <div className="p-4">
@@ -1827,7 +1551,8 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
                       </table>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
