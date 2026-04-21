@@ -27,41 +27,19 @@ function SectionTitle({ icon, title, badge }: { icon: string; title: string; bad
   );
 }
 
-// ─── 비지배 유형 간략 설명 (2줄 이내) ────────────────────────────────────────
-const SNA_SHORT_DESCRIPTIONS: Record<string, string> = {
-  '마당발(인플루언서)': '연결 중심성이 높은 유형으로, 과정 내에서 가장 많은 리더와 직접 연결되어 있습니다. 다양한 키워드를 통해 폭넓은 관계망을 보유하며 정보를 빠르게 확산시키는 허브 역할을 합니다.',
-  '게이트키퍼': '매개 중심성이 높은 유형으로, 서로 다른 그룹 사이를 잇는 핵심 연결자입니다. 나를 경유해야만 전달되는 정보 흐름이 많아 네트워크에서 대체 불가능한 다리 역할을 합니다.',
-  '안테나': '근접 중심성이 높은 유형으로, 네트워크 내 모든 리더에게 가장 짧은 경로로 도달할 수 있습니다. 특정 경로에 의존하지 않고 독립적으로 정보를 전파할 수 있는 최적의 위치에 있습니다.',
-};
-
-// ─── SNA 유형별 풍부한 설명 ───────────────────────────────────────────────────
-const SNA_RICH_DESCRIPTIONS: Record<string, { subtitle: string; sections: { label: string; content: string }[] }> = {
-  '마당발(인플루언서)': {
-    subtitle: '연결 중심성 — "네트워크의 핵인싸" (Social Magnet)',
-    sections: [
-      { label: '고유 속성', content: '연결 중심성만의 고유한 속성은 가시적인 활동성입니다.' },
-      { label: '차별화 포인트', content: '네트워크의 구조나 위치를 따지기 전에, 당장 내 주변에 얼마나 많은 사람이 실시간으로 연결되어 있는가입니다.' },
-      { label: '결정적 속성', content: '[확산력] — 내가 한마디만 해도 즉각적으로 반응할 직속 부대가 가장 많다는 뜻으로, 단기적인 정보 전파나 동원 능력이 가장 강력합니다.' },
-      { label: '비유', content: '수많은 팔로워를 거느린 대형 유튜버나 대학 축제 때 가장 많은 사람을 불러 모으는 인기 과대표와 같습니다. 복잡한 전략 없이도 오직 숫자의 힘만으로 네트워크 내에서 가장 큰 목소리를 낼 수 있습니다.' },
-    ],
-  },
+// ─── SNA 유형별 설명 ────────────────────────────────────────────────────────
+const SNA_DESCRIPTIONS: Record<string, { intro: string; analogy: string }> = {
   '안테나': {
-    subtitle: '근접 중심성 — "독립적인 전파자"',
-    sections: [
-      { label: '고유 속성', content: '근접 중심성만의 고유한 속성은 독립적인 전파 속도입니다.' },
-      { label: '차별화 포인트', content: '남에게 의존하지 않고 모든 노드에 얼마나 직격으로 닿을 수 있는가입니다.' },
-      { label: '결정적 속성', content: '[효율성] — 매개 중심성이 남들의 대화를 가로막는 힘이라면, 근접 중심성은 내가 직접 남들에게 도달하는 능력입니다.' },
-      { label: '비유', content: '119 소방서나 쿠팡 물류센터와 같습니다. 특정 길목을 막고 서 있는 건 아니지만, 사고가 나거나 배송을 할 때 도시 어느 지점이든 가장 짧은 시간 안에 도착할 수 있는 최적의 입지에 있는 것입니다.' },
-    ],
+    intro: '리더님은 근접 중심성이 높은 안테나형 리더입니다. 근접 중심성만의 고유한 속성은 독립적인 전파 속도로, 근접 중심성이 높을수록 남에게 의존하지 않고 모든 노드에 빠르게 연결될 수 있습니다.',
+    analogy: '안테나 유형을 비유하자면 119 소방서나 쿠팡 물류센터와 같습니다. 네트워크 내에서 특정 길목을 막고 서 있는 건 아니지만, 사고가 나거나 배송을 할 때 도시 어느 지점이든 가장 짧은 시간 안에 도착할 수 있는 최적의 입지에 있는 것입니다. 즉, 다른 리더분들께 최단 거리로 도달할 수 있는 강점이 있는 유형입니다.',
+  },
+  '마당발(인플루언서)': {
+    intro: '리더님은 연결 중심성이 높은 마당발(인플루언서)형 리더입니다. 연결 중심성만의 고유한 속성은 가시적인 활동성으로, 당장 내 주변에 많은 사람이 연결되어 있을수록 연결중심성은 높게 측정됩니다.',
+    analogy: '마당발 유형을 비유하자면 수많은 팔로워를 거느린 대형 유튜버나 대학 축제 때 가장 많은 사람을 불러 모으는 인기 과대표와 같습니다. 복잡한 전략 없이도 오직 숫자의 힘만으로 네트워크 내에서 가장 큰 목소리를 낼 수 있습니다.',
   },
   '게이트키퍼': {
-    subtitle: '매개 중심성 — "대체 불가능한 연결자"',
-    sections: [
-      { label: '고유 속성', content: '매개 중심성만의 고유한 속성은 대체 불가능성입니다.' },
-      { label: '차별화 포인트', content: '단순히 중심에 있는 것이 아니라, 서로 다른 두 세계(클러스터)를 잇는 외줄기 다리 위에 서 있는가입니다.' },
-      { label: '결정적 속성', content: '[통제권] — 이 노드가 사라지면 네트워크는 물리적으로 절단되거나, 정보 전달 경로가 엄청나게 길어집니다.' },
-      { label: '비유', content: '서울과 부산을 잇는 유일한 고속도로의 휴게소와 같습니다. 모두가 그곳을 거쳐야만 하기에, 휴게소 주인은 정보와 흐름을 마음대로 주무를 수 있습니다.' },
-    ],
+    intro: '리더님은 매개 중심성이 높은 게이트키퍼형 리더입니다. 매개 중심성만의 고유한 속성은 대체 불가능성입니다. 단순히 중심에 있는 것이 아니라, 서로 다른 두 세계(클러스터)를 잇는 중요한 위치에 있을수록 매개 중심성은 높게 측정됩니다.',
+    analogy: '게이트키퍼형을 비유하자면 서울과 부산을 잇는 유일한 고속도로의 휴게소와 같습니다. 모두가 그곳을 거쳐야만 하기에, 휴게소 주인은 정보와 흐름을 통제하거나 원활하게 하는 역할이 가능합니다.',
   },
 };
 
@@ -213,13 +191,13 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
         {/* 소개 문구 */}
         <div className="bg-surface-container-low border border-outline/40 rounded-xl px-4 py-3 space-y-1.5">
           <p className="text-xs text-on-surface-variant leading-relaxed">
-            소셜 네트워크 분석이란 개별 주체의 속성(나이, 성별 등)보다는 주체들 간의 <span className="font-bold text-on-surface">'관계(Relationship)'와 '구조(Structure)'</span>에 집중하여 사회적 현상을 정량적으로 분석하는 기법입니다.
+            소셜 네트워크 분석이란 사람/객체간의 속성(나이, 성별 등)보다는 그들 간의 <span className="font-bold text-on-surface">'관계(Relationship)'와 '구조(Structure)'</span>에 집중하여 사회적 현상을 정량적으로 분석하는 기법입니다.
           </p>
           <p className="text-xs text-on-surface-variant leading-relaxed">
-            점(Node)과 선(Link)으로 이루어진 데이터를 통해 집단 내의 정보 흐름이나 권력 지도를 시각화하고 통계적으로 증명합니다.
+            점(Node)과 선(Link)으로 이루어진 데이터를 통해 집단 내의 정보 흐름이나 권력 지도를 시각화하고 통계적으로 확인합니다.
           </p>
           <p className="text-xs text-on-surface-variant leading-relaxed">
-            본 과정 내 리더들 간의 관심사 데이터를 종합 분석 결과, <span className="font-bold text-primary">{currentUser?.name}</span>님의 네트워크 유형은{' '}
+            리더님께서 입력한 관심사와 본 과정에 참여한 리더분들이 입력한 관심사 간의 데이터를 종합 분석 결과, <span className="font-bold text-primary">{currentUser?.name}</span>님의 네트워크 유형은{' '}
             {snaResult && !snaResult.allZero && snaResult.dominant
               ? <><span className="font-bold text-primary">{snaResult.dominant.type}</span> 유형입니다.</>
               : '아직 분석 중입니다.'
@@ -267,7 +245,7 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
           <>
             {/* Dominant type card */}
             {(() => {
-              const rich = SNA_RICH_DESCRIPTIONS[snaResult.dominant!.type];
+              const desc = SNA_DESCRIPTIONS[snaResult.dominant!.type];
               return (
                 <div className="bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 rounded-2xl p-6 space-y-4">
                   <div className="flex gap-4 items-start">
@@ -279,18 +257,13 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
                         <span className="text-3xl font-black text-primary">{snaResult.dominant!.score.toFixed(0)}</span>
                         <span className="text-xs text-primary/50 font-bold">/ 100</span>
                       </div>
-                      {rich && <p className="text-xs font-bold text-primary/70 italic">{rich.subtitle}</p>}
                       <p className="text-xs text-primary/60 mt-1">{snaResult.dominant!.detail}</p>
                     </div>
                   </div>
-                  {rich && (
+                  {desc && (
                     <div className="space-y-2 pt-2 border-t border-primary/20">
-                      {rich.sections.map(sec => (
-                        <div key={sec.label}>
-                          <span className="text-[11px] font-black text-primary uppercase tracking-widest">{sec.label} </span>
-                          <span className="text-xs text-on-surface-variant leading-relaxed">{sec.content}</span>
-                        </div>
-                      ))}
+                      <p className="text-xs text-on-surface-variant leading-relaxed">{desc.intro}</p>
+                      <p className="text-xs text-on-surface-variant leading-relaxed">{desc.analogy}</p>
                     </div>
                   )}
                 </div>
@@ -323,9 +296,11 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
                       {t.detail}
                     </p>
                   )}
-                  <p className="text-xs text-on-surface-variant/80 leading-relaxed">
-                    {SNA_SHORT_DESCRIPTIONS[t.type]}
-                  </p>
+                  {SNA_DESCRIPTIONS[t.type] && (
+                    <p className="text-xs text-on-surface-variant/80 leading-relaxed">
+                      {SNA_DESCRIPTIONS[t.type].analogy}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>
