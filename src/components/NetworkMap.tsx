@@ -449,7 +449,7 @@ export default function NetworkMap({ adminCourseId }: { adminCourseId?: string }
             >
               {node.type === 'user' && node.data?.id === currentUser?.id && (
                 <circle
-                  r={12}
+                  r={18}
                   fill="none"
                   stroke="#3b82f6"
                   strokeWidth={2}
@@ -457,7 +457,9 @@ export default function NetworkMap({ adminCourseId }: { adminCourseId?: string }
                 />
               )}
               <circle
-                r={node.type === 'user' ? 8 : 12}
+                r={node.type === 'user'
+                  ? (node.data?.id === currentUser?.id ? 12 : 8)
+                  : 12}
                 fill={node.color}
                 fillOpacity={0.9}
                 stroke="white"
@@ -466,7 +468,9 @@ export default function NetworkMap({ adminCourseId }: { adminCourseId?: string }
               />
               <text
                 textAnchor="middle"
-                dy={node.type === 'user' ? 20 : 25}
+                dy={node.type === 'user'
+                  ? (node.data?.id === currentUser?.id ? 26 : 20)
+                  : 25}
                 className={`text-xs font-sans font-bold pointer-events-none uppercase tracking-tight ${node.type === 'user' && node.data?.id === currentUser?.id ? 'fill-blue-600' : 'fill-on-surface'}`}
                 style={{ 
                   paintOrder: 'stroke',
@@ -1033,17 +1037,21 @@ function PersonalNetworkMap({ currentUser, db, onSelectUser, onSelectKeyword }: 
               style={{ cursor: 'pointer', pointerEvents: 'all' }}
             >
               {node.type === 'user' && node.data?.id === currentUser.id && (
-                <circle r={14} fill="none" stroke="#3b82f6" strokeWidth={2} className="animate-pulse" />
+                <circle r={21} fill="none" stroke="#3b82f6" strokeWidth={2} className="animate-pulse" />
               )}
               <circle
-                r={node.type === 'user' ? 10 : 14}
+                r={node.type === 'user'
+                  ? (node.data?.id === currentUser.id ? 15 : 10)
+                  : 14}
                 fill={node.color}
                 stroke="white"
                 strokeWidth={2}
               />
               <text
                 textAnchor="middle"
-                dy={node.type === 'user' ? 22 : 28}
+                dy={node.type === 'user'
+                  ? (node.data?.id === currentUser.id ? 29 : 22)
+                  : 28}
                 className={`text-xs font-bold fill-on-surface pointer-events-none uppercase tracking-tight ${node.type === 'user' && node.data?.id === currentUser.id ? 'fill-blue-600' : ''}`}
                 style={{ paintOrder: 'stroke', stroke: '#ffffff', strokeWidth: '3px' }}
               >

@@ -167,7 +167,8 @@ export default function MyProfile({ onSave, onLogout, showBack = true, targetUse
         company: company === '직접입력' ? customCompany : company,
         name, department, title, profilePic
       }, newInterests);
-      onSave();
+      // setInterests 상태 업데이트가 React에 반영된 후 페이지 전환
+      setTimeout(() => onSave(), 0);
     } catch (error: any) {
       console.error("Failed to save profile:", error);
       showToast(error?.message || '프로필 저장 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.', 'error');
@@ -499,7 +500,7 @@ export default function MyProfile({ onSave, onLogout, showBack = true, targetUse
                 </h3>
               </div>
               <p className="text-sm text-on-surface-variant/70 leading-relaxed">
-                자신이 다른 리더들에게 줄 수 있는 가치나 도움을 키워드와 함께 상세히 적어주세요. (최소 2개, 최대 5개)
+                자신이 다른 리더들에게 줄 수 있는 전문분야나 관심사가 있다면 키워드와 함께 이유를 상세히 적어주세요. (최소 2개, 최대 5개)
               </p>
               <div className="grid gap-6">
                 {givers.map((g, idx) => renderKeywordCard(g, idx, 'giver', givers, setGivers, removeGiver, 'primary'))}
@@ -510,7 +511,7 @@ export default function MyProfile({ onSave, onLogout, showBack = true, targetUse
                   className="w-full py-3 flex items-center justify-center gap-2 text-base font-bold text-primary border-2 border-dashed border-primary/40 rounded-2xl hover:bg-primary/5 hover:border-primary/70 transition-all"
                 >
                   <span className="material-symbols-outlined text-xl">add_circle</span>
-                  관심사 추가하기 ({givers.length}/5)
+                  키워드 추가하기 ({givers.length}/5)
                 </button>
               )}
             </div>
@@ -525,7 +526,7 @@ export default function MyProfile({ onSave, onLogout, showBack = true, targetUse
                 </h3>
               </div>
               <p className="text-sm text-on-surface-variant/70 leading-relaxed">
-                다른 리더들로부터 배우고 싶거나 도움을 받고 싶은 분야를 키워드와 함께 적어주세요. (최소 2개, 최대 5개)
+                자신이 다른 리더들로부터 배우고 싶거나, 도움을 받고 싶은 키워드를 선택하시고, 이유를 상세히 적어주세요. (최소 2개, 최대 5개)
               </p>
               <div className="grid gap-6">
                 {takers.map((t, idx) => renderKeywordCard(t, idx, 'taker', takers, setTakers, removeTaker, 'secondary'))}
@@ -536,7 +537,7 @@ export default function MyProfile({ onSave, onLogout, showBack = true, targetUse
                   className="w-full py-3 flex items-center justify-center gap-2 text-base font-bold text-secondary border-2 border-dashed border-secondary/40 rounded-2xl hover:bg-secondary/5 hover:border-secondary/70 transition-all"
                 >
                   <span className="material-symbols-outlined text-xl">add_circle</span>
-                  관심사 추가하기 ({takers.length}/5)
+                  키워드 추가하기 ({takers.length}/5)
                 </button>
               )}
             </div>

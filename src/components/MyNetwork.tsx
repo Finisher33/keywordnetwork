@@ -91,7 +91,13 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
   // ── handlers ───────────────────────────────────────────────────────────────
   const handleSendTeaTime = async (message: string) => {
     if (!selectedUser || !currentUser) return;
-    await sendTeaTimeRequest(currentUser.id, selectedUser.id, message);
+    await sendTeaTimeRequest({
+      id: Date.now().toString(),
+      fromUserId: currentUser.id,
+      toUserId: selectedUser.id,
+      message,
+      status: 'pending'
+    });
     setSelectedUser(null);
   };
 

@@ -232,7 +232,7 @@ export default function MainView({ onAdminClick }: { onAdminClick: () => void })
               <SelectField label="과정 선택">
                 <select value={courseId} onChange={e => setCourseId(e.target.value)} disabled={isRegistering} className={selectCls}>
                   <option value="" disabled>과정을 선택하세요</option>
-                  {db.courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  {db.courses.filter(c => c.isActive ?? true).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </SelectField>
 

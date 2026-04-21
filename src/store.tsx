@@ -54,6 +54,7 @@ export interface Course {
   id: string;
   name: string;
   password?: string;
+  isActive?: boolean;
 }
 
 export interface Session {

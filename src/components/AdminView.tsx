@@ -1,5 +1,5 @@
 import { useState, FormEvent, useRef, useMemo } from 'react';
-import { useStore, User } from '../store';
+import { useStore, User, Course } from '../store';
 import NetworkMap from './NetworkMap';
 import PeopleMap from './PeopleMap';
 import InsightView from './InsightView';
@@ -118,10 +118,12 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
     if (!editingCourseId || !editCourseName) return;
     setIsProcessing(true);
     try {
+      const existing = db.courses.find(c => c.id === editingCourseId);
       await updateCourse({
         id: editingCourseId,
         name: editCourseName,
-        password: editCoursePassword
+        password: editCoursePassword,
+        isActive: existing?.isActive ?? true
       });
       setEditingCourseId(null);
       setEditCourseName('');
@@ -131,6 +133,14 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
       showStatus('error', '과정 수정에 실패했습니다.');
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handleToggleCourseActive = async (course: Course) => {
+    try {
+      await updateCourse({ ...course, isActive: !(course.isActive ?? true) });
+    } catch (e) {
+      showStatus('error', '상태 변경에 실패했습니다.');
     }
   };
 
@@ -696,27 +706,29 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
                 </div>
 
                 <div className="grid gap-3 mt-6">
-                  {db.courses.map(course => (
-                    <div key={course.id} className="bg-surface-container-high p-3 sm:p-4 rounded-xl flex justify-between items-center border border-outline-variant/10">
+                  {db.courses.map(course => {
+                    const isActive = course.isActive ?? true;
+                    return (
+                    <div key={course.id} className={`bg-surface-container-high p-3 sm:p-4 rounded-xl flex justify-between items-center border transition-opacity ${isActive ? 'border-outline-variant/10' : 'border-outline-variant/10 opacity-50'}`}>
                       {editingCourseId === course.id ? (
                         <div className="flex-1 flex flex-col sm:flex-row gap-2">
-                          <input 
-                            type="text" 
-                            value={editCourseName} 
+                          <input
+                            type="text"
+                            value={editCourseName}
                             onChange={e => setEditCourseName(e.target.value)}
                             placeholder="과정명"
                             className="flex-1 bg-surface-container-highest border-none rounded-lg px-3 py-1 text-xs sm:text-sm outline-none"
                           />
-                          <input 
-                            type="text" 
-                            value={editCoursePassword} 
+                          <input
+                            type="text"
+                            value={editCoursePassword}
                             onChange={e => setEditCoursePassword(e.target.value)}
                             placeholder="비밀번호"
                             className="w-full sm:w-32 bg-surface-container-highest border-none rounded-lg px-3 py-1 text-xs sm:text-sm outline-none"
                           />
                           <div className="flex gap-2">
-                            <button 
-                              onClick={handleUpdateCourse} 
+                            <button
+                              onClick={handleUpdateCourse}
                               disabled={isProcessing}
                               className="text-primary font-bold text-[10px] sm:text-xs disabled:opacity-50"
                             >
@@ -728,15 +740,26 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
                       ) : (
                         <>
                           <div className="flex flex-col">
-                            <span className="font-bold text-xs sm:text-sm">{course.name}</span>
+                            <div className="flex items-center gap-2">
+                              <span className={`font-bold text-xs sm:text-sm ${!isActive ? 'line-through text-on-surface-variant' : ''}`}>{course.name}</span>
+                              {!isActive && <span className="text-[9px] font-bold text-on-surface-variant bg-outline-variant/20 px-1.5 py-0.5 rounded-full">비활성</span>}
+                            </div>
                             {course.password && (
                               <span className="text-[10px] text-primary font-bold">PW: {course.password}</span>
                             )}
                           </div>
-                          <div className="flex gap-3">
-                            <button 
-                              onClick={() => { 
-                                setEditingCourseId(course.id); 
+                          <div className="flex items-center gap-3">
+                            {/* 활성/비활성 토글 */}
+                            <button
+                              onClick={() => handleToggleCourseActive(course)}
+                              title={isActive ? '비활성화' : '활성화'}
+                              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${isActive ? 'bg-primary' : 'bg-outline-variant'}`}
+                            >
+                              <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${isActive ? 'translate-x-4' : 'translate-x-1'}`} />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setEditingCourseId(course.id);
                                 setEditCourseName(course.name);
                                 setEditCoursePassword(course.password || '');
                               }}
@@ -744,7 +767,7 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
                             >
                               <span className="material-symbols-outlined text-sm sm:text-base">edit</span>
                             </button>
-                            <button 
+                            <button
                               onClick={() => setCourseToDelete(course.id)}
                               className="text-on-surface-variant hover:text-error transition-colors"
                             >
@@ -754,7 +777,8 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
                         </>
                       )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </section>
