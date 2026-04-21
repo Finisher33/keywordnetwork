@@ -82,11 +82,18 @@ function BubbleChart({ items, selectedId, onSelect }: {
   selectedId: string | null;
   onSelect: (id: string) => void;
 }) {
+  const outerRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(600);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragRef = useRef({ x: 0, y: 0, px: 0, py: 0 });
+  const dragDist = useRef(0);
+  const activePointers = useRef(new Set<number>());
 
   useEffect(() => {
-    const el = containerRef.current;
+    const el = outerRef.current;
     if (!el) return;
     const observer = new ResizeObserver(entries => {
       for (const entry of entries) setContainerWidth(entry.contentRect.width);
@@ -96,6 +103,45 @@ function BubbleChart({ items, selectedId, onSelect }: {
     return () => observer.disconnect();
   }, []);
 
+  useEffect(() => {
+    const el = outerRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      setZoom(z => Math.min(5, Math.max(0.2, z * (e.deltaY < 0 ? 1.15 : 1 / 1.15))));
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    activePointers.current.add(e.pointerId);
+    if (activePointers.current.size > 1 || e.button !== 0) return;
+    const pid = e.pointerId;
+    setIsDragging(true);
+    dragDist.current = 0;
+    dragRef.current = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y };
+    const onMove = (me: PointerEvent) => {
+      if (activePointers.current.size > 1) return;
+      const dx = me.clientX - dragRef.current.x;
+      const dy = me.clientY - dragRef.current.y;
+      dragDist.current = Math.sqrt(dx * dx + dy * dy);
+      setPan({ x: dragRef.current.px + dx, y: dragRef.current.py + dy });
+    };
+    const onUp = () => {
+      activePointers.current.delete(pid);
+      setIsDragging(false);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  };
+
+  const handleClickCapture = (e: React.MouseEvent) => {
+    if (dragDist.current > 5) { e.stopPropagation(); dragDist.current = 0; }
+  };
+
   if (items.length === 0) return null;
   const maxCount = Math.max(...items.map(s => s.count));
   const minCount = Math.min(...items.map(s => s.count));
@@ -103,43 +149,74 @@ function BubbleChart({ items, selectedId, onSelect }: {
   const maxSize = Math.min(containerWidth * 0.32, 180);
   const minSize = Math.max(containerWidth * 0.12, 64);
 
+  const btnCls = 'w-8 h-8 rounded-full bg-white border border-outline/60 flex items-center justify-center shadow-sm hover:bg-surface-container-low transition-all text-on-surface-variant font-black text-lg';
+
   return (
-    <div ref={containerRef} className="w-full min-h-[320px] sm:min-h-[420px] flex flex-wrap items-center justify-center gap-3 sm:gap-5 py-4">
-      {items.map((item, idx) => {
-        const palette = BUBBLE_PALETTE[idx % BUBBLE_PALETTE.length];
-        const t = (item.count - minCount) / range;
-        const size = minSize + t * (maxSize - minSize);
-        const isSelected = selectedId === item.id;
-        const bg = isSelected
-          ? `radial-gradient(circle at 38% 32%, ${palette.dark[0]} 0%, ${palette.dark[1]} 55%, ${palette.dark[2]} 100%)`
-          : `radial-gradient(circle at 38% 32%, ${palette.light[0]} 0%, ${palette.light[1]} 45%, ${palette.light[2]} 100%)`;
-        const shadow = isSelected
-          ? `inset -3px -4px 10px rgba(0,0,0,0.3), inset 3px 3px 8px rgba(255,255,255,0.15), 4px 8px 20px rgba(0,0,0,0.4)`
-          : `inset -3px -4px 10px rgba(0,0,0,0.1), inset 3px 3px 8px rgba(255,255,255,0.85), 4px 8px 20px rgba(0,0,0,0.2)`;
-        const fontSize = Math.max(size * 0.085, 9);
-        const countSize = Math.max(size * 0.065, 8);
-        return (
-          <motion.button
-            key={item.id}
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: 'spring', damping: 14, stiffness: 200, delay: idx * 0.04 }}
-            onClick={() => onSelect(item.id)}
-            style={{ width: size, height: size, background: bg, boxShadow: shadow, border: isSelected ? '2px solid rgba(255,255,255,0.2)' : `2px solid ${palette.light[1]}55`, flexShrink: 0 }}
-            className={`rounded-full flex flex-col items-center justify-center transition-transform active:scale-95 ${isSelected ? 'scale-110 z-10' : 'hover:scale-105'}`}
-          >
-            <span style={{ fontSize: countSize, color: 'rgba(255,255,255,0.5)', fontWeight: 900, lineHeight: 1 }}>
-              {(idx + 1).toString().padStart(2, '0')}
-            </span>
-            <span style={{ fontSize, color: palette.text, fontWeight: 900, lineHeight: 1.1, textAlign: 'center', padding: '0 12%', wordBreak: 'break-all' }}>
-              #{item.keyword}
-            </span>
-            <span style={{ fontSize: countSize, color: palette.text, fontWeight: 900, background: 'rgba(0,0,0,0.18)', borderRadius: 99, padding: '1px 6px', marginTop: 3 }}>
-              {item.count}
-            </span>
-          </motion.button>
-        );
-      })}
+    <div className="relative">
+      {/* Zoom controls */}
+      <div className="absolute top-3 right-3 z-10 flex items-center gap-1">
+        <button onClick={() => setZoom(z => Math.max(0.2, z / 1.3))} className={btnCls} title="줌 아웃">−</button>
+        <button
+          onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}
+          className="h-8 px-2.5 rounded-full bg-white border border-outline/60 flex items-center justify-center shadow-sm hover:bg-surface-container-low transition-all text-[10px] font-bold text-primary min-w-[48px]"
+          title="줌 초기화"
+        >{Math.round(zoom * 100)}%</button>
+        <button onClick={() => setZoom(z => Math.min(5, z * 1.3))} className={btnCls} title="줌 인">+</button>
+      </div>
+      <div
+        ref={outerRef}
+        className="w-full min-h-[320px] sm:min-h-[420px] overflow-hidden relative"
+        style={{ touchAction: 'none', cursor: isDragging ? 'grabbing' : 'grab' }}
+        onPointerDown={handlePointerDown}
+        onClickCapture={handleClickCapture}
+      >
+        <div
+          ref={containerRef}
+          style={{
+            position: 'absolute', inset: 0,
+            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+            transformOrigin: '50% 50%',
+            display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center',
+            gap: '12px', padding: '16px',
+          }}
+        >
+          {items.map((item, idx) => {
+            const palette = BUBBLE_PALETTE[idx % BUBBLE_PALETTE.length];
+            const t = (item.count - minCount) / range;
+            const size = minSize + t * (maxSize - minSize);
+            const isSelected = selectedId === item.id;
+            const bg = isSelected
+              ? `radial-gradient(circle at 38% 32%, ${palette.dark[0]} 0%, ${palette.dark[1]} 55%, ${palette.dark[2]} 100%)`
+              : `radial-gradient(circle at 38% 32%, ${palette.light[0]} 0%, ${palette.light[1]} 45%, ${palette.light[2]} 100%)`;
+            const shadow = isSelected
+              ? `inset -3px -4px 10px rgba(0,0,0,0.3), inset 3px 3px 8px rgba(255,255,255,0.15), 4px 8px 20px rgba(0,0,0,0.4)`
+              : `inset -3px -4px 10px rgba(0,0,0,0.1), inset 3px 3px 8px rgba(255,255,255,0.85), 4px 8px 20px rgba(0,0,0,0.2)`;
+            const fontSize = Math.max(size * 0.085, 9);
+            const countSize = Math.max(size * 0.065, 8);
+            return (
+              <motion.button
+                key={item.id}
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: 'spring', damping: 14, stiffness: 200, delay: idx * 0.04 }}
+                onClick={() => onSelect(item.id)}
+                style={{ width: size, height: size, background: bg, boxShadow: shadow, border: isSelected ? '2px solid rgba(255,255,255,0.2)' : `2px solid ${palette.light[1]}55`, flexShrink: 0 }}
+                className={`rounded-full flex flex-col items-center justify-center transition-transform active:scale-95 ${isSelected ? 'scale-110 z-10' : 'hover:scale-105'}`}
+              >
+                <span style={{ fontSize: countSize, color: 'rgba(255,255,255,0.5)', fontWeight: 900, lineHeight: 1 }}>
+                  {(idx + 1).toString().padStart(2, '0')}
+                </span>
+                <span style={{ fontSize, color: palette.text, fontWeight: 900, lineHeight: 1.1, textAlign: 'center', padding: '0 12%', wordBreak: 'break-all' }}>
+                  #{item.keyword}
+                </span>
+                <span style={{ fontSize: countSize, color: palette.text, fontWeight: 900, background: 'rgba(0,0,0,0.18)', borderRadius: 99, padding: '1px 6px', marginTop: 3 }}>
+                  {item.count}
+                </span>
+              </motion.button>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
@@ -289,7 +366,7 @@ export default function TotalInsight({ courseId }: TotalInsightProps) {
     });
     const superKeyword = top10[0];
     const heavyUser = courseUsers.map(u => ({ user: u, count: userKeywords[u.id]?.size || 0 })).sort((a, b) => b.count - a.count)[0];
-    const bridgeKeyword = Object.entries(kwCounts).map(([id, data]) => {
+    const bridgeKeyword = Object.entries(kwData).map(([id, data]) => {
       const term = db.canonicalTerms?.find(t => t.id === id);
       const kwUsers = Array.from(new Set(data.items.map(i => i.userId)));
       if (kwUsers.length < 2) return { id, keyword: term ? term.term : id, score: 0 };

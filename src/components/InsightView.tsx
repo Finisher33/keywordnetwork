@@ -644,17 +644,43 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
                   <div className="flex items-center justify-between px-6 pt-6 pb-3 gap-4">
                     <div className="min-w-0">
                       <h3 className="text-primary font-headline font-bold text-lg md:text-xl whitespace-nowrap">KEYWORD BUBBLE</h3>
-                      <p className="text-[10px] text-on-surface-variant mt-0.5 whitespace-nowrap">탭 → 키워드 공개 · 스크롤/핀치 → 줌 · 드래그 → 이동</p>
+                      <p className="text-[10px] text-on-surface-variant mt-0.5 whitespace-nowrap">탭 → 공개 · +/− → 줌 · 드래그 → 이동</p>
                     </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex items-center gap-1 shrink-0">
+                      {/* 줌 아웃 */}
+                      <button
+                        onClick={() => setBubbleZoom(z => Math.max(0.2, z / 1.3))}
+                        className="w-8 h-8 rounded-full bg-white/80 border border-outline flex items-center justify-center shadow-sm hover:bg-white transition-all text-on-surface-variant font-black text-lg"
+                        title="줌 아웃"
+                      >−</button>
+                      {/* 줌 퍼센트 / 초기화 */}
+                      <button
+                        onClick={() => { setBubbleZoom(1); setBubblePan({ x: 0, y: 0 }); }}
+                        className="h-8 px-2 rounded-full bg-white/80 border border-outline flex items-center justify-center shadow-sm hover:bg-white transition-all text-[10px] font-bold text-primary min-w-[44px]"
+                        title="줌 초기화"
+                      >{Math.round(bubbleZoom * 100)}%</button>
+                      {/* 줌 인 */}
+                      <button
+                        onClick={() => setBubbleZoom(z => Math.min(5, z * 1.3))}
+                        className="w-8 h-8 rounded-full bg-white/80 border border-outline flex items-center justify-center shadow-sm hover:bg-white transition-all text-on-surface-variant font-black text-lg"
+                        title="줌 인"
+                      >+</button>
                       {/* 새로고침 */}
                       <button
                         onClick={handleBubbleRefresh}
                         disabled={isRefreshing}
-                        className="w-8 h-8 rounded-full bg-white/80 border border-outline flex items-center justify-center shadow-sm hover:bg-white transition-all text-on-surface-variant"
+                        className="w-8 h-8 rounded-full bg-white/80 border border-outline flex items-center justify-center shadow-sm hover:bg-white transition-all text-on-surface-variant ml-1"
                         title="새로고침"
                       >
                         <span className={`material-symbols-outlined text-base ${isRefreshing ? 'animate-spin' : ''}`}>refresh</span>
+                      </button>
+                      {/* 전체화면 */}
+                      <button
+                        onClick={toggleBubbleFullScreen}
+                        className="w-8 h-8 rounded-full bg-white/80 border border-outline flex items-center justify-center shadow-sm hover:bg-white transition-all text-on-surface-variant"
+                        title={isBubbleFullScreen ? '전체화면 종료' : '전체화면'}
+                      >
+                        <span className="material-symbols-outlined text-base">{isBubbleFullScreen ? 'fullscreen_exit' : 'fullscreen'}</span>
                       </button>
                     </div>
                   </div>
@@ -667,16 +693,6 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
                     onPointerDown={handleBubblePointerDown}
                     onClickCapture={handleBubbleClickCapture}
                   >
-                    {/* 줌 퍼센트 표시 + 초기화 — 캔버스 좌상단 오버레이 */}
-                    {Math.round(bubbleZoom * 100) !== 100 && (
-                      <button
-                        onClick={() => { setBubbleZoom(1); setBubblePan({ x: 0, y: 0 }); }}
-                        className="absolute top-3 left-3 z-10 h-7 px-2.5 rounded-full bg-white/90 border border-outline text-[10px] font-bold text-primary shadow-sm hover:bg-white transition-all"
-                        title="줌 초기화"
-                      >
-                        {Math.round(bubbleZoom * 100)}% ↺
-                      </button>
-                    )}
                     {classroomData.length === 0 ? (
                       <div className="absolute inset-0 flex flex-col items-center justify-center text-on-surface-variant/40 gap-3">
                         <span className="material-symbols-outlined text-6xl">bubble_chart</span>
