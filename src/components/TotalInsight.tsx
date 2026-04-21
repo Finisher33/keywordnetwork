@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef, useEffect, type ReactNode } from 'react';
+import React, { useMemo, useState, useRef, useEffect, type ReactNode } from 'react';
 import { useStore, User, UserInsight } from '../store';
 import { motion, AnimatePresence } from 'motion/react';
 import { summarizeInsights } from '../services/geminiService';

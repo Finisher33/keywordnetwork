@@ -43,6 +43,9 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
   const bubbleDragRef   = useRef({ x: 0, y: 0, px: 0, py: 0 });
   const bubbleDragDist  = useRef(0);
   const activePointers  = useRef(new Set<number>());
+  // Direct DOM ref for smooth drag (no React re-render during movement)
+  const panLayerRef = useRef<HTMLDivElement>(null);
+  const liveState   = useRef({ x: 0, y: 0, zoom: 1 });
 
   const activeSessions = db.sessions.filter(s => s.courseId === effectiveCourseId && s.isActive);
   const userInsights = (db.userInsights || []).filter(i => i.userId === currentUser?.id);
@@ -264,18 +267,32 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
     setBubblePan({ x: 0, y: 0 });
   }, [classroomSessionId]);
 
-  // ── 마우스 휠 줌 (non-passive) ────────────────────────────────────────────────
+  // ── React state → liveState + DOM 동기화 (버튼/세션변경 등 드래그 외 변경) ─────
+  useEffect(() => {
+    liveState.current = { x: bubblePan.x, y: bubblePan.y, zoom: bubbleZoom };
+    if (panLayerRef.current) {
+      panLayerRef.current.style.transform = `translate(${bubblePan.x}px, ${bubblePan.y}px) scale(${bubbleZoom})`;
+    }
+  }, [bubblePan, bubbleZoom]);
+
+  // ── 마우스 휠 줌 (non-passive, 직접 DOM 업데이트) ─────────────────────────────
   useEffect(() => {
     if (!bubbleContainerEl) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      setBubbleZoom(z => Math.min(5, Math.max(0.2, z * (e.deltaY < 0 ? 1.15 : 1 / 1.15))));
+      const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+      const newZoom = Math.min(5, Math.max(0.2, liveState.current.zoom * factor));
+      liveState.current.zoom = newZoom;
+      if (panLayerRef.current) {
+        panLayerRef.current.style.transform = `translate(${liveState.current.x}px, ${liveState.current.y}px) scale(${newZoom})`;
+      }
+      setBubbleZoom(newZoom);
     };
     bubbleContainerEl.addEventListener('wheel', onWheel, { passive: false });
     return () => bubbleContainerEl.removeEventListener('wheel', onWheel);
   }, [bubbleContainerEl]);
 
-  // ── 터치 핀치 줌 (non-passive) ────────────────────────────────────────────────
+  // ── 터치 핀치 줌 (non-passive, 직접 DOM 업데이트) ─────────────────────────────
   useEffect(() => {
     if (!bubbleContainerEl) return;
     let lastDist: number | null = null;
@@ -291,7 +308,12 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
       if (e.touches.length !== 2 || lastDist === null) return;
       e.preventDefault();
       const d = getTouchDist(e.touches);
-      setBubbleZoom(z => Math.min(5, Math.max(0.2, z * (d / lastDist!))));
+      const newZoom = Math.min(5, Math.max(0.2, liveState.current.zoom * (d / lastDist!)));
+      liveState.current.zoom = newZoom;
+      if (panLayerRef.current) {
+        panLayerRef.current.style.transform = `translate(${liveState.current.x}px, ${liveState.current.y}px) scale(${newZoom})`;
+      }
+      setBubbleZoom(newZoom);
       lastDist = d;
     };
     const onTouchEnd = () => { lastDist = null; };
@@ -313,8 +335,8 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
   };
 
   // ── 드래그 (패닝) ─────────────────────────────────────────────────────────────
-  // setPointerCapture 미사용: 캔버스가 포인터를 독점하면 버블 onClick에 도달 불가.
-  // 대신 window 이벤트로 드래그 추적 → 버블 클릭은 정상 전파.
+  // 드래그 중 setBubblePan을 호출하지 않고 DOM을 직접 업데이트 → React 리렌더 없이 매끄러운 이동
+  // 드래그 종료 시 한 번만 setBubblePan으로 React state 동기화
   const handleBubblePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     activePointers.current.add(e.pointerId);
     if (activePointers.current.size > 1 || e.button !== 0) return;
@@ -322,18 +344,28 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
     const pid = e.pointerId;
     setIsBubbleDragging(true);
     bubbleDragDist.current = 0;
-    bubbleDragRef.current = { x: e.clientX, y: e.clientY, px: bubblePan.x, py: bubblePan.y };
+    // liveState에서 현재 위치 참조 (stale state 방지)
+    bubbleDragRef.current = { x: e.clientX, y: e.clientY, px: liveState.current.x, py: liveState.current.y };
 
     const onMove = (me: PointerEvent) => {
       if (activePointers.current.size > 1) return;
       const dx = me.clientX - bubbleDragRef.current.x;
       const dy = me.clientY - bubbleDragRef.current.y;
       bubbleDragDist.current = Math.sqrt(dx * dx + dy * dy);
-      setBubblePan({ x: bubbleDragRef.current.px + dx, y: bubbleDragRef.current.py + dy });
+      const nx = bubbleDragRef.current.px + dx;
+      const ny = bubbleDragRef.current.py + dy;
+      liveState.current.x = nx;
+      liveState.current.y = ny;
+      // React state 업데이트 없이 DOM 직접 변경
+      if (panLayerRef.current) {
+        panLayerRef.current.style.transform = `translate(${nx}px, ${ny}px) scale(${liveState.current.zoom})`;
+      }
     };
     const onUp = () => {
       activePointers.current.delete(pid);
       setIsBubbleDragging(false);
+      // 드래그 종료 후 한 번만 React state 동기화
+      setBubblePan({ x: liveState.current.x, y: liveState.current.y });
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
     };
@@ -390,7 +422,7 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
         </header>
       )}
 
-      <main className={`flex-1 overflow-y-auto px-4 sm:px-6 mx-auto transition-all ${adminCourseId ? 'max-w-none pt-8 pb-[env(safe-area-inset-bottom)]' : 'max-w-5xl pt-8 pb-[calc(6rem+env(safe-area-inset-bottom))]'}`}>
+      <main className={`flex-1 overflow-y-auto overflow-x-hidden w-full px-4 sm:px-6 mx-auto transition-all ${adminCourseId ? 'max-w-none pt-8 pb-[env(safe-area-inset-bottom)]' : 'max-w-5xl pt-8 pb-[calc(6rem+env(safe-area-inset-bottom))]'}`}>
         <AnimatePresence mode="wait">
           {selectedSessionId ? (
             /* ── Input View ────────────────────────────────────────────────── */
@@ -607,7 +639,7 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="space-y-12"
+              className="space-y-12 w-full min-w-0"
             >
               {/* Editorial Header */}
               <section>
@@ -641,27 +673,27 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
                   className={`bg-surface-container-low rounded-xl border border-outline-variant/10 relative overflow-hidden ${isBubbleFullScreen ? 'fixed inset-0 z-[9999] rounded-none' : ''}`}
                 >
                   {/* Header */}
-                  <div className="flex items-center justify-between px-6 pt-6 pb-3 gap-4">
-                    <div className="min-w-0">
-                      <h3 className="text-primary font-headline font-bold text-lg md:text-xl whitespace-nowrap">KEYWORD BUBBLE</h3>
-                      <p className="text-[10px] text-on-surface-variant mt-0.5 whitespace-nowrap">탭 → 공개 · +/− → 줌 · 드래그 → 이동</p>
+                  <div className="flex items-center justify-between px-4 sm:px-6 pt-5 pb-3 gap-2 min-w-0">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-primary font-headline font-bold text-base sm:text-xl truncate">KEYWORD BUBBLE</h3>
+                      <p className="text-[10px] text-on-surface-variant mt-0.5 hidden sm:block">탭 → 공개 · +/− → 줌 · 드래그 → 이동</p>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       {/* 줌 아웃 */}
                       <button
-                        onClick={() => setBubbleZoom(z => Math.max(0.2, z / 1.3))}
+                        onClick={() => setBubbleZoom(z => { const nz = Math.max(0.2, z / 1.3); liveState.current.zoom = nz; return nz; })}
                         className="w-8 h-8 rounded-full bg-white/80 border border-outline flex items-center justify-center shadow-sm hover:bg-white transition-all text-on-surface-variant font-black text-lg"
                         title="줌 아웃"
                       >−</button>
                       {/* 줌 퍼센트 / 초기화 */}
                       <button
                         onClick={() => { setBubbleZoom(1); setBubblePan({ x: 0, y: 0 }); }}
-                        className="h-8 px-2 rounded-full bg-white/80 border border-outline flex items-center justify-center shadow-sm hover:bg-white transition-all text-[10px] font-bold text-primary min-w-[44px]"
+                        className="h-8 px-2 rounded-full bg-white/80 border border-outline flex items-center justify-center shadow-sm hover:bg-white transition-all text-[10px] font-bold text-primary min-w-[40px]"
                         title="줌 초기화"
                       >{Math.round(bubbleZoom * 100)}%</button>
                       {/* 줌 인 */}
                       <button
-                        onClick={() => setBubbleZoom(z => Math.min(5, z * 1.3))}
+                        onClick={() => setBubbleZoom(z => { const nz = Math.min(5, z * 1.3); liveState.current.zoom = nz; return nz; })}
                         className="w-8 h-8 rounded-full bg-white/80 border border-outline flex items-center justify-center shadow-sm hover:bg-white transition-all text-on-surface-variant font-black text-lg"
                         title="줌 인"
                       >+</button>
@@ -669,7 +701,7 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
                       <button
                         onClick={handleBubbleRefresh}
                         disabled={isRefreshing}
-                        className="w-8 h-8 rounded-full bg-white/80 border border-outline flex items-center justify-center shadow-sm hover:bg-white transition-all text-on-surface-variant ml-1"
+                        className="w-8 h-8 rounded-full bg-white/80 border border-outline flex items-center justify-center shadow-sm hover:bg-white transition-all text-on-surface-variant"
                         title="새로고침"
                       >
                         <span className={`material-symbols-outlined text-base ${isRefreshing ? 'animate-spin' : ''}`}>refresh</span>
@@ -699,12 +731,14 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
                         <p className="font-headline font-bold">데이터가 부족합니다</p>
                       </div>
                     ) : (
-                      /* zoom/pan transform wrapper */
+                      /* zoom/pan transform wrapper — controlled via panLayerRef for smooth drag */
                       <div
+                        ref={panLayerRef}
                         style={{
                           position: 'absolute', inset: 0,
                           transform: `translate(${bubblePan.x}px, ${bubblePan.y}px) scale(${bubbleZoom})`,
                           transformOrigin: '50% 50%',
+                          willChange: 'transform',
                         }}
                       >
                       {classroomData.map((data, idx) => {
