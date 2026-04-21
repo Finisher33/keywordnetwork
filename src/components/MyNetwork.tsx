@@ -28,17 +28,20 @@ function SectionTitle({ icon, title, badge }: { icon: string; title: string; bad
 }
 
 // ─── SNA 유형별 설명 ────────────────────────────────────────────────────────
-const SNA_DESCRIPTIONS: Record<string, { intro: string; analogy: string }> = {
+const SNA_DESCRIPTIONS: Record<string, { leader: string; property: string; analogy: string }> = {
   '안테나': {
-    intro: '리더님은 근접 중심성이 높은 안테나형 리더입니다. 근접 중심성만의 고유한 속성은 독립적인 전파 속도로, 근접 중심성이 높을수록 남에게 의존하지 않고 모든 노드에 빠르게 연결될 수 있습니다.',
+    leader: '리더님은 근접 중심성이 높은 안테나형 리더입니다.',
+    property: '근접 중심성만의 고유한 속성은 독립적인 전파 속도로, 근접 중심성이 높을수록 남에게 의존하지 않고 모든 노드에 빠르게 연결될 수 있습니다.',
     analogy: '안테나 유형을 비유하자면 119 소방서나 쿠팡 물류센터와 같습니다. 네트워크 내에서 특정 길목을 막고 서 있는 건 아니지만, 사고가 나거나 배송을 할 때 도시 어느 지점이든 가장 짧은 시간 안에 도착할 수 있는 최적의 입지에 있는 것입니다. 즉, 다른 리더분들께 최단 거리로 도달할 수 있는 강점이 있는 유형입니다.',
   },
   '마당발(인플루언서)': {
-    intro: '리더님은 연결 중심성이 높은 마당발(인플루언서)형 리더입니다. 연결 중심성만의 고유한 속성은 가시적인 활동성으로, 당장 내 주변에 많은 사람이 연결되어 있을수록 연결중심성은 높게 측정됩니다.',
+    leader: '리더님은 연결 중심성이 높은 마당발(인플루언서)형 리더입니다.',
+    property: '연결 중심성만의 고유한 속성은 가시적인 활동성으로, 당장 내 주변에 많은 사람이 연결되어 있을수록 연결중심성은 높게 측정됩니다.',
     analogy: '마당발 유형을 비유하자면 수많은 팔로워를 거느린 대형 유튜버나 대학 축제 때 가장 많은 사람을 불러 모으는 인기 과대표와 같습니다. 복잡한 전략 없이도 오직 숫자의 힘만으로 네트워크 내에서 가장 큰 목소리를 낼 수 있습니다.',
   },
   '게이트키퍼': {
-    intro: '리더님은 매개 중심성이 높은 게이트키퍼형 리더입니다. 매개 중심성만의 고유한 속성은 대체 불가능성입니다. 단순히 중심에 있는 것이 아니라, 서로 다른 두 세계(클러스터)를 잇는 중요한 위치에 있을수록 매개 중심성은 높게 측정됩니다.',
+    leader: '리더님은 매개 중심성이 높은 게이트키퍼형 리더입니다.',
+    property: '매개 중심성만의 고유한 속성은 대체 불가능성입니다. 단순히 중심에 있는 것이 아니라, 서로 다른 두 세계(클러스터)를 잇는 중요한 위치에 있을수록 매개 중심성은 높게 측정됩니다.',
     analogy: '게이트키퍼형을 비유하자면 서울과 부산을 잇는 유일한 고속도로의 휴게소와 같습니다. 모두가 그곳을 거쳐야만 하기에, 휴게소 주인은 정보와 흐름을 통제하거나 원활하게 하는 역할이 가능합니다.',
   },
 };
@@ -262,7 +265,8 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
                   </div>
                   {desc && (
                     <div className="space-y-2 pt-2 border-t border-primary/20">
-                      <p className="text-xs text-on-surface-variant leading-relaxed">{desc.intro}</p>
+                      <p className="text-xs font-bold text-primary/80 leading-relaxed">{desc.leader}</p>
+                      <p className="text-xs text-on-surface-variant leading-relaxed">{desc.property}</p>
                       <p className="text-xs text-on-surface-variant leading-relaxed">{desc.analogy}</p>
                     </div>
                   )}
@@ -297,9 +301,10 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
                     </p>
                   )}
                   {SNA_DESCRIPTIONS[t.type] && (
-                    <p className="text-xs text-on-surface-variant/80 leading-relaxed">
-                      {SNA_DESCRIPTIONS[t.type].analogy}
-                    </p>
+                    <div className="space-y-1.5">
+                      <p className="text-xs text-on-surface-variant/80 leading-relaxed">{SNA_DESCRIPTIONS[t.type].property}</p>
+                      <p className="text-xs text-on-surface-variant/80 leading-relaxed">{SNA_DESCRIPTIONS[t.type].analogy}</p>
+                    </div>
                   )}
                 </div>
               ))}
