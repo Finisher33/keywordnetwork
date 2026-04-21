@@ -13,6 +13,8 @@ export default function App() {
   const [subView, setSubView] = useState<'landing' | 'app' | 'insight' | 'profile'>('landing');
   const [lastSubView, setLastSubView] = useState<'landing' | 'app' | 'insight'>('landing');
   const [appViewTab, setAppViewTab] = useState<AppTab>('network');
+  // 최초 등록 완료 플래그 — db.interests 비동기 전파와 무관하게 즉시 라우팅 전환을 보장
+  const [registrationDone, setRegistrationDone] = useState(false);
 
   const handleNotificationClick = () => {
     setSubView('app');
@@ -24,6 +26,7 @@ export default function App() {
     setView('main');
     setSubView('landing');
     setLastSubView('landing');
+    setRegistrationDone(false);
   };
 
   const goToProfile = () => {
@@ -50,13 +53,16 @@ export default function App() {
       return <MainView onAdminClick={() => setView('admin')} />;
     }
 
-    const hasInterests = db.interests.some(i => i.userId === currentUser.id);
+    const hasInterests = registrationDone || db.interests.some(i => i.userId === currentUser.id);
 
     // 최초 정보등록 기록이 없거나, 프로필 수정 모드인 경우
     if (!hasInterests || subView === 'profile') {
       return (
-        <MyProfile 
-          onSave={() => setSubView(lastSubView)} 
+        <MyProfile
+          onSave={() => {
+            setRegistrationDone(true);
+            setSubView(lastSubView);
+          }}
           onLogout={handleLogout}
           showBack={hasInterests}
         />
