@@ -1,4 +1,4 @@
-import { useState, FormEvent, useRef, useMemo } from 'react';
+import { useState, FormEvent, useMemo } from 'react';
 import { useStore, User, Course } from '../store';
 import NetworkMap from './NetworkMap';
 import PeopleMap from './PeopleMap';
@@ -6,11 +6,7 @@ import InsightView from './InsightView';
 import TotalInsight from './TotalInsight';
 import MyNetwork from './MyNetwork';
 import MyProfile from './MyProfile';
-import UserReportPDF from './UserReportPDF';
 import NotificationBell from './NotificationBell';
-import { calculateUserNetworkData } from '../utils/networkUtils';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
 
 export default function AdminView({ onBack, onLogout }: { onBack: () => void, onLogout: () => void }) {
   const { db, addCourse, updateCourse, deleteCourse, addSession, updateSession, deleteSession, toggleSessionActive, deleteUser, resetCourseData, fetchData, addPresetInterest, deletePresetInterest } = useStore();
@@ -72,11 +68,6 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-
-  const [isPrintingAll, setIsPrintingAll] = useState(false);
-  const [printingUser, setPrintingUser] = useState<User | null>(null);
-  const [printProgress, setPrintProgress] = useState(0);
-  const printRef = useRef<HTMLDivElement>(null);
 
 
   const showStatus = (type: 'success' | 'error', text: string) => {
@@ -461,120 +452,6 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
       showStatus('error', '키워드 삭제에 실패했습니다.');
     } finally {
       setIsProcessing(false);
-    }
-  };
-
-  const generateUserPDF = async (user: User, pdfInstance?: jsPDF) => {
-    setPrintingUser(user);
-    // Wait for render
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    if (!printRef.current) return null;
-
-    try {
-      const element = printRef.current;
-      
-      // Ensure all images are loaded
-      const images = Array.from(element.getElementsByTagName('img')) as HTMLImageElement[];
-      await Promise.all(images.map(img => {
-        if (img.complete) return Promise.resolve();
-        return new Promise((resolve) => {
-          img.onload = resolve;
-          img.onerror = resolve;
-        });
-      }));
-
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-        logging: false,
-        onclone: (clonedDoc) => {
-          const style = clonedDoc.createElement('style');
-          style.innerHTML = `
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-            * {
-              font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
-              color-scheme: light !important;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-          `;
-          clonedDoc.head.appendChild(style);
-        }
-      });
-
-      const imgData = canvas.toDataURL('image/jpeg', 1.0);
-      const pdf = pdfInstance || new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      
-      const imgProps = pdf.getImageProperties(imgData);
-      const imgWidth = pdfWidth;
-      const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
-
-      let heightLeft = imgHeight;
-      let position = 0;
-
-      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-      heightLeft -= pdfHeight;
-
-      // Use a small threshold (5mm) to avoid creating a nearly empty page at the end
-      while (heightLeft > 5) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pdfHeight;
-      }
-
-      if (!pdfInstance) {
-        pdf.save(`NetworkReport_${user.name}.pdf`);
-      }
-      return pdf;
-    } catch (error) {
-      console.error('PDF generation failed:', error);
-      throw error;
-    }
-  };
-
-  const handlePrintUser = async (user: User) => {
-    setIsProcessing(true);
-    try {
-      await generateUserPDF(user);
-      showStatus('success', `${user.name}님의 네트워크 결과가 출력되었습니다.`);
-    } catch (e) {
-      console.error(e);
-      showStatus('error', '출력에 실패했습니다.');
-    } finally {
-      setIsProcessing(false);
-      setPrintingUser(null);
-    }
-  };
-
-  const handlePrintAll = async () => {
-    const users = db.users.filter(u => u.courseId === userListCourseId);
-    if (users.length === 0) return;
-
-    setIsPrintingAll(true);
-    setPrintProgress(0);
-    
-    try {
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      for (let i = 0; i < users.length; i++) {
-        setPrintProgress(Math.round(((i + 1) / users.length) * 100));
-        if (i > 0) pdf.addPage();
-        await generateUserPDF(users[i], pdf);
-      }
-      pdf.save(`All_Networks_${db.courses.find(c => c.id === userListCourseId)?.name}.pdf`);
-      showStatus('success', '전체 결과가 하나의 파일로 출력되었습니다.');
-    } catch (e) {
-      console.error(e);
-      showStatus('error', '전체 출력에 실패했습니다.');
-    } finally {
-      setIsPrintingAll(false);
-      setPrintingUser(null);
-      setPrintProgress(0);
     }
   };
 
@@ -1077,14 +954,6 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
                     <span className="material-symbols-outlined text-sm">delete_sweep</span> DB 초기화
                   </button>
                   <button
-                    onClick={handlePrintAll}
-                    disabled={!userListCourseId || isPrintingAll}
-                    title="전체 결과 출력"
-                    className="w-12 h-12 bg-secondary text-on-secondary rounded-full flex items-center justify-center hover:bg-secondary/90 transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-md"
-                  >
-                    <span className="material-symbols-outlined">{isPrintingAll ? 'sync' : 'print'}</span>
-                  </button>
-                  <button
                     onClick={handleDownloadCSV}
                     disabled={!userListCourseId}
                     title="CSV 다운로드"
@@ -1157,13 +1026,6 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
                               </td>
                               <td className="p-4 text-center">
                                 <div className="flex items-center justify-center gap-2">
-                                  <button
-                                    onClick={() => handlePrintUser(user)}
-                                    className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors"
-                                    title="출력"
-                                  >
-                                    <span className="material-symbols-outlined text-lg">print</span>
-                                  </button>
                                   <button
                                     onClick={() => setUserToEdit(user)}
                                     className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors"
@@ -1370,22 +1232,6 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
           </div>
         )}
       </main>
-
-      {/* Hidden container for PDF generation */}
-      <div className="fixed left-[-9999px] top-0 overflow-hidden bg-white" style={{ width: '210mm', color: 'black', backgroundColor: 'white' }}>
-        {printingUser && (
-          <div ref={printRef}>
-            <UserReportPDF 
-              user={printingUser}
-              interests={db.interests}
-              canonicalTerms={db.canonicalTerms || []}
-              allUsers={db.users}
-              teaTimeRequests={db.teaTimeRequests}
-              {...calculateUserNetworkData(printingUser, db)}
-            />
-          </div>
-        )}
-      </div>
 
       {/* User Edit Modal */}
       {userToEdit && (

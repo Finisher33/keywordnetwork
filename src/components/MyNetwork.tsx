@@ -2,9 +2,6 @@
 import { useToast } from '../hooks/useToast';
 import Toast from './Toast';
 import { useStore, User, Interest } from '../store';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
-import UserReportPDF from './UserReportPDF';
 import { calculateUserNetworkData, calculateSNAScores, calculateHotKeywords, HotKeyword } from '../utils/networkUtils';
 import TeaTimeModal, { TeaReplyModal } from './TeaTimeModal';
 import { TeaTimeRequest } from '../store';
@@ -56,9 +53,7 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [replyingToReq, setReplyingToReq] = useState<TeaTimeRequest | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isDownloading, setIsDownloading] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
-  const pdfReportRef = useRef<HTMLDivElement>(null);
 
   // ── data ───────────────────────────────────────────────────────────────────
   const networkData = useMemo(() => {
@@ -106,56 +101,6 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
     try { await fetchData(); } finally { setIsRefreshing(false); }
   };
 
-  const handleDownloadPDF = async () => {
-    if (!pdfReportRef.current) return;
-    setIsDownloading(true);
-    try {
-      const element = pdfReportRef.current;
-      const images = Array.from(element.getElementsByTagName('img')) as HTMLImageElement[];
-      await Promise.all(images.map(img => img.complete ? Promise.resolve() : new Promise(r => { img.onload = r; img.onerror = r; })));
-      const canvas = await html2canvas(element, {
-        scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#ffffff', logging: false,
-        onclone: (clonedDoc) => {
-          const styles = clonedDoc.getElementsByTagName('style');
-          const links = clonedDoc.getElementsByTagName('link');
-          Array.from(styles).forEach(s => s.remove());
-          Array.from(links).forEach(l => { if (l.rel === 'stylesheet') l.remove(); });
-          const style = clonedDoc.createElement('style');
-          style.innerHTML = `* { font-family: 'Inter', sans-serif !important; box-sizing: border-box !important; }`;
-          clonedDoc.head.appendChild(style);
-        }
-      });
-      const imgData = canvas.toDataURL('image/jpeg', 1.0);
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      const marginX = 10, marginY = 20;
-      const contentWidth = pdfWidth - marginX * 2;
-      const contentHeight = pdfHeight - marginY * 2;
-      const imgProps = pdf.getImageProperties(imgData);
-      const imgWidth = contentWidth;
-      const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
-      let currentOffset = 0;
-      while (currentOffset < imgHeight) {
-        if (currentOffset > 0) {
-          if (imgHeight - currentOffset < 15) break;
-          pdf.addPage();
-        }
-        pdf.addImage(imgData, 'JPEG', marginX, marginY - currentOffset, imgWidth, imgHeight);
-        pdf.setFillColor(255, 255, 255);
-        pdf.rect(0, 0, pdfWidth, marginY, 'F');
-        pdf.rect(0, pdfHeight - marginY, pdfWidth, marginY, 'F');
-        currentOffset += contentHeight;
-      }
-      pdf.save(`NetworkReport_${currentUser?.name || 'User'}.pdf`);
-    } catch (e) {
-      console.error(e);
-      showToast('PDF 생성 중 오류가 발생했습니다.', 'error');
-    } finally {
-      setIsDownloading(false);
-    }
-  };
-
   // ─── render ────────────────────────────────────────────────────────────────
   return (
     <div className="max-w-3xl mx-auto px-4 py-8 space-y-10" ref={contentRef}>
@@ -169,11 +114,6 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
         </div>
         {!hideActions && (
           <div className="flex items-center gap-2">
-            <button onClick={handleDownloadPDF} disabled={isDownloading}
-              className={`w-9 h-9 rounded-full bg-white border border-outline flex items-center justify-center shadow-sm hover:bg-surface-container-low transition-all ${isDownloading ? 'opacity-50' : ''}`}
-              title="PDF 다운로드">
-              <span className="material-symbols-outlined text-on-surface-variant text-lg">{isDownloading ? 'sync' : 'download'}</span>
-            </button>
             <button onClick={handleRefresh} disabled={isRefreshing}
               className={`w-9 h-9 rounded-full bg-white border border-outline flex items-center justify-center shadow-sm hover:bg-surface-container-low transition-all ${isRefreshing ? 'animate-spin' : ''}`}
               title="새로고침">
@@ -566,22 +506,6 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
         );
       })()}
 
-      {/* PDF Report (hidden) */}
-      <div className="fixed left-[-9999px] top-0 overflow-hidden bg-white" style={{ width: '210mm' }}>
-        <div ref={pdfReportRef}>
-          {currentUser && (
-            <UserReportPDF
-              user={currentUser}
-              interests={db.interests}
-              canonicalTerms={db.canonicalTerms || []}
-              allUsers={db.users}
-              teaTimeRequests={db.teaTimeRequests}
-              groupedNetwork={groupedNetwork}
-              summary={summary}
-            />
-          )}
-        </div>
-      </div>
     </div>
   );
 }
