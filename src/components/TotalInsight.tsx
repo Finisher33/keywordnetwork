@@ -242,20 +242,22 @@ export default function TotalInsight({ courseId }: TotalInsightProps) {
 
   const networkStats = useMemo(() => {
     const courseInterests = db.interests.filter(i => userIds.has(i.userId));
-    const kwCounts: Record<string, { count: number; items: any[]; givers: number; takers: number }> = {};
+    const kwData: Record<string, { users: Set<string>; givers: Set<string>; takers: Set<string>; items: any[] }> = {};
     courseInterests.forEach(i => {
       const id = i.canonicalId || i.keyword;
-      if (!kwCounts[id]) kwCounts[id] = { count: 0, items: [], givers: 0, takers: 0 };
-      kwCounts[id].count += 1;
-      kwCounts[id].items.push(i);
-      if (i.type === 'giver') kwCounts[id].givers += 1;
-      else kwCounts[id].takers += 1;
+      if (!kwData[id]) kwData[id] = { users: new Set(), givers: new Set(), takers: new Set(), items: [] };
+      kwData[id].users.add(i.userId);
+      kwData[id].items.push(i);
+      if (i.type === 'giver') kwData[id].givers.add(i.userId);
+      else kwData[id].takers.add(i.userId);
     });
-    const top10 = Object.entries(kwCounts).map(([id, data]) => {
-      const total = data.givers + data.takers;
+    const top10 = Object.entries(kwData).map(([id, data]) => {
+      const count = data.users.size;
+      const givers = data.givers.size;
+      const takers = data.takers.size;
       const term = db.canonicalTerms?.find(t => t.id === id);
-      const giverRate = total > 0 ? Math.round((data.givers / total) * 100) : 0;
-      return { id, keyword: term ? term.term : id, ...data, giverRate, takerRate: 100 - giverRate };
+      const giverRate = count > 0 ? Math.round((givers / count) * 100) : 0;
+      return { id, keyword: term ? term.term : id, count, items: data.items, givers, takers, giverRate, takerRate: 100 - giverRate };
     }).sort((a, b) => b.count - a.count).slice(0, 10);
 
     const userKeywords: Record<string, Set<string>> = {};
@@ -419,7 +421,7 @@ export default function TotalInsight({ courseId }: TotalInsightProps) {
                 : 'bg-white text-on-surface-variant border-outline/40 hover:border-primary/40'
             }`}
           >
-            {v === '01' ? '01. Network Analysis' : '02. Learning Insight'}
+            {v === '01' ? '01. Social Network Analysis' : '02. Learning Insight'}
           </button>
         ))}
       </div>
@@ -434,7 +436,7 @@ export default function TotalInsight({ courseId }: TotalInsightProps) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="w-1 h-10 bg-primary rounded-full" />
-              <h2 className="text-3xl font-black uppercase tracking-tight text-on-surface">01. Network Analysis</h2>
+              <h2 className="text-3xl font-black uppercase tracking-tight text-on-surface">01. Social Network Analysis</h2>
             </div>
             {!isNetworkRevealed && (
               <button onClick={() => setIsNetworkRevealed(true)} className="px-6 py-2.5 bg-primary text-white text-sm font-black uppercase tracking-widest rounded-xl hover:bg-primary/90 transition-all shadow-md shadow-primary/20 flex items-center gap-2">
@@ -591,27 +593,30 @@ export default function TotalInsight({ courseId }: TotalInsightProps) {
           <div className="bg-white rounded-2xl border border-outline/30 shadow-sm overflow-hidden">
             <div className="px-8 py-5 border-b border-outline/20 flex items-center justify-between">
               <div>
-                <p className="text-xl font-black uppercase tracking-tight text-on-surface">Top 10 Interest Keywords</p>
+                <p className="text-xl font-black uppercase tracking-tight text-on-surface">HOT KEYWORD 10</p>
                 <p className="text-[10px] text-on-surface-variant/60 font-bold uppercase tracking-widest mt-0.5">Giver / Taker Ratio</p>
               </div>
               {isNetworkRevealed && <span className="text-[10px] font-black bg-primary/10 text-primary px-3 py-1 rounded-full">클릭하면 상세 보기</span>}
             </div>
             <div className={`transition-all duration-1000 ${!isNetworkRevealed ? 'blur-2xl grayscale opacity-10 pointer-events-none' : ''}`}>
-              {networkStats.top10.map((item, idx) => {
-                const colors = [
-                  'bg-primary text-white', 'bg-primary/80 text-white', 'bg-primary/65 text-white',
-                  'bg-primary/50 text-white', 'bg-primary/40 text-white',
-                ];
-                const rankCls = colors[idx] || 'bg-outline/20 text-on-surface-variant';
-                return (
+              {(() => {
+                const rankIcons: Record<number, string> = {
+                  1: '1️⃣', 2: '2️⃣', 3: '3️⃣', 4: '4️⃣', 5: '5️⃣',
+                  6: '6️⃣', 7: '7️⃣', 8: '8️⃣', 9: '9️⃣', 10: '🔟',
+                };
+                const ranks: number[] = [];
+                let rank = 1;
+                for (let i = 0; i < networkStats.top10.length; i++) {
+                  if (i > 0 && networkStats.top10[i].count < networkStats.top10[i - 1].count) rank = i + 1;
+                  ranks.push(rank);
+                }
+                return networkStats.top10.map((item, idx) => (
                   <button
                     key={item.id}
                     onClick={() => setSelectedInterestKeyword(item.id)}
                     className="w-full flex items-center gap-5 px-6 py-4 border-b border-outline/20 last:border-b-0 hover:bg-surface-container-lowest/60 transition-colors text-left group"
                   >
-                    <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black shrink-0 ${rankCls}`}>
-                      {(idx + 1).toString().padStart(2, '0')}
-                    </span>
+                    <span className="text-xl shrink-0">{rankIcons[ranks[idx]] ?? `${ranks[idx]}위`}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-base font-black text-on-surface group-hover:text-primary transition-colors truncate">#{item.keyword}</p>
                       <div className="flex items-center gap-3 mt-1.5">
@@ -625,8 +630,8 @@ export default function TotalInsight({ courseId }: TotalInsightProps) {
                     </div>
                     <span className="text-lg font-black tabular-nums text-primary shrink-0">{item.count}<span className="text-sm font-bold text-on-surface-variant ml-0.5">명</span></span>
                   </button>
-                );
-              })}
+                ));
+              })()}
             </div>
             {!isNetworkRevealed && (
               <div className="absolute inset-0 flex items-center justify-center z-20 bg-white/70 backdrop-blur-sm rounded-2xl">

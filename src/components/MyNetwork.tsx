@@ -384,7 +384,7 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
           4. HOT KEYWORDS
       ════════════════════════════════════════════════════════════════════════ */}
       <section className="space-y-5">
-        <SectionTitle icon="local_fire_department" title="HOT KEYWORDS" badge="Top 10" />
+        <SectionTitle icon="local_fire_department" title="HOT KEYWORD 10" />
         <p className="text-xs text-on-surface-variant font-medium -mt-2">
           이번 과정에서 가장 많은 리더들이 관심을 가진 키워드입니다. 키워드를 클릭하면 상세 내용을 확인할 수 있어요.
         </p>
@@ -395,7 +395,7 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
           <div className="space-y-3">
             {(() => {
               const rankIcons: Record<number, string> = {
-                1: '🥇', 2: '🥈', 3: '🥉',
+                1: '1️⃣', 2: '2️⃣', 3: '3️⃣',
                 4: '4️⃣', 5: '5️⃣', 6: '6️⃣', 7: '7️⃣',
                 8: '8️⃣', 9: '9️⃣', 10: '🔟',
               };
