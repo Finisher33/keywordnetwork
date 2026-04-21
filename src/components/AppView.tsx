@@ -34,7 +34,7 @@ export default function AppView({
     { id: 'map',       icon: 'hub',          label: 'Network Map' },
     { id: 'peoplemap', icon: 'group',        label: 'People Map'  },
     { id: 'library',   icon: 'auto_stories', label: 'Library'     },
-    { id: 'mission',   icon: 'flag',         label: 'Mission'     },
+    { id: 'mission',   icon: 'coffee',       label: 'Tea Time'    },
   ];
 
   const scrollable = activeTab === 'network' || activeTab === 'library' || activeTab === 'mission';
@@ -46,7 +46,7 @@ export default function AppView({
         <div className="h-12 flex justify-between items-center px-4">
           <div className="flex items-center gap-2">
             <button onClick={onBack} className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-surface-container-low transition-colors">
-              <span className="material-symbols-outlined text-on-surface-variant text-2xl">arrow_back</span>
+              <span className="material-symbols-outlined text-on-surface-variant text-xl">arrow_back</span>
             </button>
           </div>
           <div className="flex items-center gap-1">
@@ -58,12 +58,12 @@ export default function AppView({
             >
               {currentUser?.profilePic ? (
                 currentUser.profilePic.length < 5 ? (
-                  <span className="text-base">{currentUser.profilePic}</span>
+                  <span className="text-sm">{currentUser.profilePic}</span>
                 ) : (
                   <img src={currentUser.profilePic} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                 )
               ) : (
-                <span className="material-symbols-outlined text-2xl text-primary/40">face</span>
+                <span className="material-symbols-outlined text-xl text-primary/40">face</span>
               )}
             </button>
             <div className="w-px h-3 bg-outline/30 mx-1" />
@@ -72,7 +72,7 @@ export default function AppView({
               className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-error/10 text-on-surface-variant hover:text-error transition-colors"
               title="로그아웃"
             >
-              <span className="material-symbols-outlined text-xl">logout</span>
+              <span className="material-symbols-outlined text-lg">logout</span>
             </button>
           </div>
         </div>
@@ -103,7 +103,7 @@ export default function AppView({
             >
               {tab.icon}
             </span>
-            <span className={`font-label text-[10px] uppercase tracking-wide font-black leading-none ${activeTab === tab.id ? 'text-primary' : 'text-on-surface-variant/40'}`}>
+            <span className={`font-label text-[9px] uppercase tracking-wide font-black leading-none ${activeTab === tab.id ? 'text-primary' : 'text-on-surface-variant/40'}`}>
               {tab.label}
             </span>
           </button>

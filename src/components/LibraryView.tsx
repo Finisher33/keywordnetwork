@@ -41,25 +41,25 @@ function LibraryTeaTimeModal({
           <div className="w-12 h-12 rounded-xl overflow-hidden flex items-center justify-center border border-outline bg-surface-container-low shrink-0">
             {targetUser.profilePic
               ? <img src={targetUser.profilePic} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-              : <span className="font-bold text-primary text-base">{targetUser.name.charAt(0)}</span>}
+              : <span className="font-bold text-primary text-sm">{targetUser.name.charAt(0)}</span>}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs text-on-surface-variant truncate uppercase font-medium">{targetUser.company} · {targetUser.department}</p>
-            <p className="font-bold text-on-surface text-base">{targetUser.name}</p>
-            <p className="text-xs text-primary font-medium truncate">{targetUser.title}</p>
+            <p className="text-[11px] text-on-surface-variant truncate uppercase font-medium">{targetUser.company} · {targetUser.department}</p>
+            <p className="font-bold text-on-surface text-sm">{targetUser.name}</p>
+            <p className="text-[11px] text-primary font-medium truncate">{targetUser.title}</p>
           </div>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container-highest shrink-0">
-            <span className="material-symbols-outlined text-on-surface-variant text-xl">close</span>
+            <span className="material-symbols-outlined text-on-surface-variant text-lg">close</span>
           </button>
         </div>
 
         {/* 티타임 요청 폼 */}
         <div className="space-y-3">
-          <p className="text-xs font-bold text-on-surface uppercase tracking-widest">티타임 요청</p>
+          <p className="text-[11px] font-bold text-on-surface uppercase tracking-widest">티타임 요청</p>
           {myInterests.length > 0 && (
             <div className="flex flex-wrap gap-1">
               {myInterests.map(i => (
-                <span key={i.id} className="px-2 py-0.5 bg-primary/10 text-primary text-xs font-bold rounded-md border border-primary/20">
+                <span key={i.id} className="px-2 py-0.5 bg-primary/10 text-primary text-[11px] font-bold rounded-md border border-primary/20">
                   #{i.keyword}
                 </span>
               ))}
@@ -70,11 +70,11 @@ function LibraryTeaTimeModal({
             onChange={e => { setMsg(e.target.value); if (e.target.value.trim()) setMsgError(false); }}
             placeholder={`${targetUser.name}님에게 보낼 메시지를 작성하세요...`}
             rows={4}
-            className={`w-full bg-surface-container-low border rounded-xl p-3 text-base resize-none outline-none focus:border-primary ${msgError ? 'border-error' : 'border-outline'}`}
+            className={`w-full bg-surface-container-low border rounded-xl p-3 text-sm resize-none outline-none focus:border-primary ${msgError ? 'border-error' : 'border-outline'}`}
           />
           {msgError && (
-            <p className="text-sm text-error font-medium flex items-center gap-1 -mt-1">
-              <span className="material-symbols-outlined text-base">warning</span>
+            <p className="text-xs text-error font-medium flex items-center gap-1 -mt-1">
+              <span className="material-symbols-outlined text-sm">warning</span>
               메시지를 입력해주세요.
             </p>
           )}
@@ -176,8 +176,8 @@ export default function LibraryView() {
       {/* Header */}
       <div className="pb-3 border-b-2 border-primary/30 flex items-center justify-between">
         <div>
-          <h1 className="font-headline text-3xl font-black uppercase tracking-widest text-primary">LEADER LIBRARY</h1>
-          <p className="text-sm text-on-surface-variant mt-0.5 font-medium">
+          <h1 className="font-headline text-2xl font-black uppercase tracking-widest text-primary">LEADER LIBRARY</h1>
+          <p className="text-xs text-on-surface-variant mt-0.5 font-medium">
             관심사 등록 완료 리더 · {courseUsers.length}명
           </p>
         </div>
@@ -187,23 +187,23 @@ export default function LibraryView() {
           className={`w-9 h-9 rounded-full bg-white border border-outline flex items-center justify-center shadow-sm hover:bg-surface-container-low transition-all ${isRefreshing ? 'opacity-50' : ''}`}
           title="새로고침"
         >
-          <span className={`material-symbols-outlined text-on-surface-variant text-xl ${isRefreshing ? 'animate-spin' : ''}`}>refresh</span>
+          <span className={`material-symbols-outlined text-on-surface-variant text-lg ${isRefreshing ? 'animate-spin' : ''}`}>refresh</span>
         </button>
       </div>
 
       {/* Search */}
       <div className="relative">
-        <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-xl">search</span>
+        <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">search</span>
         <input
           type="text"
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="이름, 소속, 키워드로 검색..."
-          className="w-full pl-9 pr-4 py-2.5 bg-surface border border-outline rounded-xl text-base outline-none focus:border-primary"
+          className="w-full pl-9 pr-4 py-2.5 bg-surface border border-outline rounded-xl text-sm outline-none focus:border-primary"
         />
         {search && (
           <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface">
-            <span className="material-symbols-outlined text-xl">close</span>
+            <span className="material-symbols-outlined text-lg">close</span>
           </button>
         )}
       </div>
@@ -211,11 +211,11 @@ export default function LibraryView() {
       {/* Keyword Hashtag Filter */}
       {allKeywords.length > 0 && (
         <div className="space-y-2">
-          <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">키워드로 필터</p>
+          <p className="text-[11px] font-bold uppercase tracking-widest text-on-surface-variant">키워드로 필터</p>
           <div className="flex flex-wrap gap-1.5">
             <button
               onClick={() => setSelectedKeyword(null)}
-              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-sm font-bold border transition-all ${
+              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border transition-all ${
                 !selectedKeyword
                   ? 'bg-primary text-on-primary border-primary shadow-sm'
                   : 'bg-surface text-on-surface-variant border-outline hover:border-primary/50 hover:text-primary'
@@ -229,14 +229,14 @@ export default function LibraryView() {
                 <button
                   key={keyword}
                   onClick={() => setSelectedKeyword(active ? null : keyword)}
-                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-sm font-bold border transition-all ${
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border transition-all ${
                     active
                       ? 'bg-primary text-on-primary border-primary shadow-sm'
                       : 'bg-surface text-on-surface-variant border-outline hover:border-primary/50 hover:text-primary'
                   }`}
                 >
                   <span>#{keyword}</span>
-                  <span className={`text-[11px] ${active ? 'text-on-primary/70' : 'text-on-surface-variant/60'}`}>{count}</span>
+                  <span className={`text-[10px] ${active ? 'text-on-primary/70' : 'text-on-surface-variant/60'}`}>{count}</span>
                 </button>
               );
             })}
@@ -246,7 +246,7 @@ export default function LibraryView() {
 
       {/* Result count */}
       {(search || selectedKeyword) && (
-        <p className="text-sm text-on-surface-variant">
+        <p className="text-xs text-on-surface-variant">
           검색 결과 <span className="font-bold text-primary">{filteredUsers.length}</span>명
           {selectedKeyword && (
             <span className="ml-1">· <span className="font-bold text-primary">#{selectedKeyword}</span> 관심 리더</span>
@@ -256,7 +256,7 @@ export default function LibraryView() {
 
       {/* Gallery Grid */}
       {filteredUsers.length === 0 ? (
-        <div className="py-16 text-center text-on-surface-variant text-base">
+        <div className="py-16 text-center text-on-surface-variant text-sm">
           <span className="material-symbols-outlined text-5xl block mb-2 opacity-30">group_off</span>
           검색 결과가 없습니다.
         </div>
@@ -296,20 +296,20 @@ export default function LibraryView() {
                     {u.profilePic ? (
                       <img src={u.profilePic} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     ) : (
-                      <span className="text-lg font-bold text-primary">{u.name.charAt(0)}</span>
+                      <span className="text-base font-bold text-primary">{u.name.charAt(0)}</span>
                     )}
                   </button>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs text-on-surface-variant truncate font-medium uppercase">{u.company}</p>
-                    <p className="text-xs text-on-surface-variant truncate font-medium">{u.department}</p>
+                    <p className="text-[11px] text-on-surface-variant truncate font-medium uppercase">{u.company}</p>
+                    <p className="text-[11px] text-on-surface-variant truncate font-medium">{u.department}</p>
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <p className="text-base font-bold text-on-surface truncate">{u.name}</p>
-                      {isMe && <span className="text-[10px] font-black bg-primary text-on-primary px-1.5 py-0.5 rounded uppercase tracking-widest shrink-0">나</span>}
+                      <p className="text-sm font-bold text-on-surface truncate">{u.name}</p>
+                      {isMe && <span className="text-[9px] font-black bg-primary text-on-primary px-1.5 py-0.5 rounded uppercase tracking-widest shrink-0">나</span>}
                     </div>
-                    <p className="text-xs text-primary font-medium truncate">{u.title}</p>
+                    <p className="text-[11px] text-primary font-medium truncate">{u.title}</p>
                     {u.location && (
-                      <p className="text-xs text-on-surface-variant/70 truncate flex items-center gap-0.5 mt-0.5">
-                        <span className="material-symbols-outlined text-sm">location_on</span>{u.location}
+                      <p className="text-[11px] text-on-surface-variant/70 truncate flex items-center gap-0.5 mt-0.5">
+                        <span className="material-symbols-outlined text-xs">location_on</span>{u.location}
                       </p>
                     )}
                   </div>
@@ -317,7 +317,7 @@ export default function LibraryView() {
 
                 {/* 담당조직 소개 placeholder – 추후 데이터 연동 */}
                 {/* {u.deptDescription && (
-                  <p className="text-sm text-on-surface-variant border-l-2 border-outline pl-3 leading-relaxed">
+                  <p className="text-xs text-on-surface-variant border-l-2 border-outline pl-3 leading-relaxed">
                     {u.deptDescription}
                   </p>
                 )} */}
@@ -332,16 +332,16 @@ export default function LibraryView() {
                         return matched.map((i: Interest) => (
                           <div key={i.id} className={`border rounded-lg px-2.5 py-1.5 ${i.type === 'giver' ? 'bg-primary/5 border-primary/15' : 'bg-secondary/5 border-secondary/15'}`}>
                             <div className="flex items-center gap-1.5 mb-0.5 min-w-0 overflow-hidden">
-                              <span className={`text-[11px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded shrink-0 ${i.type === 'giver' ? 'bg-primary text-on-primary' : 'bg-secondary text-on-secondary'}`}>
+                              <span className={`text-[10px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded shrink-0 ${i.type === 'giver' ? 'bg-primary text-on-primary' : 'bg-secondary text-on-secondary'}`}>
                                 {i.type === 'giver' ? 'Giver' : 'Taker'}
                               </span>
-                              <span className={`text-[10px] font-normal text-on-surface-variant truncate`}>
+                              <span className={`text-[9px] font-normal text-on-surface-variant truncate`}>
                                 · {i.type === 'giver' ? '도움을 드릴 수 있어요.' : '도움을 받고 싶어요.'}
                               </span>
-                              <p className={`text-xs font-bold shrink-0 ml-auto ${i.type === 'giver' ? 'text-primary' : 'text-secondary'}`}>#{i.keyword}</p>
+                              <p className={`text-[11px] font-bold shrink-0 ml-auto ${i.type === 'giver' ? 'text-primary' : 'text-secondary'}`}>#{i.keyword}</p>
                             </div>
                             {i.description && (
-                              <p className="text-[11px] text-on-surface-variant leading-relaxed line-clamp-2">{i.description}</p>
+                              <p className="text-[10px] text-on-surface-variant leading-relaxed line-clamp-2">{i.description}</p>
                             )}
                           </div>
                         ));
@@ -352,15 +352,15 @@ export default function LibraryView() {
                         {givers.length > 0 && (
                           <div className="space-y-1">
                             <div className="flex items-center gap-1 min-w-0 overflow-hidden">
-                              <p className="text-[11px] font-bold text-primary uppercase tracking-widest shrink-0">Giver</p>
-                              <p className="text-[10px] font-normal text-on-surface-variant truncate">· 도움을 드릴 수 있어요.</p>
+                              <p className="text-[10px] font-bold text-primary uppercase tracking-widest shrink-0">Giver</p>
+                              <p className="text-[9px] font-normal text-on-surface-variant truncate">· 도움을 드릴 수 있어요.</p>
                             </div>
                             <div className="space-y-1">
                               {givers.map((i: Interest) => (
                                 <div key={i.id} className="bg-primary/5 border border-primary/15 rounded-lg px-2.5 py-1.5">
-                                  <p className="text-xs font-bold text-primary">#{i.keyword}</p>
+                                  <p className="text-[11px] font-bold text-primary">#{i.keyword}</p>
                                   {i.description && (
-                                    <p className="text-[11px] text-on-surface-variant leading-relaxed mt-0.5 line-clamp-2">{i.description}</p>
+                                    <p className="text-[10px] text-on-surface-variant leading-relaxed mt-0.5 line-clamp-2">{i.description}</p>
                                   )}
                                 </div>
                               ))}
@@ -370,15 +370,15 @@ export default function LibraryView() {
                         {takers.length > 0 && (
                           <div className="space-y-1">
                             <div className="flex items-center gap-1 min-w-0 overflow-hidden">
-                              <p className="text-[11px] font-bold text-secondary uppercase tracking-widest shrink-0">Taker</p>
-                              <p className="text-[10px] font-normal text-on-surface-variant truncate">· 도움을 받고 싶어요.</p>
+                              <p className="text-[10px] font-bold text-secondary uppercase tracking-widest shrink-0">Taker</p>
+                              <p className="text-[9px] font-normal text-on-surface-variant truncate">· 도움을 받고 싶어요.</p>
                             </div>
                             <div className="space-y-1">
                               {takers.map((i: Interest) => (
                                 <div key={i.id} className="bg-secondary/5 border border-secondary/15 rounded-lg px-2.5 py-1.5">
-                                  <p className="text-xs font-bold text-secondary">#{i.keyword}</p>
+                                  <p className="text-[11px] font-bold text-secondary">#{i.keyword}</p>
                                   {i.description && (
-                                    <p className="text-[11px] text-on-surface-variant leading-relaxed mt-0.5 line-clamp-2">{i.description}</p>
+                                    <p className="text-[10px] text-on-surface-variant leading-relaxed mt-0.5 line-clamp-2">{i.description}</p>
                                   )}
                                 </div>
                               ))}
@@ -389,13 +389,13 @@ export default function LibraryView() {
                     )}
                   </div>
                 ) : (
-                  <p className="text-sm text-on-surface-variant italic">등록된 관심사 없음</p>
+                  <p className="text-xs text-on-surface-variant italic">등록된 관심사 없음</p>
                 )}
 
                 {/* Tea time button / status */}
                 {!isMe && (
                   sentReq ? (
-                    <div className={`w-full py-2 text-sm font-bold text-center rounded-xl mt-auto border ${
+                    <div className={`w-full py-2 text-xs font-bold text-center rounded-xl mt-auto border ${
                       sentReq.status === 'accepted' ? 'bg-green-50 text-green-700 border-green-200' :
                       sentReq.status === 'rejected' ? 'bg-surface-container text-on-surface-variant border-outline/40' :
                       'bg-blue-50 text-blue-600 border-blue-200'
@@ -406,14 +406,14 @@ export default function LibraryView() {
                     receivedReq.status === 'pending' ? (
                       <button
                         onClick={() => setReplyingToReq(receivedReq)}
-                        className="w-full py-2 text-sm font-bold bg-amber-500 text-white rounded-xl hover:bg-amber-600 active:scale-95 transition-all mt-auto"
+                        className="w-full py-2 text-xs font-bold bg-amber-500 text-white rounded-xl hover:bg-amber-600 active:scale-95 transition-all mt-auto"
                       >
                         받은 요청 · 응답하기
                       </button>
                     ) : (
                       <button
                         onClick={() => setReplyingToReq(receivedReq)}
-                        className={`w-full py-2 text-sm font-bold text-center rounded-xl mt-auto border ${
+                        className={`w-full py-2 text-xs font-bold text-center rounded-xl mt-auto border ${
                           receivedReq.status === 'accepted' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-surface-container text-on-surface-variant border-outline/40'
                         }`}
                       >
@@ -423,7 +423,7 @@ export default function LibraryView() {
                   ) : (
                     <button
                       onClick={() => setSelectedUser(u)}
-                      className="w-full py-2 text-sm font-bold bg-primary/10 text-primary border border-primary/20 rounded-xl hover:bg-primary/20 active:scale-95 transition-all mt-auto"
+                      className="w-full py-2 text-xs font-bold bg-primary/10 text-primary border border-primary/20 rounded-xl hover:bg-primary/20 active:scale-95 transition-all mt-auto"
                     >
                       티타임 요청
                     </button>

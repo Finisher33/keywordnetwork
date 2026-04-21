@@ -18,10 +18,10 @@ interface MyNetworkProps {
 function SectionTitle({ icon, title, badge }: { icon: string; title: string; badge?: string }) {
   return (
     <div className="flex items-center gap-2 pb-2 border-b border-outline/40">
-      <span className="material-symbols-outlined text-primary text-2xl">{icon}</span>
-      <h2 className="font-headline text-lg font-black uppercase tracking-widest text-on-surface">{title}</h2>
+      <span className="material-symbols-outlined text-primary text-xl">{icon}</span>
+      <h2 className="font-headline text-base font-black uppercase tracking-widest text-on-surface">{title}</h2>
       {badge && (
-        <span className="text-[11px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold border border-primary/20 ml-1">{badge}</span>
+        <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold border border-primary/20 ml-1">{badge}</span>
       )}
     </div>
   );
@@ -73,7 +73,7 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
 
   const hotKeywords = useMemo(() => {
     if (!currentUser) return [];
-    return calculateHotKeywords(currentUser, db, 5);
+    return calculateHotKeywords(currentUser, db, 10);
   }, [currentUser, db]);
 
   const selectedUserInterests = useMemo(() => {
@@ -158,20 +158,20 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
       {/* ── Page Header ── */}
       <div className="pb-3 border-b-2 border-primary/30 flex items-center justify-between">
         <div>
-          <h1 className="font-headline text-3xl font-black uppercase tracking-widest text-primary">MY NETWORK</h1>
-          <p className="text-sm text-on-surface-variant mt-0.5 font-medium">{currentUser?.name}님의 소셜 네트워크 분석</p>
+          <h1 className="font-headline text-2xl font-black uppercase tracking-widest text-primary">MY NETWORK</h1>
+          <p className="text-xs text-on-surface-variant mt-0.5 font-medium">{currentUser?.name}님의 소셜 네트워크 분석</p>
         </div>
         {!hideActions && (
           <div className="flex items-center gap-2">
             <button onClick={handleDownloadPDF} disabled={isDownloading}
               className={`w-9 h-9 rounded-full bg-white border border-outline flex items-center justify-center shadow-sm hover:bg-surface-container-low transition-all ${isDownloading ? 'opacity-50' : ''}`}
               title="PDF 다운로드">
-              <span className="material-symbols-outlined text-on-surface-variant text-xl">{isDownloading ? 'sync' : 'download'}</span>
+              <span className="material-symbols-outlined text-on-surface-variant text-lg">{isDownloading ? 'sync' : 'download'}</span>
             </button>
             <button onClick={handleRefresh} disabled={isRefreshing}
               className={`w-9 h-9 rounded-full bg-white border border-outline flex items-center justify-center shadow-sm hover:bg-surface-container-low transition-all ${isRefreshing ? 'animate-spin' : ''}`}
               title="새로고침">
-              <span className="material-symbols-outlined text-on-surface-variant text-xl">refresh</span>
+              <span className="material-symbols-outlined text-on-surface-variant text-lg">refresh</span>
             </button>
           </div>
         )}
@@ -183,8 +183,8 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
       <section className="space-y-5">
         {/* 타이틀 */}
         <div className="flex items-center gap-2 pb-2 border-b border-outline/40">
-          <span className="material-symbols-outlined text-primary text-2xl">analytics</span>
-          <h2 className="font-headline text-lg font-black uppercase tracking-widest text-on-surface leading-tight">
+          <span className="material-symbols-outlined text-primary text-xl">analytics</span>
+          <h2 className="font-headline text-base font-black uppercase tracking-widest text-on-surface leading-tight">
             SNA
             <span className="text-[0.55em] font-semibold normal-case tracking-normal text-on-surface/60"> (Social Network Analysis)</span>
             {' '}유형 분석
@@ -193,13 +193,13 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
 
         {/* 소개 문구 */}
         <div className="bg-surface-container-low border border-outline/40 rounded-xl px-4 py-3 space-y-1.5">
-          <p className="text-xs text-on-surface-variant leading-relaxed">
+          <p className="text-[11px] text-on-surface-variant leading-relaxed">
             소셜 네트워크 분석이란 사람/객체간의 속성(나이, 성별 등)보다는 그들 간의 <span className="font-bold text-on-surface">'관계(Relationship)'와 '구조(Structure)'</span>에 집중하여 사회적 현상을 정량적으로 분석하는 기법입니다.
           </p>
-          <p className="text-xs text-on-surface-variant leading-relaxed">
+          <p className="text-[11px] text-on-surface-variant leading-relaxed">
             점(Node)과 선(Link)으로 이루어진 데이터를 통해 집단 내의 정보 흐름이나 권력 지도를 시각화하고 통계적으로 확인합니다.
           </p>
-          <p className="text-xs text-on-surface-variant leading-relaxed">
+          <p className="text-[11px] text-on-surface-variant leading-relaxed">
             리더님께서 입력한 관심사와 본 과정에 참여한 리더분들이 입력한 관심사 간의 데이터를 종합 분석 결과, <span className="font-bold text-primary">{currentUser?.name}</span>님의 네트워크 유형은{' '}
             {snaResult && !snaResult.allZero && snaResult.dominant
               ? <><span className="font-bold text-primary">{snaResult.dominant.type}</span> 유형입니다.</>
@@ -209,17 +209,17 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
         </div>
 
         {!snaResult ? (
-          <p className="text-sm text-on-surface-variant italic p-4 bg-surface rounded-xl border border-outline">
+          <p className="text-xs text-on-surface-variant italic p-4 bg-surface rounded-xl border border-outline">
             분석하기에 데이터가 부족합니다. 관심사를 등록하고 동료들과 연결되면 분석 결과를 확인할 수 있습니다.
           </p>
         ) : snaResult.allZero ? (
           /* 모든 점수가 0 → 유형 미결정 안내 */
           <div className="bg-surface-container-low border border-outline rounded-2xl p-6 space-y-4">
             <div className="flex items-center gap-3">
-              <span className="text-4xl">🔍</span>
+              <span className="text-3xl">🔍</span>
               <div>
-                <p className="text-base font-bold text-on-surface">아직 유형을 특정하기 어렵습니다</p>
-                <p className="text-sm text-on-surface-variant mt-1 leading-relaxed">
+                <p className="text-sm font-bold text-on-surface">아직 유형을 특정하기 어렵습니다</p>
+                <p className="text-xs text-on-surface-variant mt-1 leading-relaxed">
                   데이터가 부족하여 네트워크 유형 분석이 불가합니다.<br />
                   관심 키워드를 등록하고 다른 리더들과 연결되면 정확한 유형을 확인할 수 있습니다.
                 </p>
@@ -231,13 +231,13 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
                 <div key={idx} className="bg-surface border border-outline/50 rounded-xl p-3">
                   <div className="flex items-center justify-between mb-1.5">
                     <div className="flex items-center gap-2">
-                      <span className="text-xl">{t.icon}</span>
+                      <span className="text-lg">{t.icon}</span>
                       <div>
-                        <p className="text-sm font-bold text-on-surface/50">{t.type}</p>
-                        <p className="text-[11px] text-on-surface-variant/50 uppercase tracking-widest">{t.metricName}</p>
+                        <p className="text-xs font-bold text-on-surface/50">{t.type}</p>
+                        <p className="text-[10px] text-on-surface-variant/50 uppercase tracking-widest">{t.metricName}</p>
                       </div>
                     </div>
-                    <span className="text-base font-black text-on-surface-variant/40">0</span>
+                    <span className="text-sm font-black text-on-surface-variant/40">0</span>
                   </div>
                   <div className="h-1.5 bg-surface-container-low rounded-full" />
                 </div>
@@ -254,61 +254,26 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
                   <div className="flex gap-4 items-start">
                     <div className="text-5xl shrink-0">{snaResult.dominant!.icon}</div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-primary/60 uppercase tracking-widest mb-0.5">{snaResult.dominant!.metricName} 최고</p>
+                      <p className="text-[11px] font-bold text-primary/60 uppercase tracking-widest mb-0.5">{snaResult.dominant!.metricName} 최고</p>
                       <div className="flex items-baseline gap-2 mb-1">
-                        <h3 className="text-2xl font-black text-primary">{snaResult.dominant!.type} 유형</h3>
-                        <span className="text-3xl font-black text-primary">{snaResult.dominant!.score.toFixed(0)}</span>
-                        <span className="text-xs text-primary/50 font-bold">/ 100</span>
+                        <h3 className="text-xl font-black text-primary">{snaResult.dominant!.type} 유형</h3>
+                        <span className="text-2xl font-black text-primary">{snaResult.dominant!.score.toFixed(0)}</span>
+                        <span className="text-[11px] text-primary/50 font-bold">/ 100</span>
                       </div>
-                      <p className="text-xs text-primary/60 mt-1">{snaResult.dominant!.detail}</p>
+                      <p className="text-[11px] text-primary/60 mt-1">{snaResult.dominant!.detail}</p>
                     </div>
                   </div>
                   {desc && (
                     <div className="space-y-2 pt-2 border-t border-primary/20">
-                      <p className="text-xs font-bold text-primary/80 leading-relaxed">{desc.leader}</p>
-                      <p className="text-xs text-on-surface-variant leading-relaxed">{desc.property}</p>
-                      <p className="text-xs text-on-surface-variant leading-relaxed">{desc.analogy}</p>
+                      <p className="text-[11px] font-bold text-primary/80 leading-relaxed">{desc.leader}</p>
+                      <p className="text-[11px] text-on-surface-variant leading-relaxed">{desc.property}</p>
+                      <p className="text-[11px] text-on-surface-variant leading-relaxed">{desc.analogy}</p>
                     </div>
                   )}
                 </div>
               );
             })()}
 
-            {/* 나머지 유형 bars (dominant 제외) */}
-            <div className="space-y-3">
-              {snaResult.types.filter(t => t.type !== snaResult.dominant!.type).map((t, idx) => (
-                <div key={idx} className="bg-surface border border-outline rounded-xl p-4 space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xl">{t.icon}</span>
-                      <div>
-                        <p className="text-base font-bold text-on-surface">{t.type}</p>
-                        <p className="text-[11px] text-on-surface-variant uppercase tracking-widest">{t.metricName}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-baseline gap-1 shrink-0">
-                      <span className="text-lg font-black text-on-surface-variant">{t.score.toFixed(0)}</span>
-                      <span className="text-[11px] text-on-surface-variant/50 font-bold">/ 100</span>
-                    </div>
-                  </div>
-                  <div className="h-1.5 bg-surface-container-low rounded-full overflow-hidden">
-                    <div className="h-full rounded-full bg-on-surface-variant/25 transition-all duration-700"
-                      style={{ width: `${Math.max(2, t.score)}%` }} />
-                  </div>
-                  {t.detail && (
-                    <p className="text-xs font-bold text-on-surface-variant/60 leading-relaxed">
-                      {t.detail}
-                    </p>
-                  )}
-                  {SNA_DESCRIPTIONS[t.type] && (
-                    <div className="space-y-1.5">
-                      <p className="text-xs text-on-surface-variant/80 leading-relaxed">{SNA_DESCRIPTIONS[t.type].property}</p>
-                      <p className="text-xs text-on-surface-variant/80 leading-relaxed">{SNA_DESCRIPTIONS[t.type].analogy}</p>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
           </>
         )}
       </section>
@@ -318,12 +283,12 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
       ════════════════════════════════════════════════════════════════════════ */}
       <section className="space-y-5">
         <SectionTitle icon="star" title="네트워크 추천 리더" badge="연결 키워드 2개 이상" />
-        <p className="text-sm text-on-surface-variant font-medium -mt-2">
+        <p className="text-xs text-on-surface-variant font-medium -mt-2">
           {currentUser?.name}님과 공통 키워드가 2개 이상인 리더입니다. 아이콘을 클릭해 티타임을 요청해보세요.
         </p>
 
         {recommendedLeaders.length === 0 ? (
-          <p className="text-sm text-on-surface-variant italic p-4 bg-surface-container rounded-xl border border-outline-variant/10">
+          <p className="text-xs text-on-surface-variant italic p-4 bg-surface-container rounded-xl border border-outline-variant/10">
             아직 2개 이상 공통 키워드를 가진 리더가 없습니다.
           </p>
         ) : (
@@ -341,23 +306,23 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
                     >
                       {u.profilePic
                         ? <img src={u.profilePic} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                        : <span className="text-lg font-bold text-primary">{u.name.charAt(0)}</span>}
+                        : <span className="text-base font-bold text-primary">{u.name.charAt(0)}</span>}
                     </button>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs text-on-surface-variant truncate uppercase font-medium">{u.company} · {u.department}</p>
+                      <p className="text-[11px] text-on-surface-variant truncate uppercase font-medium">{u.company} · {u.department}</p>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-base font-bold text-on-surface">{u.name}</p>
-                        <span className="text-[11px] font-black bg-primary text-on-primary px-2 py-0.5 rounded-full">공통 {count}개</span>
+                        <p className="text-sm font-bold text-on-surface">{u.name}</p>
+                        <span className="text-[10px] font-black bg-primary text-on-primary px-2 py-0.5 rounded-full">공통 {count}개</span>
                       </div>
-                      <p className="text-xs text-on-surface-variant truncate">{u.title}</p>
+                      <p className="text-[11px] text-on-surface-variant truncate">{u.title}</p>
                       {u.location && (
-                        <p className="text-xs text-on-surface-variant/60 flex items-center gap-0.5 mt-0.5 truncate">
-                          <span className="material-symbols-outlined text-sm">location_on</span>{u.location}
+                        <p className="text-[11px] text-on-surface-variant/60 flex items-center gap-0.5 mt-0.5 truncate">
+                          <span className="material-symbols-outlined text-xs">location_on</span>{u.location}
                         </p>
                       )}
                     </div>
                     {sentReq ? (
-                      <span className={`shrink-0 text-xs font-bold px-3 py-1.5 rounded-lg border ${
+                      <span className={`shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-lg border ${
                         sentReq.status === 'accepted' ? 'bg-green-50 text-green-700 border-green-200' :
                         sentReq.status === 'rejected' ? 'bg-surface-container text-on-surface-variant border-outline/40' :
                         'bg-blue-50 text-blue-600 border-blue-200'
@@ -367,7 +332,7 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
                     ) : receivedReq ? (
                       <button
                         onClick={() => setReplyingToReq(receivedReq)}
-                        className={`shrink-0 text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors ${
+                        className={`shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-lg border transition-colors ${
                           receivedReq.status === 'pending'
                             ? 'bg-amber-500 text-white border-amber-500 hover:bg-amber-600'
                             : receivedReq.status === 'accepted'
@@ -380,7 +345,7 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
                     ) : (
                       <button
                         onClick={() => setSelectedUser(u)}
-                        className="shrink-0 text-xs font-bold bg-primary/10 text-primary border border-primary/20 px-3 py-1.5 rounded-lg hover:bg-primary/20 transition-colors"
+                        className="shrink-0 text-[11px] font-bold bg-primary/10 text-primary border border-primary/20 px-3 py-1.5 rounded-lg hover:bg-primary/20 transition-colors"
                       >
                         티타임 요청
                       </button>
@@ -388,20 +353,20 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
                   </div>
 
                   <div className="mb-3">
-                    <p className="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1.5">공통 키워드</p>
+                    <p className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1.5">공통 키워드</p>
                     <div className="flex flex-wrap gap-1.5">
                       {keywords.map((kw, idx) => (
-                        <span key={idx} className="text-xs font-black text-primary bg-primary/5 px-2 py-0.5 rounded border border-primary/20 italic">{kw}</span>
+                        <span key={idx} className="text-[11px] font-black text-primary bg-primary/5 px-2 py-0.5 rounded border border-primary/20 italic">{kw}</span>
                       ))}
                     </div>
                   </div>
 
                   {uInterests.length > 0 && (
                     <div>
-                      <p className="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1.5">등록한 관심사</p>
+                      <p className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1.5">등록한 관심사</p>
                       <div className="flex flex-wrap gap-1.5">
                         {uInterests.map((i: Interest) => (
-                          <span key={i.id} className={`text-xs px-2 py-0.5 rounded-full font-bold border ${i.type === 'giver' ? 'bg-primary/5 text-primary border-primary/20' : 'bg-secondary/5 text-secondary border-secondary/20'}`}>
+                          <span key={i.id} className={`text-[11px] px-2 py-0.5 rounded-full font-bold border ${i.type === 'giver' ? 'bg-primary/5 text-primary border-primary/20' : 'bg-secondary/5 text-secondary border-secondary/20'}`}>
                             #{i.keyword} <span className="opacity-60">{i.type === 'giver' ? 'G' : 'T'}</span>
                           </span>
                         ))}
@@ -419,13 +384,13 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
           4. HOT KEYWORDS
       ════════════════════════════════════════════════════════════════════════ */}
       <section className="space-y-5">
-        <SectionTitle icon="local_fire_department" title="HOT KEYWORDS" badge="Top 5" />
-        <p className="text-sm text-on-surface-variant font-medium -mt-2">
+        <SectionTitle icon="local_fire_department" title="HOT KEYWORDS" badge="Top 10" />
+        <p className="text-xs text-on-surface-variant font-medium -mt-2">
           이번 과정에서 가장 많은 리더들이 관심을 가진 키워드입니다. 키워드를 클릭하면 상세 내용을 확인할 수 있어요.
         </p>
 
         {hotKeywords.length === 0 ? (
-          <p className="text-sm text-on-surface-variant italic p-4 bg-surface rounded-xl border border-outline">키워드 데이터가 없습니다.</p>
+          <p className="text-xs text-on-surface-variant italic p-4 bg-surface rounded-xl border border-outline">키워드 데이터가 없습니다.</p>
         ) : (
           <div className="space-y-3">
             {hotKeywords.map((kw, idx) => {
@@ -443,11 +408,11 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
                   className="w-full bg-surface border border-outline rounded-2xl p-4 hover:border-primary/40 hover:shadow-md transition-all text-left group"
                 >
                   <div className="flex items-center gap-3 mb-3">
-                    <span className="text-2xl shrink-0">{medals[idx]}</span>
+                    <span className="text-xl shrink-0">{medals[idx]}</span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
-                        <h3 className="font-bold text-on-surface text-base group-hover:text-primary transition-colors">#{kw.displayName}</h3>
-                        <span className="text-xs text-on-surface-variant shrink-0">{total}명 관심</span>
+                        <h3 className="font-bold text-on-surface text-sm group-hover:text-primary transition-colors">#{kw.displayName}</h3>
+                        <span className="text-[11px] text-on-surface-variant shrink-0">{total}명 관심</span>
                       </div>
                     </div>
                   </div>
@@ -458,7 +423,7 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
                       <div className="bg-primary rounded-full transition-all duration-500" style={{ width: `${giverPct}%` }} />
                       <div className="bg-secondary rounded-full transition-all duration-500" style={{ width: `${takerPct}%` }} />
                     </div>
-                    <div className="flex justify-between text-[11px] font-bold">
+                    <div className="flex justify-between text-[10px] font-bold">
                       <span className="text-primary">Giver {giverCount}명 ({giverPct}%)</span>
                       <span className="text-secondary">Taker {takerCount}명 ({takerPct}%)</span>
                     </div>
@@ -478,9 +443,9 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
           <div className="bg-surface p-6 rounded-2xl border border-outline max-w-md w-full shadow-2xl max-h-[85vh] overflow-y-auto scrollbar-hide" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-start mb-5">
               <div>
-                <p className="text-xs text-on-surface-variant uppercase tracking-widest font-bold mb-0.5">HOT KEYWORD</p>
-                <h3 className="text-2xl font-black text-primary">#{selectedKeyword.displayName}</h3>
-                <p className="text-sm text-on-surface-variant mt-0.5">총 {selectedKeyword.total}명 관심</p>
+                <p className="text-[11px] text-on-surface-variant uppercase tracking-widest font-bold mb-0.5">HOT KEYWORD</p>
+                <h3 className="text-xl font-black text-primary">#{selectedKeyword.displayName}</h3>
+                <p className="text-xs text-on-surface-variant mt-0.5">총 {selectedKeyword.total}명 관심</p>
               </div>
               <button onClick={() => setSelectedKeyword(null)} className="text-on-surface-variant hover:text-on-surface">
                 <span className="material-symbols-outlined">close</span>
@@ -491,8 +456,8 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
               {/* Givers */}
               {selectedKeyword.givers.length > 0 && (
                 <div className="space-y-2">
-                  <h4 className="text-sm font-bold text-primary uppercase tracking-widest flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-base">volunteer_activism</span>
+                  <h4 className="text-xs font-bold text-primary uppercase tracking-widest flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-sm">volunteer_activism</span>
                     Giver ({selectedKeyword.givers.length}명)
                   </h4>
                   <div className="space-y-2">
@@ -505,19 +470,19 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
                             <div className="w-7 h-7 rounded-lg bg-primary/10 overflow-hidden flex items-center justify-center shrink-0 border border-primary/20">
                               {user.profilePic
                                 ? <img src={user.profilePic} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                                : <span className="text-sm font-bold text-primary">{user.name.charAt(0)}</span>}
+                                : <span className="text-xs font-bold text-primary">{user.name.charAt(0)}</span>}
                             </div>
                             <div className="min-w-0">
-                              <p className="text-sm font-bold text-on-surface truncate">{user.name}</p>
-                              <p className="text-[11px] text-on-surface-variant truncate">{user.company} · {user.department} · {user.title}</p>
+                              <p className="text-xs font-bold text-on-surface truncate">{user.name}</p>
+                              <p className="text-[10px] text-on-surface-variant truncate">{user.company} · {user.department} · {user.title}</p>
                               {user.location && (
-                                <p className="text-[11px] text-on-surface-variant/60 flex items-center gap-0.5 truncate">
-                                  <span className="material-symbols-outlined text-xs">location_on</span>{user.location}
+                                <p className="text-[10px] text-on-surface-variant/60 flex items-center gap-0.5 truncate">
+                                  <span className="material-symbols-outlined text-[11px]">location_on</span>{user.location}
                                 </p>
                               )}
                             </div>
                           </div>
-                          {i.description && <p className="text-xs text-on-surface-variant leading-relaxed italic">"{i.description}"</p>}
+                          {i.description && <p className="text-[11px] text-on-surface-variant leading-relaxed italic">"{i.description}"</p>}
                         </div>
                       );
                     })}
@@ -528,8 +493,8 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
               {/* Takers */}
               {selectedKeyword.takers.length > 0 && (
                 <div className="space-y-2">
-                  <h4 className="text-sm font-bold text-secondary uppercase tracking-widest flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-base">pan_tool</span>
+                  <h4 className="text-xs font-bold text-secondary uppercase tracking-widest flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-sm">pan_tool</span>
                     Taker ({selectedKeyword.takers.length}명)
                   </h4>
                   <div className="space-y-2">
@@ -542,19 +507,19 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
                             <div className="w-7 h-7 rounded-lg bg-secondary/10 overflow-hidden flex items-center justify-center shrink-0 border border-secondary/20">
                               {user.profilePic
                                 ? <img src={user.profilePic} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                                : <span className="text-sm font-bold text-secondary">{user.name.charAt(0)}</span>}
+                                : <span className="text-xs font-bold text-secondary">{user.name.charAt(0)}</span>}
                             </div>
                             <div className="min-w-0">
-                              <p className="text-sm font-bold text-on-surface truncate">{user.name}</p>
-                              <p className="text-[11px] text-on-surface-variant truncate">{user.company} · {user.department} · {user.title}</p>
+                              <p className="text-xs font-bold text-on-surface truncate">{user.name}</p>
+                              <p className="text-[10px] text-on-surface-variant truncate">{user.company} · {user.department} · {user.title}</p>
                               {user.location && (
-                                <p className="text-[11px] text-on-surface-variant/60 flex items-center gap-0.5 truncate">
-                                  <span className="material-symbols-outlined text-xs">location_on</span>{user.location}
+                                <p className="text-[10px] text-on-surface-variant/60 flex items-center gap-0.5 truncate">
+                                  <span className="material-symbols-outlined text-[11px]">location_on</span>{user.location}
                                 </p>
                               )}
                             </div>
                           </div>
-                          {i.description && <p className="text-xs text-on-surface-variant leading-relaxed italic">"{i.description}"</p>}
+                          {i.description && <p className="text-[11px] text-on-surface-variant leading-relaxed italic">"{i.description}"</p>}
                         </div>
                       );
                     })}
