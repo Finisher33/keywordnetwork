@@ -557,7 +557,7 @@ export default function MyProfile({ onSave, onLogout, showBack = true, targetUse
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                 저장 중...
               </>
-            ) : '수정 완료'}
+            ) : showBack ? '수정 완료' : '입력 완료'}
           </button>
         </div>
       </div>
