@@ -1,4 +1,5 @@
 import { useState, useEffect, createContext, useContext, ReactNode, useCallback } from 'react';
+import { flushSync } from 'react-dom';
 import { getEmbedding, cosineSimilarity } from './services/embeddingService';
 import { db as firestore, auth, authReady, ensureAuth } from './firebase';
 import { doc, onSnapshot, setDoc, getDoc, collection, deleteDoc, writeBatch, query, where, getDocs } from 'firebase/firestore';
@@ -959,17 +960,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       await batch.commit();
 
-      // onSnapshot 응답을 기다리지 않고 로컬 상태 즉시 갱신
-      // (카카오톡 인앱브라우저 등 WKWebView 환경에서 onSnapshot 지연으로 인한 페이지 전환 불가 방지)
-      setInterests(prev => [
-        ...prev.filter(i => i.userId !== user.id),
-        ...newInterests,
-      ]);
-
-      if (currentUser?.id === user.id) {
-        setCurrentUser(user);
-        localStorage.setItem('currentUser', JSON.stringify(user));
-      }
+      // flushSync로 상태를 동기적으로 즉시 커밋
+      // — iOS Safari(WKWebView) 등에서 setInterests와 setSubView(onSave)가
+      //   다른 React 배치로 처리될 때 hasInterests가 갱신 전 값을 참조하는 타이밍 문제 방지
+      flushSync(() => {
+        setInterests(prev => [
+          ...prev.filter(i => i.userId !== user.id),
+          ...newInterests,
+        ]);
+        if (currentUser?.id === user.id) {
+          setCurrentUser(user);
+          localStorage.setItem('currentUser', JSON.stringify(user));
+        }
+      });
     } catch (error: any) {
       console.error("Error updating user profile:", JSON.stringify({
         error: error instanceof Error ? error.message : String(error),

@@ -943,15 +943,16 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
                         </div>
                         <div className="flex items-center justify-between w-full sm:w-auto gap-4">
                           <div className="flex items-center gap-2">
-                            <span className={`text-[9px] sm:text-[10px] font-bold ${session.isActive ? 'text-success' : 'text-on-surface-variant/40'}`}>
+                            <span className={`text-[9px] sm:text-[10px] font-bold ${session.isActive ? 'text-primary' : 'text-on-surface-variant/40'}`}>
                               {session.isActive ? '활성화' : '비활성화'}
                             </span>
-                            <button 
+                            <button
                               onClick={() => handleToggleSessionActive(session.id)}
                               disabled={isProcessing}
-                              className={`w-8 sm:w-10 h-4 sm:h-5 rounded-full relative transition-colors ${session.isActive ? 'bg-success' : 'bg-surface-container-highest'} disabled:opacity-50`}
+                              title={session.isActive ? '비활성화' : '활성화'}
+                              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none disabled:opacity-50 ${session.isActive ? 'bg-primary' : 'bg-outline-variant'}`}
                             >
-                              <div className={`absolute top-0.5 sm:top-1 w-3 h-3 rounded-full bg-white transition-all ${session.isActive ? 'right-0.5 sm:right-1' : 'left-0.5 sm:left-1'}`}></div>
+                              <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${session.isActive ? 'translate-x-4' : 'translate-x-1'}`} />
                             </button>
                           </div>
                           <div className="flex gap-2 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">

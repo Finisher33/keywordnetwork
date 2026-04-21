@@ -167,8 +167,7 @@ export default function MyProfile({ onSave, onLogout, showBack = true, targetUse
         company: company === '직접입력' ? customCompany : company,
         name, department, title, profilePic
       }, newInterests);
-      // setInterests 상태 업데이트가 React에 반영된 후 페이지 전환
-      setTimeout(() => onSave(), 0);
+      onSave();
     } catch (error: any) {
       console.error("Failed to save profile:", error);
       showToast(error?.message || '프로필 저장 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.', 'error');
