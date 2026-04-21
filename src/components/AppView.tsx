@@ -40,7 +40,7 @@ export default function AppView({
   const scrollable = activeTab === 'network' || activeTab === 'library' || activeTab === 'mission';
 
   return (
-    <div className="absolute inset-0 bg-background text-on-surface flex flex-col overflow-hidden">
+    <div className="absolute inset-0 bg-background text-on-surface flex flex-col overflow-hidden" style={{ colorScheme: 'light' }}>
       {/* Top Nav */}
       <header className="header-safe bg-white border-b border-outline shadow-sm shrink-0 z-[100]">
         <div className="h-12 flex justify-between items-center px-4">
@@ -84,7 +84,7 @@ export default function AppView({
         {activeTab === 'map'       && <NetworkMap />}
         {activeTab === 'peoplemap' && <PeopleMap />}
         {activeTab === 'library'   && <LibraryView />}
-        {activeTab === 'mission'   && <MissionView onNavigateToLibrary={() => setActiveTab('library')} />}
+        {activeTab === 'mission'   && <MissionView onNavigateToLibrary={() => setActiveTab('library')} onNavigateToNetwork={() => setActiveTab('network')} />}
       </main>
 
       {/* Bottom Nav */}

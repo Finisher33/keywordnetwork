@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react';
 import { useStore, User, Interest, TeaTimeRequest } from '../store';
 import { TeaReplyModal } from './TeaTimeModal';
+import { useToast } from '../hooks/useToast';
+import Toast from './Toast';
 
 // ── Library 전용 티타임 모달 (다른 페이지의 TeaTimeModal과 완전 분리) ──────────
 function LibraryTeaTimeModal({
@@ -15,9 +17,11 @@ function LibraryTeaTimeModal({
   onClose: () => void;
 }) {
   const [msg, setMsg] = useState('');
+  const [msgError, setMsgError] = useState(false);
 
   const handleSend = () => {
-    if (!msg.trim()) { alert('메시지를 입력해주세요.'); return; }
+    if (!msg.trim()) { setMsgError(true); return; }
+    setMsgError(false);
     const hashtags = myInterests.map(i => `#${i.keyword}`).join(' ');
     onSend(hashtags ? `${hashtags}\n\n${msg}` : msg);
     onClose();
@@ -63,11 +67,17 @@ function LibraryTeaTimeModal({
           )}
           <textarea
             value={msg}
-            onChange={e => setMsg(e.target.value)}
+            onChange={e => { setMsg(e.target.value); if (e.target.value.trim()) setMsgError(false); }}
             placeholder={`${targetUser.name}님에게 보낼 메시지를 작성하세요...`}
             rows={4}
-            className="w-full bg-surface-container-low border border-outline rounded-xl p-3 text-sm resize-none outline-none focus:border-primary"
+            className={`w-full bg-surface-container-low border rounded-xl p-3 text-sm resize-none outline-none focus:border-primary ${msgError ? 'border-error' : 'border-outline'}`}
           />
+          {msgError && (
+            <p className="text-[11px] text-error font-medium flex items-center gap-1 -mt-1">
+              <span className="material-symbols-outlined text-sm">warning</span>
+              메시지를 입력해주세요.
+            </p>
+          )}
           <button
             onClick={handleSend}
             className="w-full py-3 bg-primary text-on-primary font-bold rounded-xl shadow-lg active:scale-95 transition-all"
@@ -82,6 +92,7 @@ function LibraryTeaTimeModal({
 
 export default function LibraryView() {
   const { db, currentUser, sendTeaTimeRequest, updateTeaTimeRequest, fetchData } = useStore();
+  const { toast, showToast } = useToast();
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [replyingToReq, setReplyingToReq] = useState<TeaTimeRequest | null>(null);
   const [search, setSearch] = useState('');
@@ -152,12 +163,13 @@ export default function LibraryView() {
     );
     if (exists) { setSelectedUser(null); return; }
     sendTeaTimeRequest({ id: Date.now().toString(), fromUserId: currentUser!.id, toUserId, message, status: 'pending' });
-    alert('티타임 요청을 보냈습니다.');
     setSelectedUser(null);
+    showToast('티타임 요청을 보냈습니다.', 'success');
   };
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 space-y-6">
+      <Toast toast={toast} />
       {/* Header */}
       <div className="pb-3 border-b-2 border-primary/30 flex items-center justify-between">
         <div>
@@ -196,18 +208,18 @@ export default function LibraryView() {
       {/* Keyword Hashtag Filter */}
       {allKeywords.length > 0 && (
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">키워드로 필터</p>
-            {selectedKeyword && (
-              <button
-                onClick={() => setSelectedKeyword(null)}
-                className="text-[10px] font-bold text-primary hover:underline"
-              >
-                초기화
-              </button>
-            )}
-          </div>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">키워드로 필터</p>
           <div className="flex flex-wrap gap-1.5">
+            <button
+              onClick={() => setSelectedKeyword(null)}
+              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all ${
+                !selectedKeyword
+                  ? 'bg-primary text-on-primary border-primary shadow-sm'
+                  : 'bg-surface text-on-surface-variant border-outline hover:border-primary/50 hover:text-primary'
+              }`}
+            >
+              <span>전체</span>
+            </button>
             {allKeywords.map(({ keyword, count }) => {
               const active = selectedKeyword === keyword;
               return (

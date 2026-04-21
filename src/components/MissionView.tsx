@@ -50,17 +50,133 @@ function generateTopics(group: User[], allInterests: Interest[], me: User): stri
 const isUrl = (s?: string) =>
   !!s && (s.startsWith('http://') || s.startsWith('https://') || s.startsWith('/'));
 
+// ─── 파트너 세부 프로필 모달 ──────────────────────────────────────────────────
+
+function PartnerProfileModal({
+  partner,
+  allInterests,
+  currentUser,
+  onClose,
+}: {
+  partner: User;
+  allInterests: Interest[];
+  currentUser: User;
+  onClose: () => void;
+}) {
+  const partnerInterests = allInterests.filter(i => i.userId === partner.id);
+  const myKws = new Set(
+    allInterests.filter(i => i.userId === currentUser.id).map(i => i.keyword.toLowerCase().trim())
+  );
+  const sharedCount = partnerInterests.filter(i => myKws.has(i.keyword.toLowerCase().trim())).length;
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.9, opacity: 0 }}
+          className="bg-white p-8 rounded-xl border-t-8 border-primary max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto scrollbar-hide"
+          onClick={e => e.stopPropagation()}
+        >
+          {/* 프로필 헤더 */}
+          <div className="flex justify-between items-start mb-6">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 rounded-xl bg-surface-container-low overflow-hidden flex items-center justify-center border border-outline">
+                {isUrl(partner.profilePic)
+                  ? <img src={partner.profilePic} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  : <span className="material-symbols-outlined text-6xl text-primary/40">face</span>}
+              </div>
+              <div>
+                <p className="text-[10px] text-on-surface-variant uppercase font-bold tracking-widest">
+                  {partner.company}{partner.department ? ` · ${partner.department}` : ''}
+                </p>
+                <h3 className="font-headline font-black text-xl text-on-surface uppercase tracking-tight">{partner.name}</h3>
+                {partner.title && (
+                  <p className="text-sm text-secondary font-black uppercase tracking-widest">{partner.title}</p>
+                )}
+                {partner.location && (
+                  <p className="text-[10px] text-on-surface-variant/70 flex items-center gap-0.5 mt-0.5">
+                    <span className="material-symbols-outlined text-[11px]">location_on</span>{partner.location}
+                  </p>
+                )}
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-surface-container-highest transition-colors"
+            >
+              <span className="material-symbols-outlined text-on-surface-variant">close</span>
+            </button>
+          </div>
+
+          {/* 공유 키워드 수 */}
+          {sharedCount > 0 && (
+            <div className="mb-4 px-3 py-2 bg-primary/5 border border-primary/20 rounded-xl">
+              <p className="text-xs font-bold text-primary">
+                나와 공유 키워드 <span className="text-lg">{sharedCount}</span>개
+              </p>
+            </div>
+          )}
+
+          {/* 관심사 목록 */}
+          <div className="space-y-4">
+            {(['giver', 'taker'] as const).map(type => {
+              const items = partnerInterests.filter(i => i.type === type);
+              if (items.length === 0) return null;
+              return (
+                <div key={type} className="space-y-2">
+                  <h4 className={`flex items-center gap-1.5 ${type === 'giver' ? 'text-primary' : 'text-secondary'}`}>
+                    <span className="material-symbols-outlined text-sm shrink-0">
+                      {type === 'giver' ? 'volunteer_activism' : 'pan_tool'}
+                    </span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest shrink-0">
+                      {type === 'giver' ? 'Giver' : 'Taker'}
+                    </span>
+                    <span className="text-[9px] font-normal normal-case tracking-normal text-on-surface-variant truncate">
+                      · {type === 'giver' ? '도움을 드릴 수 있어요.' : '도움을 받고 싶어요.'}
+                    </span>
+                  </h4>
+                  {items.map(i => (
+                    <div key={i.id} className="bg-surface-container-low p-3 rounded-xl border border-outline">
+                      <p className={`text-sm font-bold mb-1 ${type === 'giver' ? 'text-primary' : 'text-secondary'}`}>
+                        #{i.keyword}
+                      </p>
+                      <p className="text-xs text-on-surface-variant">{i.description}</p>
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+            {partnerInterests.length === 0 && (
+              <p className="text-xs text-on-surface-variant/50 italic">등록된 관심사가 없습니다.</p>
+            )}
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
 function PartnerCard({
   partner,
   allInterests,
   currentUser,
   index,
+  onClickProfile,
 }: {
   key?: Key;
   partner: User;
   allInterests: Interest[];
   currentUser: User;
   index: number;
+  onClickProfile?: () => void;
 }) {
   const myKws = new Set(
     allInterests.filter(i => i.userId === currentUser.id).map(i => i.keyword.toLowerCase().trim())
@@ -75,18 +191,25 @@ function PartnerCard({
       transition={{ delay: index * 0.15, duration: 0.4 }}
       className="bg-surface rounded-xl border border-outline/40 p-4 flex gap-3 items-start"
     >
-      <div className="shrink-0">
+      <div
+        className="shrink-0 cursor-pointer hover:opacity-75 transition-opacity relative group"
+        onClick={onClickProfile}
+        title="프로필 보기"
+      >
         {isUrl(partner.profilePic) ? (
           <img
             src={partner.profilePic}
             alt={partner.name}
-            className="w-12 h-12 rounded-full object-cover border border-outline/30"
+            className="w-12 h-12 rounded-full object-cover border-2 border-primary/30 group-hover:border-primary transition-colors"
           />
         ) : (
-          <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center border border-primary/30">
+          <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center border-2 border-primary/30 group-hover:border-primary transition-colors">
             <span className="text-primary font-black text-lg">{partner.name.charAt(0)}</span>
           </div>
         )}
+        <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-primary flex items-center justify-center shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
+          <span className="material-symbols-outlined text-white" style={{ fontSize: '12px' }}>person</span>
+        </div>
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-black text-on-surface">{partner.name}</p>
@@ -258,6 +381,7 @@ function PartnerMatchSection({
   loading,
   onReveal,
   isConfirmed,
+  groupNumber,
 }: {
   missionLabel: string;
   partners: User[];
@@ -268,8 +392,10 @@ function PartnerMatchSection({
   loading: boolean;
   onReveal: () => void;
   isConfirmed: boolean;
+  groupNumber?: number;
 }) {
   const [pendingAlert, setPendingAlert] = useState(false);
+  const [profilePartner, setProfilePartner] = useState<User | null>(null);
 
   const topics = useMemo(
     () => generateTopics(group, allInterests, currentUser),
@@ -282,6 +408,14 @@ function PartnerMatchSection({
 
   return (
     <div className="mt-5">
+      {profilePartner && (
+        <PartnerProfileModal
+          partner={profilePartner}
+          allInterests={allInterests}
+          currentUser={currentUser}
+          onClose={() => setProfilePartner(null)}
+        />
+      )}
       <div className="h-px bg-outline/30 mb-5" />
       <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-3">파트너 매칭</p>
 
@@ -329,16 +463,29 @@ function PartnerMatchSection({
             transition={{ duration: 0.35 }}
             className="space-y-4"
           >
+            {groupNumber != null && groupNumber > 0 && (
+              <div className="flex items-center gap-2 bg-primary/6 border border-primary/20 rounded-xl px-4 py-3">
+                <span className="material-symbols-outlined text-primary text-base shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>groups</span>
+                <p className="text-xs font-black text-primary">나의 런치타임 조 : <span className="text-base">{groupNumber}조</span></p>
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <span className="text-lg">🎉</span>
-              <p className="text-sm font-black text-on-surface">나의 {missionLabel} 파트너</p>
+              <p className="text-sm font-black text-on-surface">나의 런치타임 미션 파트너</p>
               <span className="ml-auto text-[10px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-md">
                 {partners.length}명
               </span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {partners.map((p, idx) => (
-                <PartnerCard key={p.id} partner={p} allInterests={allInterests} currentUser={currentUser} index={idx} />
+                <PartnerCard
+                  key={p.id}
+                  partner={p}
+                  allInterests={allInterests}
+                  currentUser={currentUser}
+                  index={idx}
+                  onClickProfile={() => setProfilePartner(p)}
+                />
               ))}
             </div>
             {sharedKws.length > 0 && (
@@ -775,6 +922,11 @@ export default function MissionView({ onNavigateToLibrary, onNavigateToNetwork }
   );
   const lunchPartners = lunchGroup.filter(u => u.id !== currentUser?.id);
 
+  const lunchGroupNumber = useMemo(() => {
+    if (!confirmedLunchGroup || !currentUser) return 0;
+    return confirmedLunchGroup.groups.findIndex(g => g.includes(currentUser.id)) + 1;
+  }, [confirmedLunchGroup, currentUser]);
+
   if (!currentUser) return null;
 
   return (
@@ -903,6 +1055,7 @@ export default function MissionView({ onNavigateToLibrary, onNavigateToNetwork }
                       loading={loading}
                       onReveal={() => handleReveal(mission.id)}
                       isConfirmed={isConfirmed}
+                      groupNumber={lunchGroupNumber}
                     />
                   )}
 

@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useToast } from '../hooks/useToast';
+import Toast from './Toast';
 import { useStore } from '../store';
 import LocationAutocomplete from './LocationAutocomplete';
 import { HYUNDAI_COMPANIES } from '../constants/companies';
@@ -116,6 +118,7 @@ const selectCls = "bg-transparent border-none py-2.5 w-full focus:ring-0 text-sm
 // ── 메인(로그인/등록) 페이지 ──────────────────────────────────────────────────
 export default function MainView({ onAdminClick }: { onAdminClick: () => void }) {
   const { db, login, register } = useStore();
+  const { toast, showToast } = useToast();
   const [courseId, setCourseId] = useState('');
   const [company, setCompany] = useState('');
   const [customCompany, setCustomCompany] = useState('');
@@ -124,6 +127,7 @@ export default function MainView({ onAdminClick }: { onAdminClick: () => void })
   const [coursePassword, setCoursePassword] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
   const [isRegisteringInProgress, setIsRegisteringInProgress] = useState(false);
+  const [registerSuccess, setRegisterSuccess] = useState(false);
   const [department, setDepartment] = useState('');
   const [title, setTitle] = useState('');
   const [location, setLocation] = useState('');
@@ -132,30 +136,30 @@ export default function MainView({ onAdminClick }: { onAdminClick: () => void })
 
   const handleLogin = () => {
     const finalCompany = company === '직접입력' ? customCompany : company;
-    if (!courseId || !finalCompany || !name) { alert('과정, 회사, 성명을 모두 입력해주세요.'); return; }
+    if (!courseId || !finalCompany || !name) { showToast('과정, 회사, 성명을 모두 입력해주세요.', 'error'); return; }
     const selectedCourse = db.courses.find(c => c.id === courseId);
-    if (selectedCourse?.password && selectedCourse.password !== coursePassword) { alert('과정 비밀번호가 올바르지 않습니다.'); return; }
+    if (selectedCourse?.password && selectedCourse.password !== coursePassword) { showToast('과정 비밀번호가 올바르지 않습니다.', 'error'); return; }
     const user = login(finalCompany, name, courseId);
     if (!user) {
-      if (!agreed) { alert('등록된 정보가 없습니다. 개인정보 수집 및 이용에 동의하신 후 최초 정보를 등록해 주세요.'); return; }
+      if (!agreed) { showToast('등록된 정보가 없습니다. 개인정보 수집 및 이용에 동의하신 후 최초 정보를 등록해 주세요.', 'error'); return; }
       setIsRegistering(true);
     }
   };
 
   const handleRegister = async () => {
     const finalCompany = company === '직접입력' ? customCompany : company;
-    if (!department || !title || !location || !finalCompany) { alert('모든 정보를 입력해주세요.'); return; }
-    if (!agreed) { alert('개인정보 수집 및 이용에 동의해 주세요.'); return; }
+    if (!department || !title || !location || !finalCompany) { showToast('모든 정보를 입력해주세요.', 'error'); return; }
+    if (!agreed) { showToast('개인정보 수집 및 이용에 동의해 주세요.', 'error'); return; }
     setIsRegisteringInProgress(true);
     try {
       await register({ id: Date.now().toString(), company: finalCompany, name, courseId, department, title, location });
+      setRegisterSuccess(true);
     } catch (error: any) {
       console.error("Registration failed:", error);
       const msg = error?.message?.includes('인증에 실패')
         ? '네트워크 연결을 확인한 후 다시 시도해 주세요.'
         : '등록 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.';
-      alert(msg);
-    } finally {
+      showToast(msg, 'error');
       setIsRegisteringInProgress(false);
     }
   };
@@ -163,6 +167,7 @@ export default function MainView({ onAdminClick }: { onAdminClick: () => void })
   return (
     <div className="absolute inset-0 flex flex-col overflow-hidden"
       style={{ background: 'linear-gradient(145deg, #0f3460 0%, #1a5290 40%, #0e2d56 100%)' }}>
+      <Toast toast={toast} />
 
       {/* 배경 */}
       <div className="absolute inset-0"><NetworkCanvas /></div>
@@ -191,6 +196,14 @@ export default function MainView({ onAdminClick }: { onAdminClick: () => void })
           </button>
         </div>
       </header>
+
+      {/* 등록 성공 전환 화면 */}
+      {registerSuccess && (
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-4">
+          <div className="w-16 h-16 border-4 border-white/30 border-t-white rounded-full animate-spin" />
+          <p className="text-white font-black text-sm tracking-widest">프로필 설정 페이지로 이동 중...</p>
+        </div>
+      )}
 
       {/* 본문 */}
       <main className="flex-1 overflow-y-auto relative z-10 scrollbar-hide pb-[env(safe-area-inset-bottom)]">
