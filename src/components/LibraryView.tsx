@@ -115,19 +115,22 @@ export default function LibraryView() {
     [db.interests, currentUser]
   );
 
-  // 과정 참여자 전체 키워드 목록 (중복 제거, 빈도순 정렬)
+  // 과정 참여자 전체 키워드 목록 (고유 유저 수 기준, 빈도순 정렬)
   const allKeywords = useMemo(() => {
-    const counts: Record<string, number> = {};
+    const userSets: Record<string, Set<string>> = {};
     const courseUserIds = new Set(courseUsers.map(u => u.id));
     db.interests
       .filter((i: Interest) => courseUserIds.has(i.userId))
       .forEach((i: Interest) => {
         const kw = i.keyword.trim();
-        if (kw) counts[kw] = (counts[kw] || 0) + 1;
+        if (kw) {
+          if (!userSets[kw]) userSets[kw] = new Set();
+          userSets[kw].add(i.userId);
+        }
       });
-    return Object.entries(counts)
-      .sort((a, b) => b[1] - a[1])
-      .map(([keyword, count]) => ({ keyword, count }));
+    return Object.entries(userSets)
+      .sort((a, b) => b[1].size - a[1].size)
+      .map(([keyword, users]) => ({ keyword, count: users.size }));
   }, [courseUsers, db.interests]);
 
   const filteredUsers = useMemo(() => {
