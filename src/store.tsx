@@ -92,6 +92,9 @@ export interface User {
   golfScore?: number;
   careerYears?: number;
   knownPeople?: number;
+  lottoRank?: string;
+  drinkingCapacity?: number;
+  surveyCompleted?: boolean;
 }
 
 export interface Interest {
