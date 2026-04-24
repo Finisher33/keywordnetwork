@@ -118,7 +118,7 @@ export default function LandingPageView({ onSelect, onLogout, onProfileClick, on
               style={{ background: 'rgba(77,166,255,0.35)', border: '1px solid rgba(77,166,255,0.6)' }}>
               <span className="material-symbols-outlined text-base" style={{ color: '#7dc8ff' }}>hub</span>
             </div>
-            <span className="text-xs font-black tracking-[0.2em] uppercase text-white/70">GiveAndTake</span>
+            <span className="text-[11px] font-black tracking-[0.15em] uppercase text-white/70 whitespace-nowrap">KEYWORD NETWORKING</span>
           </div>
           <div className="flex items-center gap-1">
             <div className="[&_button]:text-white/70 [&_button:hover]:text-white [&_button:hover]:bg-white/10">
@@ -162,9 +162,9 @@ export default function LandingPageView({ onSelect, onLogout, onProfileClick, on
                 <span className="material-symbols-outlined text-4xl sm:text-5xl" style={{ color: '#7dc8ff' }}>hub</span>
               </div>
             </div>
-            <h1 className="font-headline font-black tracking-tighter leading-none text-white break-keep"
-              style={{ fontSize: 'clamp(1.9rem,8vw,4rem)', textShadow: '0 2px 30px rgba(77,166,255,0.4)' }}>
-              be Giver <span style={{ color: '#7dc8ff' }}>be Taker</span>
+            <h1 className="font-headline font-black tracking-tight leading-none text-white whitespace-nowrap"
+              style={{ fontSize: 'clamp(1.6rem,7vw,3.4rem)', textShadow: '0 2px 30px rgba(77,166,255,0.4)' }}>
+              <span style={{ color: '#7dc8ff' }}>Keyword</span> Networking
             </h1>
             <div className="inline-block px-3 py-1 rounded-full text-sm font-bold"
               style={{ background: 'rgba(77,166,255,0.2)', border: '1px solid rgba(77,166,255,0.4)', color: '#a8d8ff' }}>

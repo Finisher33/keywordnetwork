@@ -238,7 +238,7 @@ export default function PeopleMap({ adminCourseId }: { adminCourseId?: string })
   const edgeOpacity = (w: number) => Math.min(0.9, 0.2 + (w / maxWeight) * 0.7);
 
   // ── node color ─────────────────────────────────────────────────────────────
-  const nodeColor = (node: PeopleNode) => node.isMe ? '#1d4ed8' : '#002c5f';
+  const nodeColor = (node: PeopleNode) => node.isMe ? '#22c55e' : '#002c5f';
 
   return (
     <div
@@ -300,20 +300,20 @@ export default function PeopleMap({ adminCourseId }: { adminCourseId?: string })
             >
               {/* "나" 강조 링 */}
               {node.isMe && (
-                <circle r={17} fill="none" stroke="#3b82f6" strokeWidth={2.5} className="animate-pulse" />
+                <circle r={32} fill="none" stroke="#16a34a" strokeWidth={3} className="animate-pulse" />
               )}
               <circle
-                r={13}
+                r={node.isMe ? 26 : 13}
                 fill={nodeColor(node)}
-                fillOpacity={0.9}
+                fillOpacity={node.isMe ? 1 : 0.9}
                 stroke="white"
-                strokeWidth={2.5}
+                strokeWidth={node.isMe ? 3.5 : 2.5}
               />
               {/* 프로필 이니셜 */}
               <text
                 textAnchor="middle"
                 dominantBaseline="middle"
-                fontSize={12}
+                fontSize={node.isMe ? 20 : 12}
                 fontWeight="bold"
                 fill="white"
                 pointerEvents="none"
@@ -323,10 +323,10 @@ export default function PeopleMap({ adminCourseId }: { adminCourseId?: string })
               {/* 이름 라벨 */}
               <text
                 textAnchor="middle"
-                dy={26}
-                fontSize={12}
+                dy={node.isMe ? 42 : 26}
+                fontSize={node.isMe ? 14 : 12}
                 fontWeight="bold"
-                fill={node.isMe ? '#1d4ed8' : '#1c1c1c'}
+                fill={node.isMe ? '#15803d' : '#1c1c1c'}
                 pointerEvents="none"
                 style={{ paintOrder: 'stroke', stroke: '#ffffff', strokeWidth: '3px', strokeLinecap: 'round', strokeLinejoin: 'round' }}
               >

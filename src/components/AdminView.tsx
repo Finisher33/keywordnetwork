@@ -533,7 +533,7 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
         <div className="flex items-center gap-3 sm:gap-8 flex-1 min-w-0">
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <span className="material-symbols-outlined text-white">hub</span>
-            <span className="text-lg sm:text-xl font-black tracking-widest text-white font-headline hidden min-[400px]:block">be Giver be Taker ADMIN</span>
+            <span className="text-sm sm:text-base font-black tracking-[0.15em] text-white font-headline hidden min-[400px]:block whitespace-nowrap">KEYWORD NETWORKING ADMIN</span>
           </div>
           
           <nav className="flex items-center gap-1 bg-white/10 p-1 rounded-lg overflow-x-auto no-scrollbar flex-1 min-w-0">
@@ -1320,7 +1320,7 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
                     onClick={() => setAnalysisFeature('survey')}
                     className={`flex-1 min-w-fit px-3 py-2 rounded-lg text-[10px] sm:text-xs font-bold transition-all whitespace-nowrap ${analysisFeature === 'survey' ? 'bg-primary text-on-primary shadow-md' : 'text-on-surface-variant hover:text-on-surface'}`}
                   >
-                    Check in Survey
+                    Keyword Survey
                   </button>
                   <button
                     onClick={() => setAnalysisFeature('total')}

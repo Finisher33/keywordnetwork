@@ -189,7 +189,7 @@ export default function MainView({ onAdminClick }: { onAdminClick: () => void })
               style={{ background: 'rgba(77,166,255,0.35)', border: '1px solid rgba(77,166,255,0.6)' }}>
               <span className="material-symbols-outlined text-sm" style={{ color: '#7dc8ff' }}>hub</span>
             </div>
-            <span className="text-[10px] font-black tracking-[0.2em] uppercase text-white/70">GiveAndTake</span>
+            <span className="text-[10px] font-black tracking-[0.15em] uppercase text-white/70 whitespace-nowrap">KEYWORD NETWORKING</span>
           </div>
           <button onClick={onAdminClick}
             className="text-[10px] font-black tracking-widest uppercase px-3 py-1.5 rounded-lg transition-colors text-white/55 hover:text-white/80 hover:bg-white/10"
@@ -220,9 +220,9 @@ export default function MainView({ onAdminClick }: { onAdminClick: () => void })
                   <span className="material-symbols-outlined text-2xl" style={{ color: '#7dc8ff' }}>hub</span>
                 </div>
               </div>
-              <h1 className="font-headline font-black tracking-tighter text-white leading-none"
-                style={{ fontSize: 'clamp(1.6rem,7vw,2.8rem)', textShadow: '0 2px 30px rgba(77,166,255,0.35)' }}>
-                be Giver <span style={{ color: '#7dc8ff' }}>be Taker</span>
+              <h1 className="font-headline font-black tracking-tight text-white leading-none whitespace-nowrap"
+                style={{ fontSize: 'clamp(1.4rem,6vw,2.4rem)', textShadow: '0 2px 30px rgba(77,166,255,0.35)' }}>
+                <span style={{ color: '#7dc8ff' }}>Keyword</span> Networking
               </h1>
               <p className="text-[10px] font-black tracking-[0.18em] uppercase text-white/45">
                 {isRegistering ? '최초 정보 등록' : '로그인'}

@@ -86,18 +86,17 @@ export default function App() {
     }
 
     const hasInterests = registrationDone || db.interests.some(i => i.userId === currentUser.id);
+    const surveyAlreadyDone = !!(
+      currentUser.surveyCompleted ||
+      (typeof currentUser.golfScore === 'number' &&
+       typeof currentUser.careerYears === 'number')
+    );
 
     // 최초 정보등록 기록이 없거나, 프로필 수정 모드인 경우
     if (!hasInterests || subView === 'profile') {
       const isFirstRegistration = !hasInterests;
       // effect 안전망에게 "지금 최초 등록 플로우다"를 알림
       if (isFirstRegistration) awaitingFirstNavRef.current = true;
-      // Survey 재노출 방지: 이미 완료(surveyCompleted=true)했거나, 핵심 응답값을 이미 보유한 경우 건너뜀
-      const surveyAlreadyDone = !!(
-        currentUser.surveyCompleted ||
-        (typeof currentUser.golfScore === 'number' &&
-         typeof currentUser.careerYears === 'number')
-      );
       return (
         <MyProfile
           onSave={() => {
@@ -115,10 +114,27 @@ export default function App() {
       );
     }
 
+    // 최초 등록 레이스 컨디션: onSnapshot 이 먼저 도착해 hasInterests=true 로 바뀌었지만
+    // subView 는 아직 'landing' 인 경우, LandingPage 가 한 프레임 번쩍이는 현상 방지.
+    // 서베이 미완료 + 최초 등록 대기 상태면 즉시 QuickSurvey 로 강제 라우팅.
+    if (
+      awaitingFirstNavRef.current &&
+      !surveyAlreadyDone &&
+      subView !== 'survey'
+    ) {
+      return <QuickSurvey onComplete={() => {
+        awaitingFirstNavRef.current = false;
+        setSubView('landing');
+      }} />;
+    }
+
     // Quick Survey: 최초 등록 직후 한 번만 표시
     if (subView === 'survey') {
       return (
-        <QuickSurvey onComplete={() => setSubView('landing')} />
+        <QuickSurvey onComplete={() => {
+          awaitingFirstNavRef.current = false;
+          setSubView('landing');
+        }} />
       );
     }
 

@@ -169,7 +169,7 @@ export default function QuickSurvey({ onComplete }: QuickSurveyProps) {
     <div className="absolute inset-0 flex flex-col bg-background text-on-surface">
       <header className="header-safe shrink-0 z-50 bg-surface/80 backdrop-blur-xl border-b border-outline shadow-sm">
         <div className="h-14 flex items-center px-6">
-          <span className="font-headline text-xl font-bold tracking-tight text-primary">Check in Survey</span>
+          <span className="font-headline text-xl font-bold tracking-tight text-primary">Keyword Survey</span>
         </div>
       </header>
 
