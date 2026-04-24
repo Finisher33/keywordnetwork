@@ -1,4 +1,4 @@
-import { useState, useEffect, createContext, useContext, ReactNode, useCallback } from 'react';
+import { useState, useEffect, useRef, createContext, useContext, ReactNode, useCallback } from 'react';
 import { getEmbedding, cosineSimilarity } from './services/embeddingService';
 import { db as firestore, auth, authReady, ensureAuth } from './firebase';
 import { doc, onSnapshot, setDoc, getDoc, collection, deleteDoc, writeBatch, query, where, getDocs } from 'firebase/firestore';
@@ -199,6 +199,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [teaTimeRequests, setTeaTimeRequests] = useState<TeaTimeRequest[]>([]);
   const [userInsights, setUserInsights] = useState<UserInsight[]>([]);
   const [canonicalTerms, setCanonicalTerms] = useState<CanonicalTerm[]>([]);
+  // 세션 내 optimistic 캐시 — onSnapshot 라운드트립 전이라도 방금 생성한 term을
+  // 후속 canonicalizeKeyword 호출이 참조할 수 있게 유지. 연속 저장 시 중복 생성 방지.
+  const newCanonicalTermsRef = useRef<CanonicalTerm[]>([]);
   const [presetInterests, setPresetInterests] = useState<PresetInterest[]>([]);
 
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -776,32 +779,36 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const canonicalizeKeyword = async (keyword: string) => {
     const normalized = keyword.replace(/\s+/g, '').toLowerCase();
-    
-    // 1. Check for exact match after normalization in existing canonical terms
-    let bestMatch = null;
-    let maxSimilarity = -1;
 
-    // Firestore 문서 ID는 `/`, 2바이트 이상 제어문자, `__...__` 포맷 금지 — 키워드 원문 사용 시
-    // fallback canonicalId가 doc() 생성 단계에서 throw 하므로 안전하게 sanitize.
     const safeKeyId = (raw: string) =>
       raw.replace(/[\/\x00-\x1F\x7F]/g, '_').replace(/^__+|__+$/g, '_').slice(0, 500) || Date.now().toString();
 
-    for (const ct of canonicalTerms) {
-      const ctNormalized = ct.term.replace(/\s+/g, '').toLowerCase();
+    // onSnapshot 반영 전인 세션-로컬 새 term도 함께 비교 (연속 저장 시 중복 생성 방지)
+    // 같은 id는 중복 제거 — onSnapshot이 나중에 따라잡아도 문제 없음
+    const merged: CanonicalTerm[] = [...canonicalTerms];
+    const seen = new Set(canonicalTerms.map(t => t.id));
+    for (const t of newCanonicalTermsRef.current) {
+      if (!seen.has(t.id)) merged.push(t);
+    }
+
+    // 1) 정규화 후 exact match
+    for (const ct of merged) {
+      const ctNormalized = (ct.term || '').replace(/\s+/g, '').toLowerCase();
       if (ctNormalized === normalized) {
         return { canonicalId: ct.id, term: ct.term };
       }
-      
-      if (ct.embedding) {
-        // We'll calculate similarity later if no exact normalized match is found
-      }
     }
 
-    // 2. If no exact normalized match, use embedding similarity
+    // 2) 임베딩 기반 유사도
     const embedding = await getEmbedding(keyword);
-    if (!embedding) return { canonicalId: safeKeyId(keyword), term: keyword };
+    if (!embedding) {
+      // 임베딩이 없으면 향후 그룹핑 불가 — 최소한 safeKeyId로 고립 저장
+      return { canonicalId: safeKeyId(keyword), term: keyword };
+    }
 
-    for (const ct of canonicalTerms) {
+    let bestMatch: CanonicalTerm | null = null;
+    let maxSimilarity = -1;
+    for (const ct of merged) {
       if (ct.embedding) {
         const sim = cosineSimilarity(embedding, ct.embedding);
         if (sim > maxSimilarity) {
@@ -811,13 +818,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    // Similarity threshold: 0.65 (Gemini embedding-001 기준 — 한/영 동의어 + 근접 개념 폭넓게 병합)
-    if (bestMatch && maxSimilarity > 0.65) {
+    // 유사도 임계치: 0.55 (Gemini embedding-001 기준 — 한 과정 내 키워드를 폭넓게 병합)
+    // 실측: Physical AI ↔ 로봇 AI = 0.70, 피지컬 AI ↔ 로봇 AI = 0.76 수준
+    if (bestMatch && maxSimilarity > 0.55) {
       return { canonicalId: bestMatch.id, term: bestMatch.term };
-    } else {
-      const newId = Date.now().toString();
-      return { canonicalId: newId, term: keyword, embedding };
     }
+
+    // 새 term — 세션 캐시에도 즉시 반영 (stale closure 방지)
+    const newId = `ct_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    newCanonicalTermsRef.current.push({ id: newId, term: keyword, embedding });
+    return { canonicalId: newId, term: keyword, embedding };
   };
 
   const saveUserInsight = async (insight: UserInsight) => {

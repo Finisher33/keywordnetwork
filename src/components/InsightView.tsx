@@ -108,7 +108,7 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
 
     const ids = Object.keys(groups);
 
-    // Step 2: Union-Find re-grouping using stored embeddings at 0.65 threshold
+    // Step 2: Union-Find re-grouping using stored embeddings at 0.55 threshold
     // This retroactively applies the new threshold to existing Firestore data
     const parent: Record<string, string> = {};
     ids.forEach(id => { parent[id] = id; });
@@ -123,7 +123,7 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
         const termA = db.canonicalTerms?.find(t => t.id === ids[i]);
         const termB = db.canonicalTerms?.find(t => t.id === ids[j]);
         if (termA?.embedding && termB?.embedding) {
-          if (cosineSimilarity(termA.embedding, termB.embedding) > 0.65) {
+          if (cosineSimilarity(termA.embedding, termB.embedding) > 0.55) {
             // Union: lower-count group absorbs into higher-count root
             const ra = find(ids[i]);
             const rb = find(ids[j]);
