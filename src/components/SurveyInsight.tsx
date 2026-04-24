@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef, useEffect, ReactNode } from 'react';
+import { useMemo, useState, useRef, useEffect, ReactNode, CSSProperties } from 'react';
 import { useStore, User } from '../store';
 
 interface Props {
@@ -15,7 +15,11 @@ const Q_OPTIONS: { value: SurveyQ; label: string }[] = [
   { value: 'career',    label: 'Q5. HMG 근무 경력' },
 ];
 
-// 전체화면 토글 래퍼 (애니메이션 없음)
+// 모든 기기에서 깨지지 않는 말랑한 폰트 스택 (한글은 Gowun Dodum/Jua, Latin은 Quicksand/Nunito)
+const SOFT_FONT = `'Gowun Dodum','Jua','Quicksand','Pretendard',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',system-ui,sans-serif`;
+const softStyle: CSSProperties = { fontFamily: SOFT_FONT };
+
+// ─── Stage: 전체화면 래퍼 (webkit/ms prefix fallback 포함) ───────────────────
 function Stage({
   children,
   className = '',
@@ -27,32 +31,112 @@ function Stage({
   const [isFs, setIsFs] = useState(false);
 
   useEffect(() => {
-    const onFs = () => setIsFs(!!document.fullscreenElement && document.fullscreenElement === stageRef.current);
-    document.addEventListener('fullscreenchange', onFs);
-    return () => document.removeEventListener('fullscreenchange', onFs);
+    const handler = () => {
+      const fsEl: any =
+        document.fullscreenElement ||
+        (document as any).webkitFullscreenElement ||
+        (document as any).msFullscreenElement;
+      setIsFs(!!fsEl && fsEl === stageRef.current);
+    };
+    document.addEventListener('fullscreenchange', handler);
+    document.addEventListener('webkitfullscreenchange', handler as any);
+    document.addEventListener('msfullscreenchange', handler as any);
+    return () => {
+      document.removeEventListener('fullscreenchange', handler);
+      document.removeEventListener('webkitfullscreenchange', handler as any);
+      document.removeEventListener('msfullscreenchange', handler as any);
+    };
   }, []);
 
   const toggleFs = () => {
-    if (!document.fullscreenElement) stageRef.current?.requestFullscreen().catch(() => {});
-    else document.exitFullscreen().catch(() => {});
+    const el: any = stageRef.current;
+    const doc: any = document;
+    const fsEl =
+      document.fullscreenElement ||
+      doc.webkitFullscreenElement ||
+      doc.msFullscreenElement;
+
+    if (!fsEl) {
+      const req =
+        el?.requestFullscreen ||
+        el?.webkitRequestFullscreen ||
+        el?.webkitEnterFullscreen ||
+        el?.msRequestFullscreen;
+      if (req) {
+        try {
+          const p = req.call(el);
+          if (p && typeof p.catch === 'function') p.catch(() => setIsFs((v) => !v));
+        } catch {
+          setIsFs((v) => !v);
+        }
+      } else {
+        // Fullscreen API 미지원 브라우저: pseudo-fullscreen 으로 대체
+        setIsFs(true);
+      }
+    } else {
+      const exit =
+        document.exitFullscreen ||
+        doc.webkitExitFullscreen ||
+        doc.msExitFullscreen;
+      if (exit) {
+        try {
+          const p = exit.call(document);
+          if (p && typeof p.catch === 'function') p.catch(() => setIsFs(false));
+        } catch {
+          setIsFs(false);
+        }
+      } else {
+        setIsFs(false);
+      }
+    }
   };
 
   return (
     <div
       ref={stageRef}
-      className={`relative w-full ${isFs ? 'h-screen' : 'h-[560px] sm:h-[620px]'} overflow-hidden ${className}`}
+      className={`${isFs ? 'fixed inset-0 z-[9999] w-screen h-screen' : 'relative w-full h-[560px] sm:h-[620px]'} overflow-hidden ${className}`}
+      style={softStyle}
     >
       {children}
       <button
         onClick={toggleFs}
-        className="absolute top-3 right-3 z-40 w-10 h-10 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-sm text-white flex items-center justify-center shadow-lg border border-white/20 transition-all"
+        className="absolute top-3 right-3 z-50 w-11 h-11 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-sm text-white flex items-center justify-center shadow-lg border border-white/20 transition-all"
         title={isFs ? '전체화면 종료' : '전체화면'}
+        aria-label={isFs ? '전체화면 종료' : '전체화면'}
       >
         <span className="material-symbols-outlined text-xl">
           {isFs ? 'fullscreen_exit' : 'fullscreen'}
         </span>
       </button>
     </div>
+  );
+}
+
+// ─── ClickToReveal: 숫자를 탭해서 공개 ────────────────────────────────────
+function ClickToReveal({
+  value,
+  placeholder = '???',
+  className = '',
+  style,
+  hint = '탭하여 공개',
+}: {
+  value: ReactNode;
+  placeholder?: ReactNode;
+  className?: string;
+  style?: CSSProperties;
+  hint?: string;
+}) {
+  const [revealed, setRevealed] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); setRevealed((v) => !v); }}
+      className={`relative inline-flex items-center justify-center select-none cursor-pointer transition-all ${className}`}
+      style={{ ...softStyle, ...style }}
+      title={revealed ? '다시 가리기' : hint}
+    >
+      {revealed ? value : placeholder}
+    </button>
   );
 }
 
@@ -66,15 +150,16 @@ export default function SurveyInsight({ courseId }: Props) {
   );
 
   return (
-    <div className="p-4 sm:p-8 space-y-6">
+    <div className="p-4 sm:p-8 space-y-6" style={softStyle}>
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-        <label className="text-xs font-black text-on-surface-variant uppercase tracking-wider shrink-0">
+        <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider shrink-0">
           질문 선택
         </label>
         <select
           value={q}
           onChange={(e) => setQ(e.target.value as SurveyQ)}
           className="flex-1 bg-surface-container-highest border border-outline rounded-xl px-4 py-3 text-sm font-bold text-on-surface outline-none focus:ring-2 focus:ring-primary"
+          style={softStyle}
         >
           {Q_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
@@ -93,7 +178,7 @@ export default function SurveyInsight({ courseId }: Props) {
   );
 }
 
-// ─── Q1. Condition (평균/최저/최고) ────────────────────────────────────────
+// ─── Q1. Condition ────────────────────────────────────────────────────────
 function ConditionScene({ users }: { users: User[] }) {
   const vals = users.map((u) => u.condition).filter((n): n is number => typeof n === 'number');
   const avg = vals.length ? (vals.reduce((a, b) => a + b, 0) / vals.length) : null;
@@ -102,21 +187,18 @@ function ConditionScene({ users }: { users: User[] }) {
 
   return (
     <Stage>
-      {/* 고해상도 배경: 새벽 하늘 그라데이션 + 햇살 + 잔잔한 패턴 */}
       <div
         className="absolute inset-0"
         style={{
           background: 'linear-gradient(180deg, #0f172a 0%, #1e3a8a 25%, #7c3aed 55%, #f97316 85%, #fde047 100%)',
         }}
       />
-      {/* 햇살 광원 */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
           background: 'radial-gradient(circle at 50% 85%, rgba(253,224,71,0.65) 0%, rgba(251,146,60,0.35) 25%, transparent 55%)',
         }}
       />
-      {/* 별 패턴 */}
       <svg className="absolute inset-0 w-full h-full opacity-60 pointer-events-none" preserveAspectRatio="none">
         {Array.from({ length: 40 }).map((_, i) => {
           const x = (i * 37) % 100;
@@ -126,19 +208,21 @@ function ConditionScene({ users }: { users: User[] }) {
         })}
       </svg>
 
-      {/* 통계 */}
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-8 p-6">
         <div className="text-center">
-          <p className="text-xs sm:text-sm font-black uppercase tracking-[0.5em] text-white/70">
+          <p className="text-xs sm:text-sm font-bold uppercase tracking-[0.4em] text-white/70" style={softStyle}>
             Today's Condition
           </p>
-          <h2 className="mt-3 font-headline text-3xl sm:text-5xl font-black text-white drop-shadow-xl">
-            우리 과정의 오늘 기분
+          <h2
+            className="mt-3 text-2xl sm:text-4xl md:text-5xl font-bold text-white drop-shadow-xl leading-snug"
+            style={softStyle}
+          >
+            우리 과정에 모인 리더분들의 컨디션은?
           </h2>
         </div>
 
         {vals.length === 0 ? (
-          <p className="text-white/80 text-sm font-bold">아직 응답이 없습니다.</p>
+          <p className="text-white/80 text-sm font-bold" style={softStyle}>아직 응답이 없습니다.</p>
         ) : (
           <div className="grid grid-cols-3 gap-3 sm:gap-6 w-full max-w-3xl">
             <ConditionCard label="평균" value={avg!.toFixed(1)} icon="mood" accent="from-amber-400 to-orange-500" />
@@ -148,8 +232,13 @@ function ConditionScene({ users }: { users: User[] }) {
         )}
 
         {vals.length > 0 && (
-          <p className="text-white/70 text-xs sm:text-sm font-medium">
-            {vals.length}명 응답 · 10점 만점 기준
+          <p className="text-white/80 text-xs sm:text-sm font-bold flex items-center gap-2" style={softStyle}>
+            <ClickToReveal
+              value={<span className="text-white">{vals.length}</span>}
+              placeholder={<span className="text-white/60">??</span>}
+              className="px-2 py-0.5 rounded-md bg-white/15 hover:bg-white/25"
+            />
+            명 응답 · 10점 만점 기준
           </p>
         )}
       </div>
@@ -159,14 +248,20 @@ function ConditionScene({ users }: { users: User[] }) {
 
 function ConditionCard({ label, value, icon, accent }: { label: string; value: string; icon: string; accent: string }) {
   return (
-    <div className="bg-white/95 backdrop-blur-sm rounded-2xl p-4 sm:p-6 shadow-2xl border border-white/60 text-center">
+    <div className="bg-white/95 backdrop-blur-sm rounded-2xl p-4 sm:p-6 shadow-2xl border border-white/60 text-center" style={softStyle}>
       <div className={`mx-auto w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-gradient-to-br ${accent} flex items-center justify-center shadow-md mb-3`}>
         <span className="material-symbols-outlined text-white text-2xl sm:text-3xl">{icon}</span>
       </div>
-      <p className="text-[10px] sm:text-xs font-black text-on-surface-variant uppercase tracking-widest">{label}</p>
-      <p className="font-headline text-3xl sm:text-5xl font-black text-on-surface mt-1">
-        {value}<span className="text-lg sm:text-2xl text-on-surface-variant font-bold"> /10</span>
-      </p>
+      <p className="text-[10px] sm:text-xs font-bold text-on-surface-variant uppercase tracking-widest" style={softStyle}>{label}</p>
+      <div className="mt-1 flex items-baseline justify-center gap-0.5">
+        <ClickToReveal
+          value={<span>{value}</span>}
+          placeholder={<span className="text-on-surface-variant/70">??</span>}
+          className="text-3xl sm:text-5xl font-bold text-on-surface px-2 py-0.5 rounded-lg hover:bg-primary/5"
+          hint="탭하여 점수 공개"
+        />
+        <span className="text-lg sm:text-2xl text-on-surface-variant font-bold" style={softStyle}>/10</span>
+      </div>
     </div>
   );
 }
@@ -183,15 +278,15 @@ const THEME: Record<WordTheme, {
   textShadow: string;
 }> = {
   memory: {
-    title: '우리 과정의 울림 한마디',
-    subtitle: "Memorable Words",
+    title: '리더분들이 기억하는 한마디는?',
+    subtitle: 'Memorable Words',
     bg: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #4c1d95 70%, #6b21a8 100%)',
     overlay: 'radial-gradient(ellipse at 50% 40%, rgba(251,191,36,0.25) 0%, transparent 60%)',
     palette: ['#fde047', '#fbbf24', '#f59e0b', '#fef3c7', '#fed7aa', '#fde68a'],
     textShadow: '0 2px 8px rgba(0,0,0,0.5), 0 0 20px rgba(251,191,36,0.4)',
   },
   fear: {
-    title: '우리 과정을 서늘하게 하는 단어',
+    title: '요즘 리더분들을 가장 두렵게 하는 단어는?',
     subtitle: 'What Scares Us',
     bg: 'linear-gradient(180deg, #020617 0%, #0f172a 30%, #1e293b 60%, #334155 100%)',
     overlay: 'radial-gradient(ellipse at 50% 30%, rgba(220,38,38,0.25) 0%, transparent 55%)',
@@ -199,7 +294,7 @@ const THEME: Record<WordTheme, {
     textShadow: '0 2px 10px rgba(0,0,0,0.8), 0 0 24px rgba(239,68,68,0.45)',
   },
   exciting: {
-    title: '우리 과정을 두근거리게 하는 단어',
+    title: '요즘 리더분들을 가장 설레게 하는 단어는?',
     subtitle: 'What Excites Us',
     bg: 'linear-gradient(135deg, #fef3c7 0%, #fbcfe8 30%, #ddd6fe 65%, #bae6fd 100%)',
     overlay: 'radial-gradient(ellipse at 50% 45%, rgba(255,255,255,0.6) 0%, transparent 60%)',
@@ -219,7 +314,6 @@ function WordCloudScene({
 }) {
   const t = THEME[theme];
 
-  // 단어별 빈도 집계 (공백 정규화 + 대소문자 무시)
   const items = useMemo(() => {
     const freq = new Map<string, { display: string; count: number }>();
     users.forEach((u) => {
@@ -234,12 +328,12 @@ function WordCloudScene({
   }, [users, field]);
 
   const maxCount = items[0]?.count || 1;
+  const totalResp = items.reduce((a, b) => a + b.count, 0);
 
   return (
     <Stage>
       <div className="absolute inset-0" style={{ background: t.bg }} />
       <div className="absolute inset-0 pointer-events-none" style={{ background: t.overlay }} />
-      {/* 고해상도 느낌의 노이즈 패턴 */}
       <svg className="absolute inset-0 w-full h-full opacity-[0.07] pointer-events-none" preserveAspectRatio="none">
         <filter id={`noise-${theme}`}>
           <feTurbulence baseFrequency="0.9" numOctaves="2" stitchTiles="stitch" />
@@ -248,27 +342,30 @@ function WordCloudScene({
         <rect width="100%" height="100%" filter={`url(#noise-${theme})`} />
       </svg>
 
-      {/* 타이틀 */}
-      <div className="absolute top-6 sm:top-10 inset-x-0 text-center z-10">
-        <p className={`text-[10px] sm:text-xs font-black uppercase tracking-[0.5em] ${theme === 'exciting' ? 'text-slate-700/80' : 'text-white/70'}`}>
+      <div className="absolute top-6 sm:top-10 inset-x-0 text-center z-10 px-6">
+        <p
+          className={`text-[10px] sm:text-xs font-bold uppercase tracking-[0.4em] ${theme === 'exciting' ? 'text-slate-700/80' : 'text-white/70'}`}
+          style={softStyle}
+        >
           {t.subtitle}
         </p>
-        <h2 className={`mt-2 font-headline text-2xl sm:text-4xl font-black drop-shadow-xl ${theme === 'exciting' ? 'text-slate-900' : 'text-white'}`}>
+        <h2
+          className={`mt-2 text-xl sm:text-3xl md:text-4xl font-bold drop-shadow-xl leading-snug ${theme === 'exciting' ? 'text-slate-900' : 'text-white'}`}
+          style={softStyle}
+        >
           {t.title}
         </h2>
       </div>
 
-      {/* 워드 클라우드 */}
-      <div className="absolute inset-0 pt-24 sm:pt-32 pb-10 px-6 flex items-center justify-center">
+      <div className="absolute inset-0 pt-28 sm:pt-36 pb-10 px-6 flex items-center justify-center">
         {items.length === 0 ? (
-          <p className={`text-sm font-bold ${theme === 'exciting' ? 'text-slate-700' : 'text-white/80'}`}>
+          <p className={`text-sm font-bold ${theme === 'exciting' ? 'text-slate-700' : 'text-white/80'}`} style={softStyle}>
             아직 응답이 없습니다.
           </p>
         ) : (
           <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 sm:gap-x-6 sm:gap-y-3 max-w-5xl">
             {items.map((it, idx) => {
               const weight = it.count / maxCount;
-              // 12 ~ 64px 범위로 스케일
               const size = 14 + Math.round(weight * 54);
               const color = t.palette[idx % t.palette.length];
               const rotate = (idx % 7 === 0) ? -6 : (idx % 5 === 0 ? 6 : 0);
@@ -276,13 +373,14 @@ function WordCloudScene({
                 <span
                   key={it.display + idx}
                   style={{
+                    fontFamily: SOFT_FONT,
                     fontSize: `${size}px`,
                     color,
                     textShadow: t.textShadow,
                     transform: `rotate(${rotate}deg)`,
-                    fontWeight: 900,
+                    fontWeight: 700,
                     letterSpacing: '-0.01em',
-                    lineHeight: 1,
+                    lineHeight: 1.1,
                   }}
                   title={`${it.display} · ${it.count}회`}
                 >
@@ -294,11 +392,24 @@ function WordCloudScene({
         )}
       </div>
 
-      {/* 푸터 카운트 */}
       {items.length > 0 && (
-        <div className="absolute bottom-4 inset-x-0 text-center z-10">
-          <p className={`text-[11px] sm:text-xs font-medium ${theme === 'exciting' ? 'text-slate-700/70' : 'text-white/60'}`}>
-            {items.length}개 고유 키워드 · 총 {items.reduce((a, b) => a + b.count, 0)}명 응답
+        <div className="absolute bottom-4 inset-x-0 text-center z-10 px-6">
+          <p
+            className={`text-[11px] sm:text-xs font-bold flex items-center justify-center gap-1.5 flex-wrap ${theme === 'exciting' ? 'text-slate-700/80' : 'text-white/70'}`}
+            style={softStyle}
+          >
+            <ClickToReveal
+              value={<span>{items.length}</span>}
+              placeholder={<span className="opacity-60">??</span>}
+              className={`px-2 py-0.5 rounded-md ${theme === 'exciting' ? 'bg-slate-900/10 hover:bg-slate-900/20' : 'bg-white/15 hover:bg-white/25'}`}
+            />
+            개 고유 키워드 · 총
+            <ClickToReveal
+              value={<span>{totalResp}</span>}
+              placeholder={<span className="opacity-60">??</span>}
+              className={`px-2 py-0.5 rounded-md ${theme === 'exciting' ? 'bg-slate-900/10 hover:bg-slate-900/20' : 'bg-white/15 hover:bg-white/25'}`}
+            />
+            명 응답
           </p>
         </div>
       )}
@@ -311,30 +422,27 @@ function CareerScene({ users }: { users: User[] }) {
   const years = users.map((u) => u.careerYears).filter((n): n is number => typeof n === 'number');
   const total = years.reduce((a, b) => a + b, 0);
   const avg = years.length ? (total / years.length).toFixed(1) : null;
+  const maxYear = years.length ? Math.max(...years) : null;
 
   return (
     <Stage>
-      {/* 고해상도 배경: 나무/대지 느낌 */}
       <div
         className="absolute inset-0"
         style={{
           background: 'linear-gradient(180deg, #451a03 0%, #78350f 25%, #b45309 55%, #f59e0b 85%, #fef3c7 100%)',
         }}
       />
-      {/* 중앙 광원 */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
           background: 'radial-gradient(ellipse at 50% 50%, rgba(254,243,199,0.45) 0%, rgba(251,191,36,0.25) 25%, transparent 60%)',
         }}
       />
-      {/* 나이테 SVG */}
       <svg viewBox="0 0 400 400" className="absolute inset-0 w-full h-full opacity-25 pointer-events-none" preserveAspectRatio="xMidYMid slice">
         {[190, 170, 145, 120, 95, 70, 48, 28].map((r) => (
           <circle key={r} cx="200" cy="200" r={r} fill="none" stroke="rgba(251,191,36,0.6)" strokeWidth={1.5} />
         ))}
       </svg>
-      {/* 노이즈 텍스처 */}
       <svg className="absolute inset-0 w-full h-full opacity-[0.08] pointer-events-none" preserveAspectRatio="none">
         <filter id="wood-noise">
           <feTurbulence baseFrequency="0.6" numOctaves="3" stitchTiles="stitch" />
@@ -343,33 +451,50 @@ function CareerScene({ users }: { users: User[] }) {
         <rect width="100%" height="100%" filter="url(#wood-noise)" />
       </svg>
 
-      {/* 메시지 */}
       <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6 z-10">
-        <p className="text-xs sm:text-sm font-black uppercase tracking-[0.5em] text-amber-100/80">
+        <p className="text-xs sm:text-sm font-bold uppercase tracking-[0.4em] text-amber-100/80" style={softStyle}>
           HMG Career Sum
         </p>
-        <p className="mt-4 font-headline text-lg sm:text-2xl font-bold text-amber-50/90">
-          우리 과정의 리더들은
+        <p className="mt-4 text-base sm:text-xl md:text-2xl font-bold text-amber-50/95 max-w-3xl leading-snug" style={softStyle}>
+          우리 과정에 입과한 리더분들이 쌓은
         </p>
         <div className="mt-3 flex items-baseline gap-2">
-          <span
-            className="font-headline font-black text-white leading-none"
+          <ClickToReveal
+            value={<span>{years.length ? total.toLocaleString() : '—'}</span>}
+            placeholder={<span className="opacity-80">????</span>}
+            className="font-bold text-white leading-none px-3 py-1 rounded-2xl hover:bg-white/10 transition-colors"
             style={{
-              fontSize: 'clamp(5rem, 18vw, 14rem)',
+              fontSize: 'clamp(4rem, 16vw, 12rem)',
               textShadow: '0 8px 40px rgba(0,0,0,0.5), 0 0 80px rgba(251,191,36,0.5)',
-              letterSpacing: '-0.05em',
+              letterSpacing: '-0.03em',
             }}
-          >
-            {years.length ? total.toLocaleString() : '—'}
-          </span>
-          <span className="font-headline text-3xl sm:text-6xl font-black text-amber-50">년</span>
+            hint="탭하여 총 경력 공개"
+          />
+          <span className="text-3xl sm:text-6xl font-bold text-amber-50" style={softStyle}>년</span>
         </div>
-        <p className="mt-4 font-headline text-base sm:text-xl font-bold text-amber-50/95 max-w-2xl">
+        <p className="mt-4 text-base sm:text-xl md:text-2xl font-bold text-amber-50/95 max-w-3xl leading-snug" style={softStyle}>
           의 경험이 이 공간에 모였습니다.
         </p>
         {years.length > 0 && (
-          <p className="mt-8 text-xs sm:text-sm text-amber-100/70 font-medium">
-            {years.length}명의 리더 · 평균 {avg}년 · 최장 {Math.max(...years)}년
+          <p className="mt-8 text-xs sm:text-sm text-amber-100/80 font-bold flex items-center justify-center gap-1.5 flex-wrap" style={softStyle}>
+            <ClickToReveal
+              value={<span>{years.length}</span>}
+              placeholder={<span className="opacity-60">??</span>}
+              className="px-2 py-0.5 rounded-md bg-white/15 hover:bg-white/25"
+            />
+            명의 리더 · 평균
+            <ClickToReveal
+              value={<span>{avg}</span>}
+              placeholder={<span className="opacity-60">??</span>}
+              className="px-2 py-0.5 rounded-md bg-white/15 hover:bg-white/25"
+            />
+            년 · 최장
+            <ClickToReveal
+              value={<span>{maxYear}</span>}
+              placeholder={<span className="opacity-60">??</span>}
+              className="px-2 py-0.5 rounded-md bg-white/15 hover:bg-white/25"
+            />
+            년
           </p>
         )}
       </div>
