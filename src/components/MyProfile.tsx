@@ -145,7 +145,7 @@ const KeywordCard = memo(function KeywordCard({
                         : `bg-surface text-on-surface-variant border-outline hover:border-${accentClass}/60 hover:text-${accentClass} hover:bg-${accentClass}/5`
                   }`}
                 >
-                  #{p.keyword}
+                  {p.keyword}
                 </button>
               );
             })}

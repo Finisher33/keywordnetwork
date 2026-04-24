@@ -1,5 +1,142 @@
-import { useMemo, useState, CSSProperties } from 'react';
+import { useMemo, useState, useRef, useEffect, CSSProperties, ReactNode } from 'react';
 import { useStore, User } from '../store';
+
+// 리더 정보 표기: 소속회사 · 담당조직 · 성명 · 직책
+function formatLeader(u?: User | null): string {
+  if (!u) return '';
+  return [u.company, u.department, u.name, u.title].filter(Boolean).join(' · ');
+}
+
+// 전체화면 토글 + 영화적 인트로 래퍼
+function CinemaStage({
+  children,
+  title,
+  subtitle,
+  className = '',
+}: {
+  children: ReactNode;
+  title: string;
+  subtitle?: string;
+  className?: string;
+}) {
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [isFs, setIsFs] = useState(false);
+  const [introDone, setIntroDone] = useState(false);
+
+  useEffect(() => {
+    const onFs = () => setIsFs(!!document.fullscreenElement && document.fullscreenElement === stageRef.current);
+    document.addEventListener('fullscreenchange', onFs);
+    return () => document.removeEventListener('fullscreenchange', onFs);
+  }, []);
+
+  useEffect(() => {
+    const t = setTimeout(() => setIntroDone(true), 1800);
+    return () => clearTimeout(t);
+  }, []);
+
+  const toggleFs = () => {
+    if (!document.fullscreenElement) stageRef.current?.requestFullscreen().catch(() => {});
+    else document.exitFullscreen().catch(() => {});
+  };
+
+  return (
+    <div
+      ref={stageRef}
+      className={`relative w-full ${isFs ? 'h-screen' : 'h-[520px]'} overflow-hidden bg-black ${className}`}
+    >
+      <style>{`
+        @keyframes letterboxOpen {
+          0%, 30% { height: 50%; }
+          100%    { height: 0%; }
+        }
+        @keyframes titleFlash {
+          0%   { opacity: 0; transform: scale(0.6); filter: blur(20px); letter-spacing: 0.5em; }
+          25%  { opacity: 1; transform: scale(1); filter: blur(0); letter-spacing: 0.2em; }
+          75%  { opacity: 1; transform: scale(1.05); letter-spacing: 0.25em; }
+          100% { opacity: 0; transform: scale(1.4); filter: blur(8px); letter-spacing: 0.4em; }
+        }
+        @keyframes titleGlow {
+          0%, 100% { text-shadow: 0 0 20px rgba(250,204,21,0.6), 0 0 40px rgba(250,204,21,0.3); }
+          50%      { text-shadow: 0 0 40px rgba(250,204,21,1), 0 0 80px rgba(250,204,21,0.6); }
+        }
+        @keyframes radialFlash {
+          0%, 20%  { opacity: 0; transform: scale(0.2); }
+          40%      { opacity: 1; transform: scale(1); }
+          100%     { opacity: 0; transform: scale(3); }
+        }
+        @keyframes stageFade {
+          0%, 60% { opacity: 0; }
+          100%    { opacity: 1; }
+        }
+        @keyframes suspensePulse {
+          0%, 100% { opacity: 0.3; }
+          50%      { opacity: 0.7; }
+        }
+      `}</style>
+
+      {/* 인트로: 타이틀 섬광 + 방사형 플래시 */}
+      {!introDone && (
+        <>
+          <div
+            className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none"
+            style={{ animation: 'titleFlash 1.8s ease-in-out forwards' }}
+          >
+            <div
+              className="absolute w-[600px] h-[600px] rounded-full"
+              style={{
+                background: 'radial-gradient(circle, rgba(250,204,21,0.5) 0%, rgba(250,204,21,0.15) 40%, transparent 70%)',
+                animation: 'radialFlash 1.8s ease-out forwards',
+              }}
+            />
+            <div className="relative text-center">
+              <div
+                className="font-black text-yellow-300 uppercase"
+                style={{
+                  fontSize: 'clamp(2rem, 5vw, 4rem)',
+                  letterSpacing: '0.2em',
+                  animation: 'titleGlow 1.2s ease-in-out infinite',
+                }}
+              >
+                {title}
+              </div>
+              {subtitle && (
+                <div className="mt-2 text-xs sm:text-sm font-bold text-yellow-100/80 uppercase tracking-[0.5em]">
+                  {subtitle}
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* 레터박스: 위/아래 검은 바가 열리며 무대 공개 */}
+      <div
+        className="absolute inset-x-0 top-0 bg-black z-20 pointer-events-none"
+        style={{ animation: 'letterboxOpen 1.8s cubic-bezier(0.77, 0, 0.175, 1) forwards' }}
+      />
+      <div
+        className="absolute inset-x-0 bottom-0 bg-black z-20 pointer-events-none"
+        style={{ animation: 'letterboxOpen 1.8s cubic-bezier(0.77, 0, 0.175, 1) forwards' }}
+      />
+
+      {/* 무대 본편 */}
+      <div className="absolute inset-0" style={{ animation: 'stageFade 2s ease-out forwards', opacity: 0 }}>
+        {children}
+      </div>
+
+      {/* 우상단 전체화면 토글 */}
+      <button
+        onClick={toggleFs}
+        className="absolute top-3 right-3 z-40 w-10 h-10 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-sm text-white flex items-center justify-center shadow-lg border border-white/20 transition-all"
+        title={isFs ? '전체화면 종료' : '전체화면'}
+      >
+        <span className="material-symbols-outlined text-xl">
+          {isFs ? 'fullscreen_exit' : 'fullscreen'}
+        </span>
+      </button>
+    </div>
+  );
+}
 
 interface Props {
   courseId: string;
@@ -65,125 +202,134 @@ function GolfScene({ users }: { users: User[] }) {
   const [showBest, setShowBest] = useState(false);
 
   return (
-    <div className="relative w-full h-[520px] overflow-hidden bg-gradient-to-b from-sky-200 via-sky-100 to-emerald-50">
-      <style>{`
-        @keyframes golfRoll {
-          0%   { transform: translate(-220px, 20px) rotate(0deg); opacity: 0; }
-          10%  { opacity: 1; }
-          60%  { transform: translate(150px, 20px) rotate(1800deg); opacity: 1; }
-          85%  { transform: translate(185px, 22px) rotate(2400deg) scale(1); opacity: 1; }
-          100% { transform: translate(190px, 28px) rotate(2520deg) scale(0.3); opacity: 0; }
-        }
-        @keyframes flagWave {
-          0%, 100% { transform: skewX(-4deg); }
-          50%      { transform: skewX(6deg); }
-        }
-        @keyframes statsIn {
-          0%   { opacity: 0; transform: translateY(20px) scale(0.95); }
-          100% { opacity: 1; transform: translateY(0) scale(1); }
-        }
-      `}</style>
+    <CinemaStage title="Tee Off" subtitle="Golf Insight">
+      <div className="relative w-full h-full overflow-hidden bg-gradient-to-b from-sky-300 via-sky-100 to-emerald-50">
+        <style>{`
+          @keyframes cameraPushIn {
+            0%   { transform: scale(1.15) translateY(-12px); filter: blur(4px); }
+            100% { transform: scale(1) translateY(0); filter: blur(0); }
+          }
+          @keyframes golfRoll {
+            0%, 55% { transform: translate(-260px, 20px) rotate(0deg); opacity: 0; }
+            60%     { opacity: 1; }
+            90%     { transform: translate(150px, 20px) rotate(1800deg); opacity: 1; }
+            98%     { transform: translate(185px, 22px) rotate(2400deg); opacity: 1; }
+            100%    { transform: translate(190px, 28px) rotate(2520deg) scale(0.3); opacity: 0; }
+          }
+          @keyframes flagWave {
+            0%, 100% { transform: skewX(-4deg); }
+            50%      { transform: skewX(6deg); }
+          }
+          @keyframes holeGlow {
+            0%, 100% { box-shadow: inset 0 2px 4px rgba(0,0,0,0.8), 0 0 12px rgba(250,204,21,0.0); }
+            50%      { box-shadow: inset 0 2px 4px rgba(0,0,0,0.8), 0 0 24px rgba(250,204,21,0.8); }
+          }
+          @keyframes spotlight {
+            0%, 30% { opacity: 0; }
+            100%    { opacity: 1; }
+          }
+        `}</style>
 
-      {/* 3D 그린 바닥 */}
-      <div
-        className="absolute left-1/2 -translate-x-1/2 bottom-0 w-[1200px] h-[380px]"
-        style={{
-          perspective: '800px',
-          perspectiveOrigin: '50% 0%',
-        }}
-      >
-        <div
-          className="absolute inset-x-0 bottom-0 h-full"
-          style={{
-            transform: 'rotateX(58deg)',
-            transformOrigin: '50% 100%',
-            background:
-              'radial-gradient(ellipse at center, #4ade80 0%, #22c55e 40%, #16a34a 80%)',
-            boxShadow: 'inset 0 0 120px rgba(0,0,0,0.25)',
-          }}
-        >
-          {/* 잔디 스트라이프 */}
+        {/* 카메라 푸시-인으로 오프닝 */}
+        <div className="absolute inset-0" style={{ animation: 'cameraPushIn 1.6s ease-out forwards' }}>
+          {/* 햇살 스포트라이트 */}
           <div
-            className="absolute inset-0 opacity-25"
+            className="absolute inset-0 pointer-events-none"
             style={{
-              backgroundImage:
-                'repeating-linear-gradient(90deg, rgba(0,0,0,0.15) 0 20px, transparent 20px 40px)',
+              background: 'radial-gradient(ellipse at 50% 30%, rgba(253,224,71,0.25) 0%, transparent 55%)',
+              animation: 'spotlight 2.2s ease-out forwards',
             }}
           />
+
+          {/* 3D 그린 바닥 */}
+          <div
+            className="absolute left-1/2 -translate-x-1/2 bottom-0 w-[1200px] h-[380px]"
+            style={{ perspective: '800px', perspectiveOrigin: '50% 0%' }}
+          >
+            <div
+              className="absolute inset-x-0 bottom-0 h-full"
+              style={{
+                transform: 'rotateX(58deg)',
+                transformOrigin: '50% 100%',
+                background: 'radial-gradient(ellipse at center, #4ade80 0%, #22c55e 40%, #16a34a 80%)',
+                boxShadow: 'inset 0 0 120px rgba(0,0,0,0.35)',
+              }}
+            >
+              <div
+                className="absolute inset-0 opacity-25"
+                style={{
+                  backgroundImage:
+                    'repeating-linear-gradient(90deg, rgba(0,0,0,0.15) 0 20px, transparent 20px 40px)',
+                }}
+              />
+            </div>
+          </div>
+
+          {/* 홀 + 깃대 */}
+          <div className="absolute left-1/2 top-[46%] -translate-x-1/2">
+            <div className="relative" style={{ transform: 'translateX(120px) translateY(40px)' }}>
+              <div
+                className="absolute w-10 h-3 rounded-full bg-neutral-900"
+                style={{
+                  left: '-4px',
+                  top: '44px',
+                  animation: 'holeGlow 1.4s ease-in-out infinite',
+                }}
+              />
+              <div
+                className="absolute w-[2px] bg-neutral-700"
+                style={{ height: '90px', left: '14px', bottom: '44px' }}
+              />
+              <div
+                className="absolute left-[16px] bottom-[110px] w-7 h-4 bg-red-500 origin-left"
+                style={{
+                  clipPath: 'polygon(0 0, 100% 20%, 100% 80%, 0 100%)',
+                  animation: 'flagWave 2s ease-in-out infinite',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                }}
+              />
+            </div>
+          </div>
+
+          {/* 굴러가는 공 (두근거림 후 진입) */}
+          <div className="absolute left-1/2 top-[46%] -translate-x-1/2 pointer-events-none">
+            <div
+              className="w-5 h-5 rounded-full bg-white"
+              style={{
+                animation: 'golfRoll 3.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) 1.8s forwards',
+                boxShadow: 'inset -2px -2px 4px rgba(0,0,0,0.2), 0 3px 6px rgba(0,0,0,0.3)',
+                backgroundImage: 'radial-gradient(circle at 30% 30%, #fff 0%, #e5e7eb 100%)',
+                opacity: 0,
+              }}
+            />
+          </div>
+        </div>
+
+        {/* 통계 출력 */}
+        <div className="absolute inset-x-0 bottom-0 p-5 sm:p-8 z-10">
+          <div className="max-w-2xl mx-auto grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <RevealCard
+              icon="sports_golf"
+              label="우리 과정 리더 평균 타수"
+              value={avg != null ? `${avg}타` : '데이터 없음'}
+              sub={scores.length ? `${scores.length}명 응답` : '응답 0명'}
+              accent="from-emerald-500 to-green-600"
+              revealed={showAvg}
+              onReveal={() => setShowAvg(true)}
+            />
+            <RevealCard
+              icon="military_tech"
+              label="최고 고수"
+              value={best != null ? `${best}타` : '데이터 없음'}
+              sub={formatLeader(bestUser)}
+              accent="from-amber-500 to-orange-600"
+              revealed={showBest}
+              onReveal={() => setShowBest(true)}
+            />
+          </div>
         </div>
       </div>
-
-      {/* 홀 + 깃대 */}
-      <div className="absolute left-1/2 top-[46%] -translate-x-1/2">
-        <div
-          className="relative"
-          style={{ transform: 'translateX(120px) translateY(40px)' }}
-        >
-          {/* 홀 (타원형 구멍) */}
-          <div
-            className="absolute w-10 h-3 rounded-full bg-neutral-900"
-            style={{
-              left: '-4px',
-              top: '44px',
-              boxShadow:
-                'inset 0 2px 4px rgba(0,0,0,0.8), 0 2px 6px rgba(0,0,0,0.4)',
-            }}
-          />
-          {/* 깃대 */}
-          <div
-            className="absolute w-[2px] bg-neutral-700"
-            style={{ height: '90px', left: '14px', bottom: '44px' }}
-          />
-          {/* 깃발 */}
-          <div
-            className="absolute left-[16px] bottom-[110px] w-7 h-4 bg-red-500 origin-left"
-            style={{
-              clipPath: 'polygon(0 0, 100% 20%, 100% 80%, 0 100%)',
-              animation: 'flagWave 2s ease-in-out infinite',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
-            }}
-          />
-        </div>
-      </div>
-
-      {/* 굴러가는 공 */}
-      <div className="absolute left-1/2 top-[46%] -translate-x-1/2 pointer-events-none">
-        <div
-          className="w-5 h-5 rounded-full bg-white"
-          style={{
-            animation: 'golfRoll 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards',
-            boxShadow:
-              'inset -2px -2px 4px rgba(0,0,0,0.2), 0 3px 6px rgba(0,0,0,0.3)',
-            backgroundImage:
-              'radial-gradient(circle at 30% 30%, #fff 0%, #e5e7eb 100%)',
-          }}
-        />
-      </div>
-
-      {/* 통계 출력 */}
-      <div className="absolute inset-x-0 bottom-0 p-5 sm:p-8">
-        <div className="max-w-2xl mx-auto grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <RevealCard
-            icon="sports_golf"
-            label="우리 과정 리더 평균 타수"
-            value={avg != null ? `${avg}타` : '데이터 없음'}
-            sub={scores.length ? `${scores.length}명 응답` : '응답 0명'}
-            accent="from-emerald-500 to-green-600"
-            revealed={showAvg}
-            onReveal={() => setShowAvg(true)}
-          />
-          <RevealCard
-            icon="military_tech"
-            label="최고 고수"
-            value={best != null ? `${best}타` : '데이터 없음'}
-            sub={bestUser ? `${bestUser.name} (${bestUser.company})` : ''}
-            accent="from-amber-500 to-orange-600"
-            revealed={showBest}
-            onReveal={() => setShowBest(true)}
-          />
-        </div>
-      </div>
-    </div>
+    </CinemaStage>
   );
 }
 
@@ -197,7 +343,8 @@ function CareerScene({ users }: { users: User[] }) {
   const [showAvg, setShowAvg] = useState(false);
 
   return (
-    <div className="relative w-full h-[520px] overflow-hidden bg-gradient-to-b from-emerald-900 via-emerald-700 to-amber-100">
+    <CinemaStage title="Career" subtitle="Years at HMG">
+    <div className="relative w-full h-full overflow-hidden bg-gradient-to-b from-emerald-900 via-emerald-700 to-amber-100">
       <style>{`
         @keyframes forestZoom {
           0%   { transform: scale(1); opacity: 1; }
@@ -312,6 +459,7 @@ function CareerScene({ users }: { users: User[] }) {
         </div>
       </div>
     </div>
+    </CinemaStage>
   );
 }
 
@@ -329,7 +477,8 @@ function LottoScene({ users }: { users: User[] }) {
   const [showBest, setShowBest] = useState(false);
 
   return (
-    <div className="relative w-full h-[520px] overflow-hidden bg-gradient-to-b from-rose-200 via-orange-100 to-yellow-100">
+    <CinemaStage title="Jackpot" subtitle="Lucky Draw">
+    <div className="relative w-full h-full overflow-hidden bg-gradient-to-b from-rose-200 via-orange-100 to-yellow-100">
       <style>{`
         @keyframes drumSpin {
           0%   { transform: rotate(0deg); }
@@ -448,6 +597,7 @@ function LottoScene({ users }: { users: User[] }) {
         </div>
       </div>
     </div>
+    </CinemaStage>
   );
 }
 
@@ -462,7 +612,8 @@ function NetworkScene({ users }: { users: User[] }) {
   const [showMax, setShowMax] = useState(false);
 
   return (
-    <div className="relative w-full h-[520px] overflow-hidden bg-gradient-to-b from-indigo-100 via-sky-100 to-white">
+    <CinemaStage title="Connected" subtitle="Network">
+    <div className="relative w-full h-full overflow-hidden bg-gradient-to-b from-indigo-100 via-sky-100 to-white">
       <style>{`
         @keyframes walkLeft {
           0%   { transform: translateX(-180px); }
@@ -535,7 +686,7 @@ function NetworkScene({ users }: { users: User[] }) {
             icon="star"
             label="우리 과정 핵인싸"
             value={max != null ? `무려 ${max}명!` : '데이터 없음'}
-            sub={maxUser ? `${maxUser.name} (${maxUser.company})` : ''}
+            sub={formatLeader(maxUser)}
             accent="from-rose-500 to-red-600"
             revealed={showMax}
             onReveal={() => setShowMax(true)}
@@ -543,6 +694,7 @@ function NetworkScene({ users }: { users: User[] }) {
         </div>
       </div>
     </div>
+    </CinemaStage>
   );
 }
 
@@ -593,7 +745,8 @@ function DrinkScene({ users }: { users: User[] }) {
   const [showMax, setShowMax] = useState(false);
 
   return (
-    <div className="relative w-full h-[520px] overflow-hidden bg-gradient-to-b from-amber-900 via-orange-900 to-red-950">
+    <CinemaStage title="Cheers" subtitle="Drink Capacity">
+    <div className="relative w-full h-full overflow-hidden bg-gradient-to-b from-amber-900 via-orange-900 to-red-950">
       <style>{`
         @keyframes glassDrop1 {
           0%   { transform: translate(-120px, -260px) rotate(-15deg); opacity: 0; }
@@ -690,7 +843,7 @@ function DrinkScene({ users }: { users: User[] }) {
             icon="liquor"
             label="술이 물보다 맛있는 리더"
             value={max != null ? `${max.toFixed(1)}병!` : '데이터 없음'}
-            sub={maxUser ? `${maxUser.name} (${maxUser.company})` : ''}
+            sub={formatLeader(maxUser)}
             accent="from-red-600 to-rose-700"
             revealed={showMax}
             onReveal={() => setShowMax(true)}
@@ -698,6 +851,7 @@ function DrinkScene({ users }: { users: User[] }) {
         </div>
       </div>
     </div>
+    </CinemaStage>
   );
 }
 

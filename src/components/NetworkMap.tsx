@@ -449,18 +449,18 @@ export default function NetworkMap({ adminCourseId }: { adminCourseId?: string }
             >
               {node.type === 'user' && node.data?.id === currentUser?.id && (
                 <circle
-                  r={18}
+                  r={22}
                   fill="none"
-                  stroke="#3b82f6"
+                  stroke="#22c55e"
                   strokeWidth={2}
                   className="animate-pulse"
                 />
               )}
               <circle
                 r={node.type === 'user'
-                  ? (node.data?.id === currentUser?.id ? 12 : 8)
+                  ? (node.data?.id === currentUser?.id ? 16 : 8)
                   : 12}
-                fill={node.color}
+                fill={node.type === 'user' && node.data?.id === currentUser?.id ? '#22c55e' : node.color}
                 fillOpacity={0.9}
                 stroke="white"
                 strokeWidth={2}
@@ -469,9 +469,9 @@ export default function NetworkMap({ adminCourseId }: { adminCourseId?: string }
               <text
                 textAnchor="middle"
                 dy={node.type === 'user'
-                  ? (node.data?.id === currentUser?.id ? 26 : 20)
+                  ? (node.data?.id === currentUser?.id ? 30 : 20)
                   : 25}
-                className={`text-xs font-sans font-bold pointer-events-none uppercase tracking-tight ${node.type === 'user' && node.data?.id === currentUser?.id ? 'fill-blue-600' : 'fill-on-surface'}`}
+                className={`text-xs font-sans font-bold pointer-events-none uppercase tracking-tight ${node.type === 'user' && node.data?.id === currentUser?.id ? 'fill-green-600' : 'fill-on-surface'}`}
                 style={{ 
                   paintOrder: 'stroke',
                   stroke: '#ffffff',
@@ -1037,22 +1037,22 @@ function PersonalNetworkMap({ currentUser, db, onSelectUser, onSelectKeyword }: 
               style={{ cursor: 'pointer', pointerEvents: 'all' }}
             >
               {node.type === 'user' && node.data?.id === currentUser.id && (
-                <circle r={21} fill="none" stroke="#3b82f6" strokeWidth={2} className="animate-pulse" />
+                <circle r={26} fill="none" stroke="#22c55e" strokeWidth={2} className="animate-pulse" />
               )}
               <circle
                 r={node.type === 'user'
-                  ? (node.data?.id === currentUser.id ? 15 : 10)
+                  ? (node.data?.id === currentUser.id ? 20 : 10)
                   : 14}
-                fill={node.color}
+                fill={node.type === 'user' && node.data?.id === currentUser.id ? '#22c55e' : node.color}
                 stroke="white"
                 strokeWidth={2}
               />
               <text
                 textAnchor="middle"
                 dy={node.type === 'user'
-                  ? (node.data?.id === currentUser.id ? 29 : 22)
+                  ? (node.data?.id === currentUser.id ? 34 : 22)
                   : 28}
-                className={`text-xs font-bold fill-on-surface pointer-events-none uppercase tracking-tight ${node.type === 'user' && node.data?.id === currentUser.id ? 'fill-blue-600' : ''}`}
+                className={`text-xs font-bold fill-on-surface pointer-events-none uppercase tracking-tight ${node.type === 'user' && node.data?.id === currentUser.id ? 'fill-green-600' : ''}`}
                 style={{ paintOrder: 'stroke', stroke: '#ffffff', strokeWidth: '3px' }}
               >
                 {node.label}
