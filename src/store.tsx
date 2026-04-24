@@ -89,11 +89,15 @@ export interface User {
   courseId: string;
   profilePic?: string;
   location?: string;
-  golfScore?: number;
-  careerYears?: number;
-  knownPeople?: number;
-  lottoRank?: string;
-  drinkingCapacity?: number;
+  golfScore?: number;          // deprecated (구 서베이)
+  careerYears?: number;        // HMG 근무 경력 연수 (Q5)
+  knownPeople?: number;        // deprecated (구 서베이)
+  lottoRank?: string;          // deprecated (구 서베이)
+  drinkingCapacity?: number;   // deprecated (구 서베이)
+  condition?: number;          // Q1: 오늘 컨디션 0~10
+  memorableQuote?: string;     // Q2: 기억에 남는 한마디
+  fearWord?: string;           // Q3: 두렵게 하는 단어
+  excitingWord?: string;       // Q4: 설레게 하는 단어
   surveyCompleted?: boolean;
 }
 
