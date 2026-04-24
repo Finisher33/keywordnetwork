@@ -27,7 +27,9 @@
       "Bash(node scripts/auditCanonicalTerms.mjs)",
       "Bash(node scripts/recanonicalizeAll.mjs)",
       "Bash(cp ../../../scripts/auditCanonicalTerms.mjs scripts/)",
-      "Bash(cp ../../../scripts/recanonicalizeAll.mjs scripts/)"
+      "Bash(cp ../../../scripts/recanonicalizeAll.mjs scripts/)",
+      "Bash(curl -sI https://keywordnetworking.vercel.app/)",
+      "Bash(curl -s https://keywordnetworking.vercel.app/)"
     ]
   }
 }

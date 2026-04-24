@@ -439,7 +439,14 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
       return;
     }
 
-    const headers = ['회사', '성함', '담당조직', '직책', 'be Giver', 'be Taker'];
+    const headers = [
+      '회사', '성함', '담당조직', '직책', 'be Giver', 'be Taker',
+      'Q1. 오늘 컨디션(0~10)',
+      'Q2. 기억에 남는 한마디',
+      'Q3. 두렵게 하는 단어',
+      'Q4. 설레게 하는 단어',
+      'Q5. 근무 경력(년)'
+    ];
     const rows = courseUsers.map(u => {
       const userInterests = db.interests.filter(i => i.userId === u.id);
       const giverKeywords = userInterests.filter(i => i.type === 'giver').map(i => i.keyword).join(', ');
@@ -450,13 +457,18 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
         u.department || '',
         u.title || '',
         giverKeywords,
-        takerKeywords
+        takerKeywords,
+        typeof u.condition === 'number' ? String(u.condition) : '',
+        u.memorableQuote || '',
+        u.fearWord || '',
+        u.excitingWord || '',
+        typeof u.careerYears === 'number' ? String(u.careerYears) : ''
       ];
     });
 
     const csvContent = [
       headers.join(','),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+      ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
     ].join('\n');
 
     const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -1100,7 +1112,7 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
               {userListCourseId && (() => {
                 return (
                   <div className="overflow-x-auto border border-outline rounded-xl">
-                    <table className="w-full text-left border-collapse min-w-[800px]">
+                    <table className="w-full text-left border-collapse min-w-[1400px]">
                       <thead>
                         <tr className="bg-surface-container-low border-b border-outline">
                           {[
@@ -1110,6 +1122,11 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
                             { key: 'title', label: '직책' },
                             { key: 'giver', label: 'be Giver' },
                             { key: 'taker', label: 'be Taker' },
+                            { key: 'condition', label: 'Q1. 컨디션' },
+                            { key: 'memorableQuote', label: 'Q2. 기억 한마디' },
+                            { key: 'fearWord', label: 'Q3. 두려운 단어' },
+                            { key: 'excitingWord', label: 'Q4. 설레는 단어' },
+                            { key: 'careerYears', label: 'Q5. 경력(년)' },
                           ].map((col) => (
                             <th
                               key={col.key}
@@ -1157,6 +1174,25 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
                                   ))}
                                 </div>
                               </td>
+                              <td className="p-4 text-sm text-on-surface-variant text-center">
+                                {typeof user.condition === 'number' ? (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-primary/10 text-primary">{user.condition}/10</span>
+                                ) : <span className="text-on-surface-variant/40">—</span>}
+                              </td>
+                              <td className="p-4 text-xs text-on-surface max-w-[180px] truncate" title={user.memorableQuote || ''}>
+                                {user.memorableQuote || <span className="text-on-surface-variant/40">—</span>}
+                              </td>
+                              <td className="p-4 text-xs text-on-surface max-w-[140px] truncate" title={user.fearWord || ''}>
+                                {user.fearWord || <span className="text-on-surface-variant/40">—</span>}
+                              </td>
+                              <td className="p-4 text-xs text-on-surface max-w-[140px] truncate" title={user.excitingWord || ''}>
+                                {user.excitingWord || <span className="text-on-surface-variant/40">—</span>}
+                              </td>
+                              <td className="p-4 text-sm text-on-surface-variant text-center">
+                                {typeof user.careerYears === 'number' ? (
+                                  <span className="font-bold text-on-surface">{user.careerYears}년</span>
+                                ) : <span className="text-on-surface-variant/40">—</span>}
+                              </td>
                               <td className="p-4 text-center">
                                 <div className="flex items-center justify-center gap-2">
                                   <button
@@ -1180,7 +1216,7 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
                         })}
                         {getSortedUsers().length === 0 && (
                           <tr>
-                            <td colSpan={7} className="p-12 text-center text-on-surface-variant italic font-medium">등록된 인원이 없습니다.</td>
+                            <td colSpan={12} className="p-12 text-center text-on-surface-variant italic font-medium">등록된 인원이 없습니다.</td>
                           </tr>
                         )}
                       </tbody>
