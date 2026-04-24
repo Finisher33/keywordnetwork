@@ -150,7 +150,11 @@ export default function MainView({ onAdminClick }: { onAdminClick: () => void })
     if (!agreed) { showToast('개인정보 수집 및 이용에 동의해 주세요.', 'error'); return; }
     setIsRegisteringInProgress(true);
     try {
-      await register({ id: Date.now().toString(), company: finalCompany, name, courseId, department, title });
+      // 같은 기기에서 연속 등록 시 Date.now() 충돌 방지 — courseId/회사/이름 + 랜덤 접미사로 고유화
+      const safeId = `${courseId}_${finalCompany}_${name}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
+        .replace(/[\/\s\x00-\x1F\x7F]/g, '_')
+        .slice(0, 400);
+      await register({ id: safeId, company: finalCompany, name, courseId, department, title });
       setRegisterSuccess(true);
     } catch (error: any) {
       console.error("Registration failed:", error);

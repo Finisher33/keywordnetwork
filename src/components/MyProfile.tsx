@@ -326,16 +326,19 @@ export default function MyProfile({ onSave, onLogout, showBack = true, targetUse
     }
 
     setIsSaving(true);
+    // id 충돌 방지: Date.now() + crypto 랜덤 + 인덱스로 고유성 강화
+    const makeId = (prefix: string, idx: number) =>
+      `${Date.now()}_${prefix}_${idx}_${Math.random().toString(36).slice(2, 10)}`;
     const newInterests: Interest[] = [
-      ...validGivers.map(g => ({
-        id: Date.now().toString() + Math.random(),
+      ...validGivers.map((g, i) => ({
+        id: makeId('g', i),
         userId: userToEdit.id,
         type: 'giver' as const,
         keyword: g.keyword,
         description: g.description
       })),
-      ...validTakers.map(t => ({
-        id: Date.now().toString() + Math.random(),
+      ...validTakers.map((t, i) => ({
+        id: makeId('t', i),
         userId: userToEdit.id,
         type: 'taker' as const,
         keyword: t.keyword,
@@ -343,18 +346,42 @@ export default function MyProfile({ onSave, onLogout, showBack = true, targetUse
       }))
     ];
 
+    // Watchdog: 20초 내 응답 없으면 사용자에게 알리고 버튼을 잠금 해제.
+    // 인앱브라우저/PC에서 fetch 가 조용히 멈추는 에지케이스 대비.
+    let watchdogFired = false;
+    const watchdog = setTimeout(() => {
+      watchdogFired = true;
+      console.warn('[MyProfile] save watchdog fired — updateUserProfile has not resolved in 20s');
+      setIsSaving(false);
+      showToast('저장이 지연되고 있습니다. 네트워크를 확인하거나 페이지를 새로고침 해주세요.', 'error');
+    }, 20000);
+
     try {
+      console.log('[MyProfile] save start', { userId: userToEdit.id, interestCount: newInterests.length });
       await updateUserProfile({
         ...userToEdit,
         company: company === '직접입력' ? customCompany : company,
         name, department, title, profilePic
       }, newInterests);
-      onSave();
+      console.log('[MyProfile] save complete — calling onSave()');
+      clearTimeout(watchdog);
+      if (watchdogFired) return;
+      // 다음 task 로 넘겨 React 의 setState 배칭이 완전히 flush 된 뒤 네비게이션 수행.
+      // (즉시 호출 시 부모 리렌더 타이밍과 충돌해 라우팅이 씹히는 경우 방지)
+      setTimeout(() => {
+        try {
+          onSave();
+        } catch (navErr) {
+          console.error('[MyProfile] onSave threw:', navErr);
+        }
+      }, 0);
     } catch (error: any) {
+      clearTimeout(watchdog);
+      if (watchdogFired) return;
       console.error("Failed to save profile:", error);
       showToast(error?.message || '프로필 저장 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.', 'error');
     } finally {
-      setIsSaving(false);
+      if (!watchdogFired) setIsSaving(false);
     }
   };
 

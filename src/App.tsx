@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useStore } from './store';
 import MainView from './components/MainView';
 import AdminView from './components/AdminView';
@@ -16,6 +16,35 @@ export default function App() {
   const [appViewTab, setAppViewTab] = useState<AppTab>('network');
   // 최초 등록 완료 플래그 — db.interests 비동기 전파와 무관하게 즉시 라우팅 전환을 보장
   const [registrationDone, setRegistrationDone] = useState(false);
+  // 최초 등록 진행 중 플래그 — effect 기반 네비게이션 안전망에서 사용
+  const awaitingFirstNavRef = useRef(false);
+
+  // 안전망: handleSave 의 onSave() 콜백이 어떤 이유로든 실행되지 않더라도
+  // db.interests(onSnapshot)이 currentUser 의 interest를 수신하면 자동 네비게이션.
+  // PC / 두 번째 유저 전환 시 callback 체인이 끊기는 에지케이스를 effect로 커버.
+  useEffect(() => {
+    if (!currentUser) return;
+    const hasInterestsInDb = db.interests.some(i => i.userId === currentUser.id);
+    if (!hasInterestsInDb) return;
+    if (subView === 'profile') return; // 명시적 편집 모드는 유지
+
+    // registrationDone 이 아직 false 면 callback 이 실행 안 된 것 — 강제로 동기화
+    if (!registrationDone) {
+      setRegistrationDone(true);
+      // 최초 등록 대기 상태였다면 survey 우선, 아니면 landing
+      const surveyAlreadyDone = !!(
+        currentUser.surveyCompleted ||
+        (typeof currentUser.golfScore === 'number' &&
+         typeof currentUser.careerYears === 'number')
+      );
+      if (awaitingFirstNavRef.current && !surveyAlreadyDone) {
+        setSubView('survey');
+      } else if (subView !== 'survey' && subView !== 'app' && subView !== 'insight') {
+        setSubView('landing');
+      }
+      awaitingFirstNavRef.current = false;
+    }
+  }, [db.interests, currentUser, subView, registrationDone]);
 
   const handleNotificationClick = () => {
     setSubView('app');
@@ -61,6 +90,8 @@ export default function App() {
     // 최초 정보등록 기록이 없거나, 프로필 수정 모드인 경우
     if (!hasInterests || subView === 'profile') {
       const isFirstRegistration = !hasInterests;
+      // effect 안전망에게 "지금 최초 등록 플로우다"를 알림
+      if (isFirstRegistration) awaitingFirstNavRef.current = true;
       // Survey 재노출 방지: 이미 완료(surveyCompleted=true)했거나, 핵심 응답값을 이미 보유한 경우 건너뜀
       const surveyAlreadyDone = !!(
         currentUser.surveyCompleted ||
@@ -76,6 +107,7 @@ export default function App() {
             } else {
               setSubView(lastSubView);
             }
+            awaitingFirstNavRef.current = false;
           }}
           onLogout={handleLogout}
           showBack={hasInterests}
