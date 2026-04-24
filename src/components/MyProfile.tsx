@@ -165,14 +165,13 @@ const KeywordCard = memo(function KeywordCard({
 
           {entry.isCustom && (
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/50 text-base font-bold">#</span>
               <input
                 ref={inputRef}
                 type="text"
                 value={entry.customInput}
                 onChange={e => handleCustomInput(e.target.value)}
                 placeholder="원하는 키워드를 직접 입력하세요"
-                className={`w-full bg-surface border rounded-xl pl-7 pr-4 py-2.5 text-base outline-none transition-all text-on-surface border-${accentClass} ring-2 ring-${accentClass}/20`}
+                className={`w-full bg-surface border rounded-xl px-4 py-2.5 text-base outline-none transition-all text-on-surface border-${accentClass} ring-2 ring-${accentClass}/20`}
               />
               {entry.customInput && (
                 <span className={`absolute right-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-${accentClass} text-lg`}>check_circle</span>
