@@ -178,7 +178,7 @@ export default function SurveyInsight({ courseId }: Props) {
   );
 }
 
-// ─── Q1. Condition (0~10 분포 가로 막대그래프) ────────────────────────────
+// ─── Q1. Condition (0~10 분포 세로 막대그래프 · 클릭 시 stagger 상승) ─────
 function ConditionScene({ users }: { users: User[] }) {
   const vals = users.map((u) => u.condition).filter((n): n is number => typeof n === 'number');
   const avg = vals.length ? (vals.reduce((a, b) => a + b, 0) / vals.length) : null;
@@ -194,12 +194,10 @@ function ConditionScene({ users }: { users: User[] }) {
   }, [vals]);
   const maxCount = Math.max(1, ...buckets.map((b) => b.count));
 
-  // 각 막대별 상세(인원수) 공개 상태
-  const [revealed, setRevealed] = useState<Record<number, boolean>>({});
-  const toggleBar = (score: number) =>
-    setRevealed((prev) => ({ ...prev, [score]: !prev[score] }));
+  // 그래프 전체 공개 플래그 (클릭 시 애니메이션 트리거)
+  const [chartRevealed, setChartRevealed] = useState(false);
 
-  // 점수별 색상 그라데이션 (낮→차가운 / 높→따뜻한)
+  // 점수별 색상 (낮→차가운 / 높→따뜻한)
   const barColor = (score: number) => {
     const palette = [
       '#1e40af', '#2563eb', '#3b82f6', '#38bdf8', '#22d3ee',
@@ -245,7 +243,7 @@ function ConditionScene({ users }: { users: User[] }) {
           </h2>
         </div>
 
-        {/* 평균 (탭 공개) */}
+        {/* 평균 (개별 탭 공개) */}
         {vals.length > 0 && (
           <div className="mt-4 sm:mt-5 flex items-center gap-3 bg-white/90 backdrop-blur-sm rounded-2xl px-4 sm:px-6 py-2.5 sm:py-3 shadow-2xl border border-white/70">
             <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-md">
@@ -266,62 +264,97 @@ function ConditionScene({ users }: { users: User[] }) {
           </div>
         )}
 
-        {/* 가로 막대 그래프 */}
+        {/* 세로 막대 그래프 */}
         {vals.length === 0 ? (
           <p className="mt-10 text-white/80 text-sm font-bold" style={softStyle}>아직 응답이 없습니다.</p>
         ) : (
-          <div className="mt-5 sm:mt-6 w-full max-w-3xl bg-white/10 backdrop-blur-sm rounded-2xl border border-white/15 p-3 sm:p-5 shadow-2xl">
-            <div className="flex flex-col gap-1.5 sm:gap-2">
-              {buckets.map((b) => {
-                const widthPct = (b.count / maxCount) * 100;
-                const isRevealed = !!revealed[b.score];
-                return (
-                  <button
-                    key={b.score}
-                    type="button"
-                    onClick={() => toggleBar(b.score)}
-                    className="group flex items-center gap-2 sm:gap-3 text-left"
-                    title={isRevealed ? '다시 가리기' : '탭하여 인원수 공개'}
-                  >
-                    {/* 점수 레이블 */}
-                    <span
-                      className="w-7 sm:w-9 shrink-0 text-right text-sm sm:text-base font-bold text-white/90"
-                      style={softStyle}
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => setChartRevealed((v) => !v)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setChartRevealed((v) => !v); } }}
+            title={chartRevealed ? '다시 가리기' : '그래프를 탭하여 전체 공개'}
+            className="mt-5 sm:mt-6 w-full max-w-3xl bg-white/10 backdrop-blur-sm rounded-2xl border border-white/15 p-3 sm:p-5 shadow-2xl cursor-pointer hover:bg-white/15 transition-colors text-left select-none"
+          >
+            {/* 안내 배너 */}
+            {!chartRevealed && (
+              <div className="mb-3 text-center">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 text-white/95 text-[11px] sm:text-xs font-bold" style={softStyle}>
+                  <span className="material-symbols-outlined text-sm">touch_app</span>
+                  그래프를 탭하여 전체 결과 공개
+                </span>
+              </div>
+            )}
+
+            {/* 차트 영역 */}
+            <div
+              className="relative w-full"
+              style={{ height: 'clamp(180px, 34vh, 300px)' }}
+            >
+              {/* 가이드 그리드 */}
+              <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i} className="border-t border-white/10" />
+                ))}
+              </div>
+
+              {/* 막대들 (plot area) */}
+              <div className="absolute inset-0 pt-5 pb-0 flex items-end justify-between gap-1 sm:gap-2">
+                {buckets.map((b, idx) => {
+                  const heightPct = chartRevealed ? (b.count / maxCount) * 100 : 0;
+                  const minHeight = chartRevealed && b.count > 0 ? 6 : 0;
+                  return (
+                    <div
+                      key={b.score}
+                      className="flex-1 h-full flex flex-col items-center justify-end relative"
                     >
-                      {b.score}
-                    </span>
-                    {/* 막대 트랙 */}
-                    <div className="flex-1 h-7 sm:h-8 bg-white/15 rounded-full overflow-hidden border border-white/10 relative">
-                      <div
-                        className="h-full rounded-full transition-all duration-500 ease-out flex items-center justify-end pr-2 sm:pr-3"
+                      {/* 인원수 라벨 */}
+                      <span
+                        className="text-[10px] sm:text-xs font-bold text-white tabular-nums mb-1 transition-opacity duration-500"
                         style={{
-                          width: b.count === 0 ? '0%' : `${Math.max(widthPct, 4)}%`,
-                          background: `linear-gradient(90deg, ${barColor(b.score)}dd 0%, ${barColor(b.score)} 100%)`,
-                          boxShadow: `0 0 12px ${barColor(b.score)}80`,
+                          ...softStyle,
+                          opacity: chartRevealed && b.count > 0 ? 1 : 0,
+                          transitionDelay: chartRevealed ? `${500 + idx * 80}ms` : '0ms',
+                          textShadow: '0 1px 4px rgba(0,0,0,0.6)',
                         }}
                       >
-                        {isRevealed && b.count > 0 && widthPct >= 22 && (
-                          <span className="text-[11px] sm:text-xs font-bold text-white drop-shadow" style={softStyle}>
-                            {b.count}명
-                          </span>
-                        )}
-                      </div>
+                        {b.count}명
+                      </span>
+                      {/* 막대 */}
+                      <div
+                        className="w-full rounded-t-lg"
+                        style={{
+                          height: `max(${heightPct}%, ${minHeight}px)`,
+                          background: `linear-gradient(180deg, ${barColor(b.score)} 0%, ${barColor(b.score)}cc 100%)`,
+                          boxShadow: chartRevealed && b.count > 0 ? `0 -4px 16px ${barColor(b.score)}80` : 'none',
+                          transition: 'height 900ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 500ms ease',
+                          transitionDelay: chartRevealed ? `${idx * 80}ms` : '0ms',
+                        }}
+                      />
                     </div>
-                    {/* 우측 인원수 (막대 밖 표시) */}
-                    <span
-                      className="w-12 sm:w-14 shrink-0 text-[11px] sm:text-sm font-bold tabular-nums"
-                      style={softStyle}
-                    >
-                      {isRevealed ? (
-                        <span className="text-white">{b.count}명</span>
-                      ) : (
-                        <span className="text-white/45">탭하여 공개</span>
-                      )}
-                    </span>
-                  </button>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
+
+            {/* X축: 점수 레이블 */}
+            <div className="mt-2 flex items-center justify-between gap-1 sm:gap-2 px-0">
+              {buckets.map((b) => (
+                <span
+                  key={b.score}
+                  className="flex-1 text-center text-xs sm:text-sm font-bold text-white/90 tabular-nums"
+                  style={softStyle}
+                >
+                  {b.score}
+                </span>
+              ))}
+            </div>
+            <p
+              className="mt-1 text-center text-[10px] sm:text-xs font-bold text-white/60 uppercase tracking-[0.3em]"
+              style={softStyle}
+            >
+              Score
+            </p>
 
             {/* 푸터: 총 응답 수 */}
             <div className="mt-3 sm:mt-4 pt-3 border-t border-white/15 text-center">
