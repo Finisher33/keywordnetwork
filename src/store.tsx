@@ -92,6 +92,9 @@ export interface User {
   golfScore?: number;
   careerYears?: number;
   knownPeople?: number;
+  lottoRank?: string;
+  drinkingCapacity?: number;
+  surveyCompleted?: boolean;
 }
 
 export interface Interest {
@@ -791,8 +794,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    // Similarity threshold: 0.65 (broader grouping — related concepts are merged)
-    if (bestMatch && maxSimilarity > 0.65) {
+    // Similarity threshold: 0.75 (Gemini embedding-001 기준 — 한/영 동의어 + 근접 개념)
+    if (bestMatch && maxSimilarity > 0.75) {
       return { canonicalId: bestMatch.id, term: bestMatch.term };
     } else {
       const newId = Date.now().toString();

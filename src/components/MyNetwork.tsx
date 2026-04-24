@@ -2,7 +2,7 @@
 import { useToast } from '../hooks/useToast';
 import Toast from './Toast';
 import { useStore, User, Interest } from '../store';
-import { calculateUserNetworkData, calculateSNAScores, calculateHotKeywords, HotKeyword } from '../utils/networkUtils';
+import { calculateUserNetworkData, calculateHotKeywords, HotKeyword } from '../utils/networkUtils';
 import TeaTimeModal, { TeaReplyModal } from './TeaTimeModal';
 import { TeaTimeRequest } from '../store';
 
@@ -24,25 +24,6 @@ function SectionTitle({ icon, title, badge }: { icon: string; title: string; bad
   );
 }
 
-// ─── SNA 유형별 설명 ────────────────────────────────────────────────────────
-const SNA_DESCRIPTIONS: Record<string, { leader: string; property: string; analogy: string }> = {
-  '안테나': {
-    leader: '리더님은 근접 중심성이 높은 안테나형 리더입니다.',
-    property: '근접 중심성만의 고유한 속성은 독립적인 전파 속도로, 근접 중심성이 높을수록 남에게 의존하지 않고 모든 노드에 빠르게 연결될 수 있습니다.',
-    analogy: '안테나 유형을 비유하자면 119 소방서나 쿠팡 물류센터와 같습니다. 네트워크 내에서 특정 길목을 막고 서 있는 건 아니지만, 사고가 나거나 배송을 할 때 도시 어느 지점이든 가장 짧은 시간 안에 도착할 수 있는 최적의 입지에 있는 것입니다. 즉, 다른 리더분들께 최단 거리로 도달할 수 있는 강점이 있는 유형입니다.',
-  },
-  '마당발(인플루언서)': {
-    leader: '리더님은 연결 중심성이 높은 마당발(인플루언서)형 리더입니다.',
-    property: '연결 중심성만의 고유한 속성은 가시적인 활동성으로, 당장 내 주변에 많은 사람이 연결되어 있을수록 연결중심성은 높게 측정됩니다.',
-    analogy: '마당발 유형을 비유하자면 수많은 팔로워를 거느린 대형 유튜버나 대학 축제 때 가장 많은 사람을 불러 모으는 인기 과대표와 같습니다. 복잡한 전략 없이도 오직 숫자의 힘만으로 네트워크 내에서 가장 큰 목소리를 낼 수 있습니다.',
-  },
-  '게이트키퍼': {
-    leader: '리더님은 매개 중심성이 높은 게이트키퍼형 리더입니다.',
-    property: '매개 중심성만의 고유한 속성은 대체 불가능성입니다. 단순히 중심에 있는 것이 아니라, 서로 다른 두 세계(클러스터)를 잇는 중요한 위치에 있을수록 매개 중심성은 높게 측정됩니다.',
-    analogy: '게이트키퍼형을 비유하자면 서울과 부산을 잇는 유일한 고속도로의 휴게소와 같습니다. 모두가 그곳을 거쳐야만 하기에, 휴게소 주인은 정보와 흐름을 통제하거나 원활하게 하는 역할이 가능합니다.',
-  },
-};
-
 export default function MyNetwork({ targetUser, hideActions = false }: MyNetworkProps) {
   const { db, currentUser: storeUser, fetchData, updateTeaTimeRequest, sendTeaTimeRequest } = useStore();
   const currentUser = targetUser || storeUser;
@@ -59,11 +40,6 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
   const networkData = useMemo(() => {
     if (!currentUser) return null;
     return calculateUserNetworkData(currentUser, db);
-  }, [currentUser, db]);
-
-  const snaResult = useMemo(() => {
-    if (!currentUser) return null;
-    return calculateSNAScores(currentUser, db);
   }, [currentUser, db]);
 
   const hotKeywords = useMemo(() => {
@@ -124,108 +100,7 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
       </div>
 
       {/* ════════════════════════════════════════════════════════════════════════
-          1. SNA 유형 분석
-      ════════════════════════════════════════════════════════════════════════ */}
-      <section className="space-y-5">
-        {/* 타이틀 */}
-        <div className="flex items-center gap-2 pb-2 border-b border-outline/40">
-          <span className="material-symbols-outlined text-primary text-xl">analytics</span>
-          <h2 className="font-headline text-base font-black uppercase tracking-widest text-on-surface leading-tight">
-            SNA
-            <span className="text-[0.55em] font-semibold normal-case tracking-normal text-on-surface/60"> (Social Network Analysis)</span>
-            {' '}유형 분석
-          </h2>
-        </div>
-
-        {/* 소개 문구 */}
-        <div className="bg-surface-container-low border border-outline/40 rounded-xl px-4 py-3 space-y-1.5">
-          <p className="text-[11px] text-on-surface-variant leading-relaxed">
-            소셜 네트워크 분석이란 사람/객체간의 속성(나이, 성별 등)보다는 그들 간의 <span className="font-bold text-on-surface">'관계(Relationship)'와 '구조(Structure)'</span>에 집중하여 사회적 현상을 정량적으로 분석하는 기법입니다.
-          </p>
-          <p className="text-[11px] text-on-surface-variant leading-relaxed">
-            점(Node)과 선(Link)으로 이루어진 데이터를 통해 집단 내의 정보 흐름이나 권력 지도를 시각화하고 통계적으로 확인합니다.
-          </p>
-          <p className="text-[11px] text-on-surface-variant leading-relaxed">
-            리더님께서 입력한 관심사와 본 과정에 참여한 리더분들이 입력한 관심사 간의 데이터를 종합 분석 결과, <span className="font-bold text-primary">{currentUser?.name}</span>님의 네트워크 유형은{' '}
-            {snaResult && !snaResult.allZero && snaResult.dominant
-              ? <><span className="font-bold text-primary">{snaResult.dominant.type}</span> 유형입니다.</>
-              : '아직 분석 중입니다.'
-            }
-          </p>
-        </div>
-
-        {!snaResult ? (
-          <p className="text-xs text-on-surface-variant italic p-4 bg-surface rounded-xl border border-outline">
-            분석하기에 데이터가 부족합니다. 관심사를 등록하고 동료들과 연결되면 분석 결과를 확인할 수 있습니다.
-          </p>
-        ) : snaResult.allZero ? (
-          /* 모든 점수가 0 → 유형 미결정 안내 */
-          <div className="bg-surface-container-low border border-outline rounded-2xl p-6 space-y-4">
-            <div className="flex items-center gap-3">
-              <span className="text-3xl">🔍</span>
-              <div>
-                <p className="text-sm font-bold text-on-surface">아직 유형을 특정하기 어렵습니다</p>
-                <p className="text-xs text-on-surface-variant mt-1 leading-relaxed">
-                  데이터가 부족하여 네트워크 유형 분석이 불가합니다.<br />
-                  관심 키워드를 등록하고 다른 리더들과 연결되면 정확한 유형을 확인할 수 있습니다.
-                </p>
-              </div>
-            </div>
-            {/* 점수 바 (모두 0) */}
-            <div className="space-y-3 pt-2 border-t border-outline/30">
-              {snaResult.types.map((t, idx) => (
-                <div key={idx} className="bg-surface border border-outline/50 rounded-xl p-3">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">{t.icon}</span>
-                      <div>
-                        <p className="text-xs font-bold text-on-surface/50">{t.type}</p>
-                        <p className="text-[10px] text-on-surface-variant/50 uppercase tracking-widest">{t.metricName}</p>
-                      </div>
-                    </div>
-                    <span className="text-sm font-black text-on-surface-variant/40">0</span>
-                  </div>
-                  <div className="h-1.5 bg-surface-container-low rounded-full" />
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <>
-            {/* Dominant type card */}
-            {(() => {
-              const desc = SNA_DESCRIPTIONS[snaResult.dominant!.type];
-              return (
-                <div className="bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 rounded-2xl p-6 space-y-4">
-                  <div className="flex gap-4 items-start">
-                    <div className="text-5xl shrink-0">{snaResult.dominant!.icon}</div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[11px] font-bold text-primary/60 uppercase tracking-widest mb-0.5">{snaResult.dominant!.metricName} 최고</p>
-                      <div className="flex items-baseline gap-2 mb-1">
-                        <h3 className="text-xl font-black text-primary">{snaResult.dominant!.type} 유형</h3>
-                        <span className="text-2xl font-black text-primary">{snaResult.dominant!.score.toFixed(0)}</span>
-                        <span className="text-[11px] text-primary/50 font-bold">/ 100</span>
-                      </div>
-                      <p className="text-[11px] text-primary/60 mt-1">{snaResult.dominant!.detail}</p>
-                    </div>
-                  </div>
-                  {desc && (
-                    <div className="space-y-2 pt-2 border-t border-primary/20">
-                      <p className="text-[11px] font-bold text-primary/80 leading-relaxed">{desc.leader}</p>
-                      <p className="text-[11px] text-on-surface-variant leading-relaxed">{desc.property}</p>
-                      <p className="text-[11px] text-on-surface-variant leading-relaxed">{desc.analogy}</p>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-
-          </>
-        )}
-      </section>
-
-      {/* ════════════════════════════════════════════════════════════════════════
-          2. 네트워크 추천 리더
+          1. 네트워크 추천 리더
       ════════════════════════════════════════════════════════════════════════ */}
       <section className="space-y-5">
         <SectionTitle icon="star" title="네트워크 추천 리더" badge="연결 키워드 2개 이상" />
@@ -322,7 +197,7 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
       </section>
 
       {/* ════════════════════════════════════════════════════════════════════════
-          4. HOT KEYWORDS
+          2. HOT KEYWORDS
       ════════════════════════════════════════════════════════════════════════ */}
       <section className="space-y-5">
         <SectionTitle icon="local_fire_department" title="HOT KEYWORD 10" />

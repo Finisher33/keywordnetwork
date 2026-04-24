@@ -61,11 +61,17 @@ export default function App() {
     // 최초 정보등록 기록이 없거나, 프로필 수정 모드인 경우
     if (!hasInterests || subView === 'profile') {
       const isFirstRegistration = !hasInterests;
+      // Survey 재노출 방지: 이미 완료(surveyCompleted=true)했거나, 핵심 응답값을 이미 보유한 경우 건너뜀
+      const surveyAlreadyDone = !!(
+        currentUser.surveyCompleted ||
+        (typeof currentUser.golfScore === 'number' &&
+         typeof currentUser.careerYears === 'number')
+      );
       return (
         <MyProfile
           onSave={() => {
             setRegistrationDone(true);
-            if (isFirstRegistration) {
+            if (isFirstRegistration && !surveyAlreadyDone) {
               goToSurvey();
             } else {
               setSubView(lastSubView);

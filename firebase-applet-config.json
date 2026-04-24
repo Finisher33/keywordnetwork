@@ -1,10 +1,10 @@
 {
-  "apiKey": "AIzaSyDp6C9JQ-s0GDnmMPhe0ftIQwmCJRYsxqE",
-  "authDomain": "keywordnetwork-b8d2c.firebaseapp.com",
-  "projectId": "keywordnetwork-b8d2c",
-  "storageBucket": "keywordnetwork-b8d2c.firebasestorage.app",
-  "messagingSenderId": "1038485979610",
-  "appId": "1:1038485979610:web:a9c9a8b9adae01b01040e3",
-  "measurementId": "G-B1SFHTC9LQ",
+  "apiKey": "AIzaSyB4rjXwvbETCdV78tsXeI5Ya9qjlaEdlD8",
+  "authDomain": "keywordnetworking.firebaseapp.com",
+  "projectId": "keywordnetworking",
+  "storageBucket": "keywordnetworking.firebasestorage.app",
+  "messagingSenderId": "558337359508",
+  "appId": "1:558337359508:web:e1447a112b1e720865be81",
+  "measurementId": "G-4QYC02M2MZ",
   "firestoreDatabaseId": "(default)"
 }

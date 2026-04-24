@@ -4,6 +4,7 @@ import NetworkMap from './NetworkMap';
 import PeopleMap from './PeopleMap';
 import InsightView from './InsightView';
 import TotalInsight from './TotalInsight';
+import SurveyInsight from './SurveyInsight';
 import MyNetwork from './MyNetwork';
 import MyProfile from './MyProfile';
 import NotificationBell from './NotificationBell';
@@ -31,7 +32,7 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
   
   // Analysis State
   const [analysisCourseId, setAnalysisCourseId] = useState('');
-  const [analysisFeature, setAnalysisFeature] = useState<'total' | 'network' | 'peoplemap' | 'insight'>('total');
+  const [analysisFeature, setAnalysisFeature] = useState<'survey' | 'total' | 'network' | 'peoplemap' | 'insight'>('survey');
 
   // User List State
   const [userListCourseId, setUserListCourseId] = useState('');
@@ -1183,7 +1184,13 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
               <div className="flex-1 space-y-1.5">
                 <label className="text-[10px] sm:text-xs font-bold text-on-surface-variant uppercase">기능 선택</label>
                 <div className="flex gap-1 p-1 bg-surface-container-highest rounded-xl overflow-x-auto no-scrollbar">
-                  <button 
+                  <button
+                    onClick={() => setAnalysisFeature('survey')}
+                    className={`flex-1 min-w-fit px-3 py-2 rounded-lg text-[10px] sm:text-xs font-bold transition-all whitespace-nowrap ${analysisFeature === 'survey' ? 'bg-primary text-on-primary shadow-md' : 'text-on-surface-variant hover:text-on-surface'}`}
+                  >
+                    Check in Survey
+                  </button>
+                  <button
                     onClick={() => setAnalysisFeature('total')}
                     className={`flex-1 min-w-fit px-3 py-2 rounded-lg text-[10px] sm:text-xs font-bold transition-all whitespace-nowrap ${analysisFeature === 'total' ? 'bg-primary text-on-primary shadow-md' : 'text-on-surface-variant hover:text-on-surface'}`}
                   >
@@ -1213,7 +1220,9 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
 
             {analysisCourseId ? (
               <div className="bg-surface-container rounded-3xl border border-outline-variant/15 overflow-hidden min-h-[600px] sm:min-h-[800px] relative shadow-2xl">
-                {analysisFeature === 'total' ? (
+                {analysisFeature === 'survey' ? (
+                  <SurveyInsight courseId={analysisCourseId} />
+                ) : analysisFeature === 'total' ? (
                   <TotalInsight courseId={analysisCourseId} />
                 ) : analysisFeature === 'network' ? (
                   <NetworkMap adminCourseId={analysisCourseId} />
