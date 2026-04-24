@@ -818,9 +818,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    // 유사도 임계치: 0.55 (Gemini embedding-001 기준 — 한 과정 내 키워드를 폭넓게 병합)
-    // 실측: Physical AI ↔ 로봇 AI = 0.70, 피지컬 AI ↔ 로봇 AI = 0.76 수준
-    if (bestMatch && maxSimilarity > 0.55) {
+    // 유사도 임계치: 0.78 (Gemini embedding-001 한국어 anisotropy 보정값)
+    // 실측 검증:
+    //   - 진짜 동의어 (Physical AI ↔ 피지컬 AI = 0.884, 리더십 ↔ Leadership = 0.783,
+    //     커뮤니케이션 ↔ 소통 = 0.796, 데이터 분석 ↔ 데이터 사이언스 = 0.786) → 정상 MERGE
+    //   - 무관어 (브랜딩 ↔ 코딩 = 0.714, 전기차 ↔ 공룡 = 0.633, 요리 ↔ 악기연주 = 0.671) → KEEP
+    //   - 0.55 임계치 시 한국어 baseline anisotropy(~0.6)로 false positive 폭증
+    if (bestMatch && maxSimilarity > 0.78) {
       return { canonicalId: bestMatch.id, term: bestMatch.term };
     }
 
