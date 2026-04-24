@@ -178,12 +178,35 @@ export default function SurveyInsight({ courseId }: Props) {
   );
 }
 
-// ─── Q1. Condition ────────────────────────────────────────────────────────
+// ─── Q1. Condition (0~10 분포 가로 막대그래프) ────────────────────────────
 function ConditionScene({ users }: { users: User[] }) {
   const vals = users.map((u) => u.condition).filter((n): n is number => typeof n === 'number');
   const avg = vals.length ? (vals.reduce((a, b) => a + b, 0) / vals.length) : null;
-  const min = vals.length ? Math.min(...vals) : null;
-  const max = vals.length ? Math.max(...vals) : null;
+
+  // 0~10 각 점수별 인원 수
+  const buckets = useMemo(() => {
+    const b = Array.from({ length: 11 }, (_, i) => ({ score: i, count: 0 }));
+    vals.forEach((v) => {
+      const s = Math.max(0, Math.min(10, Math.round(v)));
+      b[s].count++;
+    });
+    return b;
+  }, [vals]);
+  const maxCount = Math.max(1, ...buckets.map((b) => b.count));
+
+  // 각 막대별 상세(인원수) 공개 상태
+  const [revealed, setRevealed] = useState<Record<number, boolean>>({});
+  const toggleBar = (score: number) =>
+    setRevealed((prev) => ({ ...prev, [score]: !prev[score] }));
+
+  // 점수별 색상 그라데이션 (낮→차가운 / 높→따뜻한)
+  const barColor = (score: number) => {
+    const palette = [
+      '#1e40af', '#2563eb', '#3b82f6', '#38bdf8', '#22d3ee',
+      '#14b8a6', '#84cc16', '#facc15', '#f59e0b', '#f97316', '#ef4444',
+    ];
+    return palette[score] || '#2563eb';
+  };
 
   return (
     <Stage>
@@ -196,10 +219,10 @@ function ConditionScene({ users }: { users: User[] }) {
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
-          background: 'radial-gradient(circle at 50% 85%, rgba(253,224,71,0.65) 0%, rgba(251,146,60,0.35) 25%, transparent 55%)',
+          background: 'radial-gradient(circle at 50% 85%, rgba(253,224,71,0.55) 0%, rgba(251,146,60,0.25) 25%, transparent 55%)',
         }}
       />
-      <svg className="absolute inset-0 w-full h-full opacity-60 pointer-events-none" preserveAspectRatio="none">
+      <svg className="absolute inset-0 w-full h-full opacity-50 pointer-events-none" preserveAspectRatio="none">
         {Array.from({ length: 40 }).map((_, i) => {
           const x = (i * 37) % 100;
           const y = (i * 19) % 55;
@@ -208,61 +231,117 @@ function ConditionScene({ users }: { users: User[] }) {
         })}
       </svg>
 
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-8 p-6">
-        <div className="text-center">
-          <p className="text-xs sm:text-sm font-bold uppercase tracking-[0.4em] text-white/70" style={softStyle}>
+      <div className="absolute inset-0 flex flex-col items-center px-4 sm:px-8 py-6 sm:py-8 overflow-y-auto">
+        {/* 타이틀 */}
+        <div className="text-center shrink-0">
+          <p className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.4em] text-white/70" style={softStyle}>
             Today's Condition
           </p>
           <h2
-            className="mt-3 text-2xl sm:text-4xl md:text-5xl font-bold text-white drop-shadow-xl leading-snug"
+            className="mt-2 text-xl sm:text-3xl md:text-4xl font-bold text-white drop-shadow-xl leading-snug"
             style={softStyle}
           >
             우리 과정에 모인 리더분들의 컨디션은?
           </h2>
         </div>
 
-        {vals.length === 0 ? (
-          <p className="text-white/80 text-sm font-bold" style={softStyle}>아직 응답이 없습니다.</p>
-        ) : (
-          <div className="grid grid-cols-3 gap-3 sm:gap-6 w-full max-w-3xl">
-            <ConditionCard label="평균" value={avg!.toFixed(1)} icon="mood" accent="from-amber-400 to-orange-500" />
-            <ConditionCard label="최저" value={String(min)}    icon="sentiment_dissatisfied" accent="from-sky-400 to-indigo-500" />
-            <ConditionCard label="최고" value={String(max)}    icon="sentiment_very_satisfied" accent="from-rose-400 to-pink-600" />
+        {/* 평균 (탭 공개) */}
+        {vals.length > 0 && (
+          <div className="mt-4 sm:mt-5 flex items-center gap-3 bg-white/90 backdrop-blur-sm rounded-2xl px-4 sm:px-6 py-2.5 sm:py-3 shadow-2xl border border-white/70">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-md">
+              <span className="material-symbols-outlined text-white text-xl sm:text-2xl">mood</span>
+            </div>
+            <div className="flex items-baseline gap-1">
+              <span className="text-[10px] sm:text-xs font-bold text-on-surface-variant uppercase tracking-widest" style={softStyle}>
+                평균
+              </span>
+              <ClickToReveal
+                value={<span>{avg!.toFixed(1)}</span>}
+                placeholder={<span className="text-on-surface-variant/60">?.?</span>}
+                className="ml-2 text-2xl sm:text-4xl font-bold text-on-surface px-2 py-0.5 rounded-lg hover:bg-primary/5"
+                hint="탭하여 평균 공개"
+              />
+              <span className="text-sm sm:text-lg text-on-surface-variant font-bold" style={softStyle}>/10</span>
+            </div>
           </div>
         )}
 
-        {vals.length > 0 && (
-          <p className="text-white/80 text-xs sm:text-sm font-bold flex items-center gap-2" style={softStyle}>
-            <ClickToReveal
-              value={<span className="text-white">{vals.length}</span>}
-              placeholder={<span className="text-white/60">??</span>}
-              className="px-2 py-0.5 rounded-md bg-white/15 hover:bg-white/25"
-            />
-            명 응답 · 10점 만점 기준
-          </p>
+        {/* 가로 막대 그래프 */}
+        {vals.length === 0 ? (
+          <p className="mt-10 text-white/80 text-sm font-bold" style={softStyle}>아직 응답이 없습니다.</p>
+        ) : (
+          <div className="mt-5 sm:mt-6 w-full max-w-3xl bg-white/10 backdrop-blur-sm rounded-2xl border border-white/15 p-3 sm:p-5 shadow-2xl">
+            <div className="flex flex-col gap-1.5 sm:gap-2">
+              {buckets.map((b) => {
+                const widthPct = (b.count / maxCount) * 100;
+                const isRevealed = !!revealed[b.score];
+                return (
+                  <button
+                    key={b.score}
+                    type="button"
+                    onClick={() => toggleBar(b.score)}
+                    className="group flex items-center gap-2 sm:gap-3 text-left"
+                    title={isRevealed ? '다시 가리기' : '탭하여 인원수 공개'}
+                  >
+                    {/* 점수 레이블 */}
+                    <span
+                      className="w-7 sm:w-9 shrink-0 text-right text-sm sm:text-base font-bold text-white/90"
+                      style={softStyle}
+                    >
+                      {b.score}
+                    </span>
+                    {/* 막대 트랙 */}
+                    <div className="flex-1 h-7 sm:h-8 bg-white/15 rounded-full overflow-hidden border border-white/10 relative">
+                      <div
+                        className="h-full rounded-full transition-all duration-500 ease-out flex items-center justify-end pr-2 sm:pr-3"
+                        style={{
+                          width: b.count === 0 ? '0%' : `${Math.max(widthPct, 4)}%`,
+                          background: `linear-gradient(90deg, ${barColor(b.score)}dd 0%, ${barColor(b.score)} 100%)`,
+                          boxShadow: `0 0 12px ${barColor(b.score)}80`,
+                        }}
+                      >
+                        {isRevealed && b.count > 0 && widthPct >= 22 && (
+                          <span className="text-[11px] sm:text-xs font-bold text-white drop-shadow" style={softStyle}>
+                            {b.count}명
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {/* 우측 인원수 (막대 밖 표시) */}
+                    <span
+                      className="w-12 sm:w-14 shrink-0 text-[11px] sm:text-sm font-bold tabular-nums"
+                      style={softStyle}
+                    >
+                      {isRevealed ? (
+                        <span className="text-white">{b.count}명</span>
+                      ) : (
+                        <span className="text-white/45">탭하여 공개</span>
+                      )}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* 푸터: 총 응답 수 */}
+            <div className="mt-3 sm:mt-4 pt-3 border-t border-white/15 text-center">
+              <p
+                className="text-[11px] sm:text-xs text-white/80 font-bold flex items-center justify-center gap-1.5 flex-wrap"
+                style={softStyle}
+              >
+                총
+                <ClickToReveal
+                  value={<span>{vals.length}</span>}
+                  placeholder={<span className="opacity-60">??</span>}
+                  className="px-2 py-0.5 rounded-md bg-white/15 hover:bg-white/25"
+                />
+                명 응답 · 10점 만점 기준
+              </p>
+            </div>
+          </div>
         )}
       </div>
     </Stage>
-  );
-}
-
-function ConditionCard({ label, value, icon, accent }: { label: string; value: string; icon: string; accent: string }) {
-  return (
-    <div className="bg-white/95 backdrop-blur-sm rounded-2xl p-4 sm:p-6 shadow-2xl border border-white/60 text-center" style={softStyle}>
-      <div className={`mx-auto w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-gradient-to-br ${accent} flex items-center justify-center shadow-md mb-3`}>
-        <span className="material-symbols-outlined text-white text-2xl sm:text-3xl">{icon}</span>
-      </div>
-      <p className="text-[10px] sm:text-xs font-bold text-on-surface-variant uppercase tracking-widest" style={softStyle}>{label}</p>
-      <div className="mt-1 flex items-baseline justify-center gap-0.5">
-        <ClickToReveal
-          value={<span>{value}</span>}
-          placeholder={<span className="text-on-surface-variant/70">??</span>}
-          className="text-3xl sm:text-5xl font-bold text-on-surface px-2 py-0.5 rounded-lg hover:bg-primary/5"
-          hint="탭하여 점수 공개"
-        />
-        <span className="text-lg sm:text-2xl text-on-surface-variant font-bold" style={softStyle}>/10</span>
-      </div>
-    </div>
   );
 }
 
