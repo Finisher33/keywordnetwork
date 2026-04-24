@@ -465,7 +465,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const user = users.find(u => u.company === company && u.name === name && u.courseId === courseId);
     if (user) {
       setCurrentUser(user);
-      localStorage.setItem('currentUser', JSON.stringify(user));
+      try {
+        localStorage.setItem('currentUser', JSON.stringify(user));
+      } catch (e) {
+        console.warn('localStorage write failed (non-fatal):', e);
+      }
       return user;
     }
     return null;
@@ -481,7 +485,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     try {
       await setDoc(doc(firestore, 'users', user.id), sanitize(user));
       setCurrentUser(user);
-      localStorage.setItem('currentUser', JSON.stringify(user));
+      try {
+        localStorage.setItem('currentUser', JSON.stringify(user));
+      } catch (e) {
+        console.warn('localStorage write failed (non-fatal):', e);
+      }
     } catch (error: any) {
       throw translateFirestoreError(error, `users/${user.id}`);
     }
@@ -769,6 +777,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     let bestMatch = null;
     let maxSimilarity = -1;
 
+    // Firestore 문서 ID는 `/`, 2바이트 이상 제어문자, `__...__` 포맷 금지 — 키워드 원문 사용 시
+    // fallback canonicalId가 doc() 생성 단계에서 throw 하므로 안전하게 sanitize.
+    const safeKeyId = (raw: string) =>
+      raw.replace(/[\/\x00-\x1F\x7F]/g, '_').replace(/^__+|__+$/g, '_').slice(0, 500) || Date.now().toString();
+
     for (const ct of canonicalTerms) {
       const ctNormalized = ct.term.replace(/\s+/g, '').toLowerCase();
       if (ctNormalized === normalized) {
@@ -782,7 +795,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     // 2. If no exact normalized match, use embedding similarity
     const embedding = await getEmbedding(keyword);
-    if (!embedding) return { canonicalId: keyword, term: keyword };
+    if (!embedding) return { canonicalId: safeKeyId(keyword), term: keyword };
 
     for (const ct of canonicalTerms) {
       if (ct.embedding) {
@@ -794,8 +807,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    // Similarity threshold: 0.65 (broader grouping — related concepts are merged)
-    if (bestMatch && maxSimilarity > 0.65) {
+    // Similarity threshold: 0.75 (Gemini embedding-001 기준 — 한/영 동의어 + 근접 개념)
+    if (bestMatch && maxSimilarity > 0.75) {
       return { canonicalId: bestMatch.id, term: bestMatch.term };
     } else {
       const newId = Date.now().toString();
@@ -918,7 +931,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       await setDoc(doc(firestore, 'users', user.id), sanitize(user));
       if (currentUser?.id === user.id) {
         setCurrentUser(user);
-        localStorage.setItem('currentUser', JSON.stringify(user));
+        try {
+          localStorage.setItem('currentUser', JSON.stringify(user));
+        } catch (e) {
+          console.warn('localStorage write failed (non-fatal):', e);
+        }
       }
     } catch (error: any) {
       throw translateFirestoreError(error, `users/${user.id}`);
@@ -950,15 +967,30 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const oldInterests = interests.filter(i => i.userId === user.id);
       oldInterests.forEach(i => batch.delete(doc(firestore, 'interests', i.id)));
 
-      // Add new — canonicalization 실패 시 canonicalId 없이 저장 (fallback)
-      for (const i of newInterests) {
-        try {
-          const { canonicalId, term, embedding } = await canonicalizeKeyword(i.keyword);
-          if (!canonicalTerms.find(t => t.id === canonicalId)) {
-            batch.set(doc(firestore, 'canonicalTerms', canonicalId), sanitize({ id: canonicalId, term, embedding }));
+      // Add new — canonicalization을 병렬 실행해 하나가 느려도 직렬로 쌓이지 않게 처리.
+      // 실패 시 canonicalId 없이 저장 (fallback).
+      const canonicalized = await Promise.all(
+        newInterests.map(async (i) => {
+          try {
+            const res = await canonicalizeKeyword(i.keyword);
+            return { i, res, ok: true as const };
+          } catch {
+            return { i, res: null, ok: false as const };
           }
-          batch.set(doc(firestore, 'interests', i.id), sanitize({ ...i, canonicalId }));
-        } catch {
+        })
+      );
+      for (const { i, res, ok } of canonicalized) {
+        if (ok && res) {
+          const { canonicalId, term, embedding } = res;
+          try {
+            if (!canonicalTerms.find(t => t.id === canonicalId)) {
+              batch.set(doc(firestore, 'canonicalTerms', canonicalId), sanitize({ id: canonicalId, term, embedding }));
+            }
+            batch.set(doc(firestore, 'interests', i.id), sanitize({ ...i, canonicalId }));
+          } catch {
+            batch.set(doc(firestore, 'interests', i.id), sanitize(i));
+          }
+        } else {
           batch.set(doc(firestore, 'interests', i.id), sanitize(i));
         }
       }
@@ -973,7 +1005,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       if (currentUser?.id === user.id) {
         setCurrentUser(user);
-        localStorage.setItem('currentUser', JSON.stringify(user));
+        // 인앱브라우저/Private 모드에서 localStorage가 throw 할 수 있음.
+        // Firestore 저장은 이미 완료됐으므로 여기서 실패해도 전체 save를 깨뜨리지 않는다.
+        try {
+          localStorage.setItem('currentUser', JSON.stringify(user));
+        } catch (e) {
+          console.warn('localStorage write failed (non-fatal):', e);
+        }
       }
     } catch (error: any) {
       console.error("Error updating user profile:", JSON.stringify({

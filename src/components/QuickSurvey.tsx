@@ -15,6 +15,46 @@ type Errors = {
 
 const LOTTO_OPTIONS = ['1등', '2등', '3등', '4등', '5등', '꽝'];
 
+// 부모 컴포넌트 바깥에 선언 — 리렌더마다 새 함수 참조가 만들어지면
+// React가 input을 unmount/remount 하면서 포커스가 튕기는 문제를 방지
+const Question = ({
+  num,
+  icon,
+  label,
+  hint,
+  error,
+  children,
+}: {
+  num: number;
+  icon: string;
+  label: string;
+  hint?: string;
+  error?: string;
+  children: ReactNode;
+}) => (
+  <div className="grid grid-cols-[2.25rem_1fr] gap-x-3 gap-y-1.5 items-start">
+    <span className="shrink-0 w-9 h-9 rounded-lg bg-primary text-on-primary flex items-center justify-center text-xs font-black">
+      Q{num}
+    </span>
+    <div className="min-w-0 space-y-1.5">
+      <label className="flex items-center gap-1.5 text-sm font-bold text-on-surface leading-snug">
+        <span className="material-symbols-outlined text-[18px] text-primary/70">{icon}</span>
+        {label}
+      </label>
+      {children}
+      {error && (
+        <p className="text-[11px] text-error font-medium flex items-center gap-1">
+          <span className="material-symbols-outlined text-sm">warning</span>
+          {error}
+        </p>
+      )}
+      {hint && !error && (
+        <p className="text-[11px] text-on-surface-variant/60">{hint}</p>
+      )}
+    </div>
+  </div>
+);
+
 export default function QuickSurvey({ onComplete }: QuickSurveyProps) {
   const { currentUser, updateUser } = useStore();
   const [golfScore, setGolfScore] = useState('');
@@ -79,50 +119,11 @@ export default function QuickSurvey({ onComplete }: QuickSurveyProps) {
       hasError ? 'border-error ring-2 ring-error/20' : 'border-outline'
     }`;
 
-  // 질문 한 줄 레이아웃: 번호 / 라벨 / 입력창 모두 좌측 기준 정렬
-  const Question = ({
-    num,
-    icon,
-    label,
-    hint,
-    error,
-    children,
-  }: {
-    num: number;
-    icon: string;
-    label: string;
-    hint?: string;
-    error?: string;
-    children: ReactNode;
-  }) => (
-    <div className="grid grid-cols-[2.25rem_1fr] gap-x-3 gap-y-1.5 items-start">
-      <span className="shrink-0 w-9 h-9 rounded-lg bg-primary text-on-primary flex items-center justify-center text-xs font-black">
-        Q{num}
-      </span>
-      <div className="min-w-0 space-y-1.5">
-        <label className="flex items-center gap-1.5 text-sm font-bold text-on-surface leading-snug">
-          <span className="material-symbols-outlined text-[18px] text-primary/70">{icon}</span>
-          {label}
-        </label>
-        {children}
-        {error && (
-          <p className="text-[11px] text-error font-medium flex items-center gap-1">
-            <span className="material-symbols-outlined text-sm">warning</span>
-            {error}
-          </p>
-        )}
-        {hint && !error && (
-          <p className="text-[11px] text-on-surface-variant/60">{hint}</p>
-        )}
-      </div>
-    </div>
-  );
-
   return (
     <div className="absolute inset-0 flex flex-col bg-background text-on-surface">
       <header className="header-safe shrink-0 z-50 bg-surface/80 backdrop-blur-xl border-b border-outline shadow-sm">
         <div className="h-14 flex items-center px-6">
-          <span className="font-headline text-xl font-bold tracking-tight text-primary">Quick Survey</span>
+          <span className="font-headline text-xl font-bold tracking-tight text-primary">Check in Survey</span>
         </div>
       </header>
 

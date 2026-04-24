@@ -1,37 +1,45 @@
-// Voyage AI — Anthropic 공식 파트너 임베딩 서비스
-// https://www.voyageai.com
-// API 키: https://dash.voyageai.com
+// Gemini 임베딩 — gemini-embedding-001 (한국어/영어 모두 지원)
+// API 키: .env.local의 VITE_GEMINI_API_KEY 사용
 
-const VOYAGE_API_URL = "https://api.voyageai.com/v1/embeddings";
+const GEMINI_EMBED_URL =
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent";
 
 export const getEmbedding = async (text: string): Promise<number[] | null> => {
   if (!text.trim()) return null;
 
+  const key = import.meta.env.VITE_GEMINI_API_KEY;
+  if (!key) {
+    console.warn("VITE_GEMINI_API_KEY not set — embedding unavailable");
+    return null;
+  }
+
+  // 인앱브라우저/느린 네트워크에서 fetch가 무한 대기하는 것을 방지.
+  // 임베딩은 저장 플로우의 차단 요소가 아니어야 하므로 실패해도 null 반환.
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 6000);
+
   try {
-    const response = await fetch(VOYAGE_API_URL, {
+    const response = await fetch(`${GEMINI_EMBED_URL}?key=${key}`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${import.meta.env.VITE_VOYAGE_API_KEY || ""}`,
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "voyage-3",
-        input: [text],
+        model: "models/gemini-embedding-001",
+        content: { parts: [{ text }] },
       }),
+      signal: controller.signal,
     });
 
     if (!response.ok) {
-      throw new Error(`Voyage API error: ${response.status}`);
+      throw new Error(`Gemini embedding error: ${response.status}`);
     }
 
     const data = await response.json();
-    if (data.data && data.data.length > 0) {
-      return data.data[0].embedding;
-    }
-    return null;
+    return data?.embedding?.values || null;
   } catch (error) {
     console.error("Error getting embedding:", error);
     return null;
+  } finally {
+    clearTimeout(timeoutId);
   }
 };
 

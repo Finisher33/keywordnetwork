@@ -123,7 +123,7 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
         const termA = db.canonicalTerms?.find(t => t.id === ids[i]);
         const termB = db.canonicalTerms?.find(t => t.id === ids[j]);
         if (termA?.embedding && termB?.embedding) {
-          if (cosineSimilarity(termA.embedding, termB.embedding) > 0.65) {
+          if (cosineSimilarity(termA.embedding, termB.embedding) > 0.75) {
             // Union: lower-count group absorbs into higher-count root
             const ra = find(ids[i]);
             const rb = find(ids[j]);

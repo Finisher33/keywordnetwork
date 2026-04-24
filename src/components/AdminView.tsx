@@ -4,6 +4,7 @@ import NetworkMap from './NetworkMap';
 import PeopleMap from './PeopleMap';
 import InsightView from './InsightView';
 import TotalInsight from './TotalInsight';
+import SurveyInsight from './SurveyInsight';
 import MyNetwork from './MyNetwork';
 import MyProfile from './MyProfile';
 import NotificationBell from './NotificationBell';
@@ -31,7 +32,7 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
   
   // Analysis State
   const [analysisCourseId, setAnalysisCourseId] = useState('');
-  const [analysisFeature, setAnalysisFeature] = useState<'total' | 'network' | 'peoplemap' | 'insight'>('total');
+  const [analysisFeature, setAnalysisFeature] = useState<'survey' | 'total' | 'network' | 'peoplemap' | 'insight'>('survey');
 
   // User List State
   const [userListCourseId, setUserListCourseId] = useState('');
@@ -58,6 +59,11 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
   const [sessionInstructor, setSessionInstructor] = useState('');
 
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
+
+  // Session copy state
+  const [copySourceCourseId, setCopySourceCourseId] = useState('');
+  const [copySelectedIds, setCopySelectedIds] = useState<string[]>([]);
+  const [isCopyPanelOpen, setIsCopyPanelOpen] = useState(false);
 
   // Grouping State
   const [groupingCourseId, setGroupingCourseId] = useState('');
@@ -165,6 +171,41 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
     }
   };
 
+
+  const handleCopySessions = async () => {
+    if (!selectedCourseId || !copySourceCourseId || copySelectedIds.length === 0) {
+      showStatus('error', '복사할 세션을 선택해주세요.');
+      return;
+    }
+    setIsProcessing(true);
+    try {
+      const sessionsToCopy = db.sessions.filter(s => copySelectedIds.includes(s.id));
+      const now = Date.now();
+      for (let i = 0; i < sessionsToCopy.length; i++) {
+        const src = sessionsToCopy[i];
+        await addSession({
+          id: (now + i).toString(),
+          courseId: selectedCourseId,
+          name: src.name,
+          time: src.time,
+          module: src.module,
+          day: src.day,
+          objectives: src.objectives,
+          contents: src.contents,
+          instructor: src.instructor,
+          isActive: true,
+        });
+      }
+      setCopySelectedIds([]);
+      setCopySourceCourseId('');
+      setIsCopyPanelOpen(false);
+      showStatus('success', `${sessionsToCopy.length}개의 세션이 복사되었습니다.`);
+    } catch (e) {
+      showStatus('error', '세션 복사에 실패했습니다.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   const handleAddSession = async () => {
     if (!selectedCourseId || !sessionName || !sessionTime || !sessionModule || !sessionDay) {
@@ -678,6 +719,98 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
                 </select>
               </div>
 
+              {selectedCourseId && !editingSessionId && (
+                <div className="bg-primary/5 p-4 sm:p-6 rounded-xl border border-primary/20 space-y-4">
+                  <button
+                    type="button"
+                    onClick={() => setIsCopyPanelOpen(v => !v)}
+                    className="w-full flex items-center justify-between gap-2 text-left"
+                  >
+                    <span className="flex items-center gap-2 font-black text-sm sm:text-base text-primary uppercase tracking-tight">
+                      <span className="material-symbols-outlined text-base sm:text-lg">content_copy</span>
+                      다른 과정에서 세션 복사
+                    </span>
+                    <span className="material-symbols-outlined text-primary">
+                      {isCopyPanelOpen ? 'expand_less' : 'expand_more'}
+                    </span>
+                  </button>
+                  {isCopyPanelOpen && (
+                    <div className="space-y-4 pt-2 border-t border-primary/20">
+                      <div className="space-y-2">
+                        <label className="text-[9px] sm:text-[10px] font-black text-on-surface-variant uppercase tracking-widest">원본 과정 선택</label>
+                        <select
+                          value={copySourceCourseId}
+                          onChange={e => { setCopySourceCourseId(e.target.value); setCopySelectedIds([]); }}
+                          className="w-full bg-white border border-outline rounded-lg px-4 py-3 text-sm sm:text-base text-on-surface outline-none focus:border-primary focus:ring-1 focus:ring-primary font-medium"
+                        >
+                          <option value="">복사할 과정을 선택하세요</option>
+                          {db.courses.filter(c => c.id !== selectedCourseId).map(c => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {copySourceCourseId && (() => {
+                        const sourceSessions = db.sessions.filter(s => s.courseId === copySourceCourseId);
+                        if (sourceSessions.length === 0) {
+                          return <p className="text-[11px] sm:text-xs text-on-surface-variant italic">선택한 과정에 등록된 세션이 없습니다.</p>;
+                        }
+                        const allIds = sourceSessions.map(s => s.id);
+                        const allSelected = allIds.length > 0 && allIds.every(id => copySelectedIds.includes(id));
+                        return (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <label className="text-[9px] sm:text-[10px] font-black text-on-surface-variant uppercase tracking-widest">복사할 세션 선택 ({copySelectedIds.length}/{sourceSessions.length})</label>
+                              <button
+                                type="button"
+                                onClick={() => setCopySelectedIds(allSelected ? [] : allIds)}
+                                className="text-[10px] sm:text-xs font-bold text-primary hover:underline"
+                              >
+                                {allSelected ? '전체 해제' : '전체 선택'}
+                              </button>
+                            </div>
+                            <div className="max-h-56 overflow-y-auto space-y-2 bg-white border border-outline rounded-lg p-3">
+                              {sourceSessions.map(session => {
+                                const checked = copySelectedIds.includes(session.id);
+                                return (
+                                  <label key={session.id} className="flex items-start gap-3 p-2 rounded-lg hover:bg-surface-container-low cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={checked}
+                                      onChange={() => setCopySelectedIds(prev => checked ? prev.filter(id => id !== session.id) : [...prev, session.id])}
+                                      className="mt-1 accent-primary"
+                                    />
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex flex-wrap items-center gap-1.5">
+                                        <span className="text-[9px] sm:text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded font-bold">{session.module}</span>
+                                        <span className="text-[9px] sm:text-[10px] bg-secondary/20 text-secondary px-2 py-0.5 rounded font-bold">{session.day}</span>
+                                        <span className="text-[9px] sm:text-[10px] text-on-surface-variant">{session.time}</span>
+                                      </div>
+                                      <p className="font-bold text-xs sm:text-sm mt-1 truncate">{session.name}</p>
+                                    </div>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                            <div className="flex justify-end pt-2">
+                              <button
+                                type="button"
+                                onClick={handleCopySessions}
+                                disabled={isProcessing || copySelectedIds.length === 0}
+                                className="px-6 py-2.5 bg-primary text-on-primary font-black rounded-lg shadow hover:bg-primary/90 active:scale-[0.98] transition-all flex items-center gap-2 uppercase tracking-widest text-xs sm:text-sm disabled:opacity-50"
+                              >
+                                <span className="material-symbols-outlined text-sm sm:text-base">{isProcessing ? 'sync' : 'content_copy'}</span>
+                                {isProcessing ? '복사 중...' : `선택한 세션 복사 (${copySelectedIds.length})`}
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {selectedCourseId && (
                 <div className="bg-surface-container-low p-4 sm:p-8 rounded-xl border border-secondary/20 space-y-8">
                   <h4 className="font-headline font-black text-lg sm:text-xl text-on-surface flex items-center gap-2 uppercase tracking-tight">
@@ -1183,7 +1316,13 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
               <div className="flex-1 space-y-1.5">
                 <label className="text-[10px] sm:text-xs font-bold text-on-surface-variant uppercase">기능 선택</label>
                 <div className="flex gap-1 p-1 bg-surface-container-highest rounded-xl overflow-x-auto no-scrollbar">
-                  <button 
+                  <button
+                    onClick={() => setAnalysisFeature('survey')}
+                    className={`flex-1 min-w-fit px-3 py-2 rounded-lg text-[10px] sm:text-xs font-bold transition-all whitespace-nowrap ${analysisFeature === 'survey' ? 'bg-primary text-on-primary shadow-md' : 'text-on-surface-variant hover:text-on-surface'}`}
+                  >
+                    Check in Survey
+                  </button>
+                  <button
                     onClick={() => setAnalysisFeature('total')}
                     className={`flex-1 min-w-fit px-3 py-2 rounded-lg text-[10px] sm:text-xs font-bold transition-all whitespace-nowrap ${analysisFeature === 'total' ? 'bg-primary text-on-primary shadow-md' : 'text-on-surface-variant hover:text-on-surface'}`}
                   >
@@ -1213,7 +1352,9 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
 
             {analysisCourseId ? (
               <div className="bg-surface-container rounded-3xl border border-outline-variant/15 overflow-hidden min-h-[600px] sm:min-h-[800px] relative shadow-2xl">
-                {analysisFeature === 'total' ? (
+                {analysisFeature === 'survey' ? (
+                  <SurveyInsight courseId={analysisCourseId} />
+                ) : analysisFeature === 'total' ? (
                   <TotalInsight courseId={analysisCourseId} />
                 ) : analysisFeature === 'network' ? (
                   <NetworkMap adminCourseId={analysisCourseId} />

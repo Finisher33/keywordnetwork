@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__Claude_Preview__preview_start",
+      "Bash(ls -la .vercel)",
+      "Bash(cat .vercel/project.json)",
+      "Bash(git ls-remote *)",
+      "Bash(echo \"exit=$?\")",
+      "Bash(git remote *)",
+      "Bash(vercel --version)",
+      "Bash(vercel --prod --yes)",
+      "Bash(vercel project *)",
+      "Bash(rm -rf .vercel)",
+      "Bash(vercel link *)",
+      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
+      "Bash(npx tsc *)",
+      "Bash(vercel env *)",
+      "Bash(node test-grouping.mjs)",
+      "Bash(curl -s \"https://generativelanguage.googleapis.com/v1beta/models?key=$\\(grep VITE_GEMINI_API_KEY .env.local)",
+      "Bash(node scripts/clearCanonicalTerms.mjs)",
+      "Bash(cp .claude/worktrees/confident-jones-ef51fc/src/components/SurveyInsight.tsx src/components/SurveyInsight.tsx)",
+      "Bash(cp .claude/worktrees/confident-jones-ef51fc/src/components/AdminView.tsx src/components/AdminView.tsx)",
+      "Bash(cp .claude/worktrees/confident-jones-ef51fc/src/components/QuickSurvey.tsx src/components/QuickSurvey.tsx)",
+      "Bash(firebase deploy *)"
+    ]
+  }
+}
