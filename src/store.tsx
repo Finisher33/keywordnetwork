@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, createContext, useContext, ReactNode, useCallback } from 'react';
 import { getEmbedding, cosineSimilarity } from './services/embeddingService';
 import { db as firestore, auth, authReady, ensureAuth } from './firebase';
-import { doc, onSnapshot, setDoc, getDoc, collection, deleteDoc, writeBatch, query, where, getDocs } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, getDoc, collection, deleteDoc, writeBatch, query, where, getDocs, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { generateMockData } from './utils/mockData';
 
 // Firebase 에러 코드를 사용자 친화적 메시지로 변환하고 디버그 로그를 남긴다.
@@ -496,7 +496,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
     await ensureAuth();
     try {
-      await setDoc(doc(firestore, 'users', user.id), sanitize(user));
+      await withRetry(() => setDoc(doc(firestore, 'users', user.id), sanitize(user)));
       setCurrentUser(user);
       try {
         localStorage.setItem('currentUser', JSON.stringify(user));
@@ -856,11 +856,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         batch.set(doc(firestore, 'canonicalTerms', canonicalId), sanitize({ id: canonicalId, term, embedding, kind: 'insight' }));
       }
       batch.set(doc(firestore, 'userInsights', insight.id), sanitize({ ...insight, canonicalId, likes: insight.likes || [] }));
-      await batch.commit();
+      await withRetry(() => batch.commit());
     } catch (error: any) {
-      // canonicalization 또는 batch 실패 시 canonicalId 없이 단순 저장으로 fallback
+      // canonicalization 또는 batch 실패 시 canonicalId 없이 단순 저장으로 fallback (재시도 포함)
       try {
-        await setDoc(doc(firestore, 'userInsights', insight.id), sanitize({ ...insight, likes: insight.likes || [] }));
+        await withRetry(() =>
+          setDoc(doc(firestore, 'userInsights', insight.id), sanitize({ ...insight, likes: insight.likes || [] }))
+        );
       } catch (fallbackError: any) {
         throw translateFirestoreError(fallbackError, `userInsights/${insight.id}`);
       }
@@ -884,14 +886,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
     await ensureAuth();
     try {
+      // 동시 좋아요 race 방지: read-modify-write 대신 Firestore 의 atomic
+      // arrayUnion / arrayRemove 로 likes 필드만 부분 갱신.
       const insight = userInsights.find(i => i.id === insightId);
-      if (insight) {
-        const likes = insight.likes || [];
-        const newLikes = likes.includes(userId) 
-          ? likes.filter(id => id !== userId) 
-          : [...likes, userId];
-        await setDoc(doc(firestore, 'userInsights', insightId), sanitize({ ...insight, likes: newLikes }));
-      }
+      const isLiked = (insight?.likes || []).includes(userId);
+      await withRetry(() =>
+        updateDoc(doc(firestore, 'userInsights', insightId), {
+          likes: isLiked ? arrayRemove(userId) : arrayUnion(userId),
+        })
+      );
     } catch (error: any) {
       throw translateFirestoreError(error, `userInsights/${insightId}`);
     }
@@ -941,7 +944,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      await batch.commit();
+      await withRetry(() => batch.commit());
     } catch (error: any) {
       throw translateFirestoreError(error, 'interests');
     }
@@ -1022,7 +1025,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      await batch.commit();
+      await withRetry(() => batch.commit());
 
       // onSnapshot 응답을 기다리지 않고 로컬 상태 즉시 갱신
       setInterests(prev => [
@@ -1092,13 +1095,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   };
 
   const sendTeaTimeRequest = async (req: TeaTimeRequest) => {
+    // 같은 보낸이→받는이 의 pending 요청이 이미 있으면 중복 생성 차단 (더블클릭/네트워크 지연 등)
+    const dup = teaTimeRequests.find(
+      r => r.fromUserId === req.fromUserId && r.toUserId === req.toUserId && r.status === 'pending'
+    );
+    if (dup) return;
     if (isDemoMode) {
       setDemoDb(prev => ({ ...prev, teaTimeRequests: [...prev.teaTimeRequests, req] }));
       return;
     }
     await ensureAuth();
     try {
-      await setDoc(doc(firestore, 'teaTimeRequests', req.id), sanitize(req));
+      await withRetry(() => setDoc(doc(firestore, 'teaTimeRequests', req.id), sanitize(req)));
     } catch (error: any) {
       throw translateFirestoreError(error, `teaTimeRequests/${req.id}`);
     }
@@ -1114,10 +1122,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
     await ensureAuth();
     try {
-      const req = teaTimeRequests.find(r => r.id === id);
-      if (req) {
-        await setDoc(doc(firestore, 'teaTimeRequests', id), sanitize({ ...req, status, responseMessage }));
-      }
+      // partial update: race condition 시 다른 필드 덮어쓰지 않도록 status/responseMessage 만 갱신.
+      const patch: Record<string, any> = { status };
+      if (responseMessage !== undefined) patch.responseMessage = responseMessage;
+      await withRetry(() => updateDoc(doc(firestore, 'teaTimeRequests', id), patch));
     } catch (error: any) {
       throw translateFirestoreError(error, `teaTimeRequests/${id}`);
     }
@@ -1125,13 +1133,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const addPresetInterest = async (keyword: string, group: 'work' | 'hobby') => {
     if (isDemoMode) {
-      setDemoDb(prev => ({ ...prev, presetInterests: [...prev.presetInterests, { id: Date.now().toString(), keyword, group }] }));
+      setDemoDb(prev => ({ ...prev, presetInterests: [...prev.presetInterests, { id: `pi_${Date.now().toString(36)}_${Math.random().toString(36).slice(2,8)}`, keyword, group }] }));
       return;
     }
     await ensureAuth();
     try {
-      const id = Date.now().toString();
-      await setDoc(doc(firestore, 'presetInterests', id), sanitize({ id, keyword, group }));
+      const id = `pi_${Date.now().toString(36)}_${Math.random().toString(36).slice(2,8)}`;
+      await withRetry(() => setDoc(doc(firestore, 'presetInterests', id), sanitize({ id, keyword, group })));
     } catch (error: any) {
       throw translateFirestoreError(error, `presetInterests/${keyword}`);
     }

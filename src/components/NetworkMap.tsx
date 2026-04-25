@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useToast } from '../hooks/useToast';
 import Toast from './Toast';
 import { buildInterestKeyIndex } from '../utils/networkUtils';
+import { genId } from '../utils/genId';
 
 interface BubbleNode extends d3.SimulationNodeDatum {
   id: string;
@@ -269,7 +270,7 @@ export default function NetworkMap({ adminCourseId }: { adminCourseId?: string }
       return;
     }
     sendTeaTimeRequest({
-      id: Date.now().toString(),
+      id: genId('tt'),
       fromUserId: currentUser!.id,
       toUserId,
       message: finalMsg,

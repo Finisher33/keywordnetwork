@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useToast } from '../hooks/useToast';
 import Toast from './Toast';
 import { buildInterestKeyIndex } from '../utils/networkUtils';
+import { genId } from '../utils/genId';
 interface PeopleNode extends d3.SimulationNodeDatum {
   id: string;        // user id
   label: string;
@@ -223,7 +224,7 @@ export default function PeopleMap({ adminCourseId }: { adminCourseId?: string })
   const handleSendTeaTime = (toUserId: string) => {
     if (!teaTimeMsg.trim()) { showToast('메시지를 입력해주세요.', 'error'); return; }
     const hashtags = myInterests.map(i => `#${i.keyword}`).join(' ');
-    sendTeaTimeRequest({ id: Date.now().toString(), fromUserId: currentUser!.id, toUserId, message: `${hashtags}\n\n${teaTimeMsg}`, status: 'pending' });
+    sendTeaTimeRequest({ id: genId('tt'), fromUserId: currentUser!.id, toUserId, message: `${hashtags}\n\n${teaTimeMsg}`, status: 'pending' });
     setTeaTimeMsg('');
     setSelectedUser(null);
     showToast('티타임 요청을 보냈습니다.', 'success');

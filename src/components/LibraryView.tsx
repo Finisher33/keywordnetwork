@@ -3,6 +3,7 @@ import { useStore, User, Interest, TeaTimeRequest } from '../store';
 import { TeaReplyModal } from './TeaTimeModal';
 import { useToast } from '../hooks/useToast';
 import Toast from './Toast';
+import { genId } from '../utils/genId';
 
 // ── Library 전용 티타임 모달 (다른 페이지의 TeaTimeModal과 완전 분리) ──────────
 function LibraryTeaTimeModal({
@@ -165,7 +166,7 @@ export default function LibraryView() {
       (r.fromUserId === toUserId && r.toUserId === currentUser!.id)
     );
     if (exists) { setSelectedUser(null); return; }
-    sendTeaTimeRequest({ id: Date.now().toString(), fromUserId: currentUser!.id, toUserId, message, status: 'pending' });
+    sendTeaTimeRequest({ id: genId('tt'), fromUserId: currentUser!.id, toUserId, message, status: 'pending' });
     setSelectedUser(null);
     showToast('티타임 요청을 보냈습니다.', 'success');
   };

@@ -13,13 +13,20 @@ interface TeaTimeModalProps {
 export default function TeaTimeModal({ targetUser, currentUser, myInterests, targetInterests, onSend, onClose }: TeaTimeModalProps) {
   const [msg, setMsg] = useState('');
   const [msgError, setMsgError] = useState(false);
+  const [isSending, setIsSending] = useState(false);
 
-  const handleSend = () => {
+  const handleSend = async () => {
+    if (isSending) return; // 더블클릭 / 빠른 연타 차단
     if (!msg.trim()) { setMsgError(true); return; }
     setMsgError(false);
-    const myHashtags = myInterests.map(i => `#${i.keyword}`).join(' ');
-    onSend(targetUser.id, `${myHashtags}\n\n${msg}`);
-    onClose();
+    setIsSending(true);
+    try {
+      const myHashtags = myInterests.map(i => `#${i.keyword}`).join(' ');
+      await onSend(targetUser.id, `${myHashtags}\n\n${msg}`);
+    } finally {
+      setIsSending(false);
+      onClose();
+    }
   };
 
   return (
@@ -110,9 +117,10 @@ export default function TeaTimeModal({ targetUser, currentUser, myInterests, tar
           )}
           <button
             onClick={handleSend}
-            className="w-full py-4 bg-primary text-on-primary font-bold rounded-xl shadow-lg active:scale-95 transition-all"
+            disabled={isSending}
+            className="w-full py-4 bg-primary text-on-primary font-bold rounded-xl shadow-lg active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            요청 보내기
+            {isSending ? '보내는 중...' : '요청 보내기'}
           </button>
         </div>
       </div>

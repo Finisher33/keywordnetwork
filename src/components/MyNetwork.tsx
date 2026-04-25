@@ -4,6 +4,7 @@ import Toast from './Toast';
 import { useStore, User, Interest } from '../store';
 import { calculateUserNetworkData, calculateHotKeywords, HotKeyword } from '../utils/networkUtils';
 import TeaTimeModal, { TeaReplyModal } from './TeaTimeModal';
+import { genId } from '../utils/genId';
 import { TeaTimeRequest } from '../store';
 
 interface MyNetworkProps {
@@ -63,7 +64,7 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
   const handleSendTeaTime = async (toUserId: string, message: string) => {
     if (!currentUser) return;
     await sendTeaTimeRequest({
-      id: Date.now().toString(),
+      id: genId('tt'),
       fromUserId: currentUser.id,
       toUserId,
       message,

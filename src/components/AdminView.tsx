@@ -8,6 +8,7 @@ import SurveyInsight from './SurveyInsight';
 import MyNetwork from './MyNetwork';
 import MyProfile from './MyProfile';
 import NotificationBell from './NotificationBell';
+import { genId } from '../utils/genId';
 
 export default function AdminView({ onBack, onLogout }: { onBack: () => void, onLogout: () => void }) {
   const { db, addCourse, updateCourse, deleteCourse, addSession, updateSession, deleteSession, toggleSessionActive, deleteUser, resetCourseData, fetchData, addPresetInterest, deletePresetInterest } = useStore();
@@ -97,7 +98,7 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
     setIsProcessing(true);
     try {
       await addCourse({
-        id: Date.now().toString(),
+        id: genId('c'),
         name: newCourseName,
         password: newCoursePassword
       });
@@ -180,11 +181,10 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
     setIsProcessing(true);
     try {
       const sessionsToCopy = db.sessions.filter(s => copySelectedIds.includes(s.id));
-      const now = Date.now();
       for (let i = 0; i < sessionsToCopy.length; i++) {
         const src = sessionsToCopy[i];
         await addSession({
-          id: (now + i).toString(),
+          id: genId('s'),
           courseId: selectedCourseId,
           name: src.name,
           time: src.time,
@@ -215,7 +215,7 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
     setIsProcessing(true);
     try {
       await addSession({
-        id: Date.now().toString(),
+        id: genId('s'),
         courseId: selectedCourseId,
         name: sessionName,
         time: sessionTime,

@@ -24,6 +24,7 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
   const [keyword, setKeyword] = useState('');
   const [description, setDescription] = useState('');
   const [insightInputError, setInsightInputError] = useState(false);
+  const [isSavingInsight, setIsSavingInsight] = useState(false);
   const [selectedKeywordDetail, setSelectedKeywordDetail] = useState<string | null>(null);
   const [revealedBubbles, setRevealedBubbles] = useState<Record<string, Set<string>>>({});
 
@@ -52,7 +53,8 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
   const userInsights = (db.userInsights || []).filter(i => i.userId === currentUser?.id);
 
   // Prevent duplicate: reuse existing insight ID if one exists for this session
-  const handleSaveInsight = (sessionId: string) => {
+  const handleSaveInsight = async (sessionId: string) => {
+    if (isSavingInsight) return;
     if (!keyword.trim() || !description.trim()) {
       setInsightInputError(true);
       return;
@@ -60,8 +62,13 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
     setInsightInputError(false);
 
     const existing = userInsights.find(i => i.sessionId === sessionId);
+    // 결정적 ID: 같은 (userId, sessionId) 는 항상 같은 doc 으로 매핑 → 동시 다중 입력 시
+    // 중복 doc 생성 / Date.now() 충돌 / 새로고침 후 또 다른 doc 생성 모두 차단.
+    const safeUid = currentUser!.id.replace(/[\/\x00-\x1F\x7F]/g, '_').slice(0, 100);
+    const safeSid = sessionId.replace(/[\/\x00-\x1F\x7F]/g, '_').slice(0, 100);
+    const deterministicId = `ui_${safeUid}__${safeSid}`;
     const insight: UserInsight = {
-      id: existing ? existing.id : Date.now().toString(),
+      id: existing?.id || deterministicId,
       userId: currentUser!.id,
       sessionId,
       keyword,
@@ -69,10 +76,17 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
       likes: existing?.likes || []
     };
 
-    saveUserInsight(insight);
-    setSelectedSessionId(null);
-    setKeyword('');
-    setDescription('');
+    setIsSavingInsight(true);
+    try {
+      await saveUserInsight(insight);
+      setSelectedSessionId(null);
+      setKeyword('');
+      setDescription('');
+    } catch (e) {
+      console.error('인사이트 저장 실패', e);
+    } finally {
+      setIsSavingInsight(false);
+    }
   };
 
   const startInput = (sessionId: string) => {
@@ -629,10 +643,11 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
                     </div>
                     <button
                       onClick={() => handleSaveInsight(selectedSessionId)}
-                      className="w-full py-4 bg-secondary text-on-secondary font-headline font-bold rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
+                      disabled={isSavingInsight}
+                      className="w-full py-4 bg-secondary text-on-secondary font-headline font-bold rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                     >
-                      <span className="material-symbols-outlined text-sm">{isEditing ? 'edit' : 'check_circle'}</span>
-                      {isEditing ? '수정 완료' : '인사이트 등록 완료'}
+                      <span className="material-symbols-outlined text-sm">{isSavingInsight ? 'progress_activity' : (isEditing ? 'edit' : 'check_circle')}</span>
+                      {isSavingInsight ? '저장 중...' : (isEditing ? '수정 완료' : '인사이트 등록 완료')}
                     </button>
                   </div>
                 );
