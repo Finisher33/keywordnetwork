@@ -381,29 +381,31 @@ export default function NetworkMap({ adminCourseId }: { adminCourseId?: string }
       {/* Visualization Area */}
       <svg ref={svgRef} className="w-full h-full cursor-grab active:cursor-grabbing">
         <defs>
+          {/* 화살표: 채워진 삼각형 + 흰색 헤일로 → 어떤 배경에서도 또렷.
+              크기/굵기는 기존 수준 유지 (markerWidth=8). */}
           <marker
             id="arrow-giver"
             viewBox="0 0 10 10"
-            refX="24"
+            refX="22"
             refY="5"
             markerWidth="8"
             markerHeight="8"
             orient="auto"
             markerUnits="userSpaceOnUse"
           >
-            <path d="M2,2 L8,5 L2,8" fill="none" stroke="#002c5f" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M0,1 L9,5 L0,9 Z" fill="#002c5f" stroke="#ffffff" strokeWidth="0.6" strokeLinejoin="round" />
           </marker>
           <marker
             id="arrow-taker"
             viewBox="0 0 10 10"
-            refX="19"
+            refX="22"
             refY="5"
             markerWidth="8"
             markerHeight="8"
             orient="auto"
             markerUnits="userSpaceOnUse"
           >
-            <path d="M2,2 L8,5 L2,8" fill="none" stroke="#00aad2" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M0,1 L9,5 L0,9 Z" fill="#0577a0" stroke="#ffffff" strokeWidth="0.6" strokeLinejoin="round" />
           </marker>
         </defs>
         <g transform={transform.toString()}>

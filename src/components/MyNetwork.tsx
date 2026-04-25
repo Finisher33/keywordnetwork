@@ -181,31 +181,50 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
                       <p className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">
                         공통 키워드 · 입력 내용
                       </p>
-                      <ul className="space-y-2">
-                        {commonInterests.map((i: Interest) => (
-                          <li
-                            key={i.id}
-                            className={`px-3 py-2.5 rounded-xl border ${
-                              i.type === 'giver'
-                                ? 'bg-primary/5 border-primary/20'
-                                : 'bg-secondary/5 border-secondary/20'
-                            }`}
-                          >
-                            <p
-                              className={`text-[12px] font-black tracking-tight italic mb-1 flex items-center gap-1.5 ${
-                                i.type === 'giver' ? 'text-primary' : 'text-secondary'
+                      <ul className="space-y-2.5">
+                        {commonInterests.map((i: Interest) => {
+                          const isGiver = i.type === 'giver';
+                          return (
+                            <li
+                              key={i.id}
+                              className={`relative pl-3.5 pr-3 py-3 rounded-xl border-l-4 border ${
+                                isGiver
+                                  ? 'bg-primary/[0.06] border-l-primary border-primary/15'
+                                  : 'bg-secondary/[0.06] border-l-secondary border-secondary/15'
                               }`}
                             >
-                              <span className="text-[9px] font-bold uppercase opacity-70 not-italic">
-                                {i.type === 'giver' ? 'Giver' : 'Taker'}
-                              </span>
-                              #{i.keyword}
-                            </p>
-                            <p className="text-[12px] text-on-surface leading-relaxed italic">
-                              "{i.description?.trim() || '(설명 없음)'}"
-                            </p>
-                          </li>
-                        ))}
+                              {/* 1단: 공통 키워드 — 가장 크고 진하게 */}
+                              <p
+                                className={`text-[15px] font-black tracking-tight leading-tight ${
+                                  isGiver ? 'text-primary' : 'text-secondary'
+                                }`}
+                              >
+                                #{i.keyword}
+                              </p>
+
+                              {/* 2단: 유형 배지 */}
+                              <div className="mt-1.5 mb-2">
+                                <span
+                                  className={`inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.18em] px-2 py-0.5 rounded-md ${
+                                    isGiver
+                                      ? 'bg-primary text-on-primary'
+                                      : 'bg-secondary text-on-secondary'
+                                  }`}
+                                >
+                                  <span className="material-symbols-outlined text-[12px] leading-none">
+                                    {isGiver ? 'volunteer_activism' : 'pan_tool'}
+                                  </span>
+                                  {isGiver ? 'GIVER' : 'TAKER'}
+                                </span>
+                              </div>
+
+                              {/* 3단: 작성 의견 */}
+                              <p className="text-[12.5px] text-on-surface leading-relaxed italic">
+                                "{i.description?.trim() || '(설명 없음)'}"
+                              </p>
+                            </li>
+                          );
+                        })}
                       </ul>
                     </div>
                   )}
