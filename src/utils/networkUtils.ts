@@ -26,8 +26,17 @@ export function buildInterestKeyIndex(
   interests: Interest[],
   canonicalTerms?: CanonicalTerm[]
 ): InterestKeyIndex {
-  const norm = (s: string | undefined | null) =>
-    (s || '').trim().toLowerCase().replace(/\s+/g, '');
+  // 강건한 정규화:
+  //   - NFC 로 한글 조합형 통일 (자음+모음 분해형 vs 완성형이 같은 그룹으로 묶이도록)
+  //   - zero-width 문자 (​ ~ ﻿) 제거 — 복붙 시 따라오는 보이지 않는 문자 차단
+  //   - 모든 공백 제거 + lowercase
+  const ZW = /[​‌‍﻿ ]/g;
+  const norm = (s: string | undefined | null) => {
+    if (!s) return '';
+    let v = s;
+    try { v = v.normalize('NFC'); } catch { /* 미지원 환경 fallback */ }
+    return v.replace(ZW, '').trim().toLowerCase().replace(/\s+/g, '');
+  };
 
   // Union-Find
   const parent = new Map<string, string>();

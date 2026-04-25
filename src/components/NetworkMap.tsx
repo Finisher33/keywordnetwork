@@ -190,34 +190,49 @@ export default function NetworkMap({ adminCourseId }: { adminCourseId?: string }
       });
     });
 
-    // Add Keyword Nodes (grouped)
-    (Object.entries(keywordGroups) as [string, string[]][]).forEach(([id, originals]) => {
-      const name = getKeywordName(id);
-      nodes.push({
-        id: `kw-${id}`,
-        type: 'keyword',
-        label: name,
-        color: '#87CEEB' // Sky blue for all keywords
-      });
+    // Add Keyword Nodes (grouped). 그룹 키 중복 방지: Set 으로 한번 더 dedupe.
+    const keywordIdSet = new Set<string>();
+    (Object.entries(keywordGroups) as [string, string[]][]).forEach(([id]) => {
+      if (!keywordIdSet.has(id)) {
+        keywordIdSet.add(id);
+        const name = getKeywordName(id);
+        nodes.push({
+          id: `kw-${id}`,
+          type: 'keyword',
+          label: name,
+          color: '#87CEEB' // Sky blue for all keywords
+        });
+      }
+    });
 
-      // Create links
-      courseInterests.forEach(i => {
-        if (groupKeyOf(i) === id) {
-          links.push({
-            source: `user-${i.userId}`,
-            target: `kw-${id}`,
-            type: i.type as 'giver' | 'taker'
-          });
-        }
+    // Create links — 인덱스의 groupOf 결과로 무조건 단일 키워드 노드에 연결
+    courseInterests.forEach(i => {
+      const gk = groupKeyOf(i);
+      if (!keywordIdSet.has(gk)) return; // 안전장치
+      links.push({
+        source: `user-${i.userId}`,
+        target: `kw-${gk}`,
+        type: i.type as 'giver' | 'taker'
       });
     });
+
+    // 디버그(개발 환경에서만): 그룹/노드/링크 통계
+    if (typeof window !== 'undefined' && (window as any).__NW_DEBUG) {
+      console.log('[NetworkMap] users=%d, keywordGroups=%d, links=%d',
+        courseUsers.length, keywordIdSet.size, links.length);
+    }
+
+    // 이전 simulation 잔존 상태 초기화 → 새 데이터로 깨끗하게 다시 그림
+    setNetworkNodes([]);
+    setNetworkLinks([]);
 
     const simulation = d3.forceSimulation<NetworkNode>(nodes)
       .force('link', d3.forceLink<NetworkNode, NetworkLink>(links).id(d => d.id).distance(100))
       .force('charge', d3.forceManyBody().strength(-300))
       .force('center', d3.forceCenter(width / 2, height / 2))
       .force('collision', d3.forceCollide().radius(50))
-      .alphaTarget(0.1) // Keep moving
+      .alphaTarget(0)        // 안정화되면 정지 (50명 동시 접속 시 CPU 절약)
+      .alphaDecay(0.04)
       .on('tick', () => {
         setNetworkNodes([...nodes]);
         setNetworkLinks([...links]);
