@@ -407,31 +407,44 @@ export default function NetworkMap({ adminCourseId }: { adminCourseId?: string }
           </marker>
         </defs>
         <g transform={transform.toString()}>
-          {/* Links */}
+          {/* Links — 베이스 라인 + 흐름(반짝이) 오버레이 (Giver/Taker 방향에 따라 점들이 화살표 방향으로 흐름) */}
           {networkLinks.map((link, i) => {
             const source = link.source as NetworkNode;
             const target = link.target as NetworkNode;
-            
-            // GIVER: User -> Keyword (Arrow points to Keyword)
-            // TAKER: Keyword -> User (Arrow points to User)
+
+            // GIVER: User -> Keyword / TAKER: Keyword -> User
+            // x1,y1 → x2,y2 가 항상 화살표 방향
             const isGiver = link.type === 'giver';
             const x1 = isGiver ? source.x : target.x;
             const y1 = isGiver ? source.y : target.y;
             const x2 = isGiver ? target.x : source.x;
             const y2 = isGiver ? target.y : source.y;
 
+            // 같은 키워드로 향하는 link 가 많을수록 흐름이 더 빠르고 진하게 보이도록
+            // 약간 stagger 를 줘서 동기화로 인한 "전체 깜빡임" 을 분산.
+            const animDelay = `${(i % 7) * -0.18}s`;
+
             return (
-              <line
-                key={i}
-                x1={x1}
-                y1={y1}
-                x2={x2}
-                y2={y2}
-                stroke={isGiver ? '#002c5f' : '#00aad2'}
-                strokeWidth={0.75}
-                strokeOpacity={0.6}
-                markerEnd={isGiver ? "url(#arrow-giver)" : "url(#arrow-taker)"}
-              />
+              <g key={i}>
+                {/* 베이스 라인 (정적) */}
+                <line
+                  x1={x1} y1={y1} x2={x2} y2={y2}
+                  stroke={isGiver ? '#002c5f' : '#00aad2'}
+                  strokeWidth={0.6}
+                  strokeOpacity={0.25}
+                />
+                {/* 흐름 오버레이: 반짝이는 점들이 화살표 방향으로 이동 */}
+                <line
+                  x1={x1} y1={y1} x2={x2} y2={y2}
+                  className="nw-flow-line"
+                  stroke={isGiver ? '#1e90ff' : '#22d3ee'}
+                  strokeWidth={2.2}
+                  strokeOpacity={0.85}
+                  strokeLinecap="round"
+                  style={{ animationDelay: animDelay }}
+                  markerEnd={isGiver ? 'url(#arrow-giver)' : 'url(#arrow-taker)'}
+                />
+              </g>
             );
           })}
           {/* Nodes */}
@@ -464,7 +477,7 @@ export default function NetworkMap({ adminCourseId }: { adminCourseId?: string }
             >
               {node.type === 'user' && node.data?.id === currentUser?.id && (
                 <circle
-                  r={22}
+                  r={17}
                   fill="none"
                   stroke="#22c55e"
                   strokeWidth={2}
@@ -472,8 +485,9 @@ export default function NetworkMap({ adminCourseId }: { adminCourseId?: string }
                 />
               )}
               <circle
+                // 본인 노드 = 일반 노드의 1.5배 (12 / 8)
                 r={node.type === 'user'
-                  ? (node.data?.id === currentUser?.id ? 16 : 8)
+                  ? (node.data?.id === currentUser?.id ? 12 : 8)
                   : 12}
                 fill={node.type === 'user' && node.data?.id === currentUser?.id ? '#22c55e' : node.color}
                 fillOpacity={0.9}
@@ -484,7 +498,7 @@ export default function NetworkMap({ adminCourseId }: { adminCourseId?: string }
               <text
                 textAnchor="middle"
                 dy={node.type === 'user'
-                  ? (node.data?.id === currentUser?.id ? 30 : 20)
+                  ? (node.data?.id === currentUser?.id ? 24 : 20)
                   : 25}
                 className={`text-xs font-sans font-bold pointer-events-none uppercase tracking-tight ${node.type === 'user' && node.data?.id === currentUser?.id ? 'fill-green-600' : 'fill-on-surface'}`}
                 style={{ 

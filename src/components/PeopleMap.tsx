@@ -301,22 +301,22 @@ export default function PeopleMap({ adminCourseId }: { adminCourseId?: string })
                 setTimeout(() => simulationRef.current?.alphaTarget(0.05), 500);
               }}
             >
-              {/* "나" 강조 링 */}
+              {/* "나" 강조 링 (본인 노드 = 일반 노드의 1.5배) */}
               {node.isMe && (
-                <circle r={32} fill="none" stroke="#16a34a" strokeWidth={3} className="animate-pulse" />
+                <circle r={24} fill="none" stroke="#16a34a" strokeWidth={3} className="animate-pulse" />
               )}
               <circle
-                r={node.isMe ? 26 : 13}
+                r={node.isMe ? 20 : 13}
                 fill={nodeColor(node)}
                 fillOpacity={node.isMe ? 1 : 0.9}
                 stroke="white"
-                strokeWidth={node.isMe ? 3.5 : 2.5}
+                strokeWidth={node.isMe ? 3 : 2.5}
               />
               {/* 프로필 이니셜 */}
               <text
                 textAnchor="middle"
                 dominantBaseline="middle"
-                fontSize={node.isMe ? 20 : 12}
+                fontSize={node.isMe ? 15 : 12}
                 fontWeight="bold"
                 fill="white"
                 pointerEvents="none"
@@ -326,8 +326,8 @@ export default function PeopleMap({ adminCourseId }: { adminCourseId?: string })
               {/* 이름 라벨 */}
               <text
                 textAnchor="middle"
-                dy={node.isMe ? 42 : 26}
-                fontSize={node.isMe ? 14 : 12}
+                dy={node.isMe ? 34 : 26}
+                fontSize={node.isMe ? 13 : 12}
                 fontWeight="bold"
                 fill={node.isMe ? '#15803d' : '#1c1c1c'}
                 pointerEvents="none"

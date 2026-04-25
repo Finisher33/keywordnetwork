@@ -2,7 +2,7 @@
 import { useToast } from '../hooks/useToast';
 import Toast from './Toast';
 import { useStore, User, Interest } from '../store';
-import { calculateUserNetworkData, calculateHotKeywords, HotKeyword } from '../utils/networkUtils';
+import { calculateUserNetworkData, calculateHotKeywords, HotKeyword, buildInterestKeyIndex } from '../utils/networkUtils';
 import TeaTimeModal, { TeaReplyModal } from './TeaTimeModal';
 import { genId } from '../utils/genId';
 import { TeaTimeRequest } from '../store';
@@ -115,8 +115,14 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
           </p>
         ) : (
           <div className="grid grid-cols-1 gap-4">
-            {recommendedLeaders.map(({ user: u, count, keywords }) => {
+            {recommendedLeaders.map(({ user: u, count }) => {
               const uInterests = db.interests.filter((i: Interest) => i.userId === u.id);
+              const myUserInterests = db.interests.filter((i: Interest) => i.userId === currentUser?.id);
+              // 본인 + 상대 interest 합쳐 그룹 인덱스 만들기 → 공통 그룹 도출
+              const idxLocal = buildInterestKeyIndex([...uInterests, ...myUserInterests], db.canonicalTerms);
+              const myGroupKeys = new Set(myUserInterests.map(i => idxLocal.groupOf(i.id)));
+              // 상대가 입력한 interest 들 중 공통 그룹에 속한 것만 → 표시 대상
+              const commonInterests = uInterests.filter(i => myGroupKeys.has(idxLocal.groupOf(i.id)));
               const sentReq = db.teaTimeRequests.find(r => r.fromUserId === currentUser?.id && r.toUserId === u.id);
               const receivedReq = !sentReq ? db.teaTimeRequests.find(r => r.fromUserId === u.id && r.toUserId === currentUser?.id) : undefined;
               return (
@@ -169,25 +175,38 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
                     )}
                   </div>
 
-                  <div className="mb-3">
-                    <p className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1.5">공통 키워드</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {keywords.map((kw, idx) => (
-                        <span key={idx} className="text-[11px] font-black text-primary bg-primary/5 px-2 py-0.5 rounded border border-primary/20 italic">{kw}</span>
-                      ))}
-                    </div>
-                  </div>
-
-                  {uInterests.length > 0 && (
-                    <div>
-                      <p className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1.5">등록한 관심사</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {uInterests.map((i: Interest) => (
-                          <span key={i.id} className={`text-[11px] px-2 py-0.5 rounded-full font-bold border ${i.type === 'giver' ? 'bg-primary/5 text-primary border-primary/20' : 'bg-secondary/5 text-secondary border-secondary/20'}`}>
-                            #{i.keyword} <span className="opacity-60">{i.type === 'giver' ? 'G' : 'T'}</span>
-                          </span>
+                  {/* 공통 키워드별 입력 내용 */}
+                  {commonInterests.length > 0 && (
+                    <div className="space-y-2.5">
+                      <p className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">
+                        공통 키워드 · 입력 내용
+                      </p>
+                      <ul className="space-y-2">
+                        {commonInterests.map((i: Interest) => (
+                          <li
+                            key={i.id}
+                            className={`px-3 py-2.5 rounded-xl border ${
+                              i.type === 'giver'
+                                ? 'bg-primary/5 border-primary/20'
+                                : 'bg-secondary/5 border-secondary/20'
+                            }`}
+                          >
+                            <p
+                              className={`text-[12px] font-black tracking-tight italic mb-1 flex items-center gap-1.5 ${
+                                i.type === 'giver' ? 'text-primary' : 'text-secondary'
+                              }`}
+                            >
+                              <span className="text-[9px] font-bold uppercase opacity-70 not-italic">
+                                {i.type === 'giver' ? 'Giver' : 'Taker'}
+                              </span>
+                              #{i.keyword}
+                            </p>
+                            <p className="text-[12px] text-on-surface leading-relaxed italic">
+                              "{i.description?.trim() || '(설명 없음)'}"
+                            </p>
+                          </li>
                         ))}
-                      </div>
+                      </ul>
                     </div>
                   )}
                 </div>

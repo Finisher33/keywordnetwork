@@ -51,6 +51,9 @@ const KeywordCard = memo(function KeywordCard({
   usedKeywords, onUpdate, onRemove,
 }: KeywordCardProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // 다음 렌더에서 description textarea 로 포커스 이동을 트리거하는 플래그.
+  const focusDescriptionPendingRef = useRef(false);
   const accentClass = accent === 'primary' ? 'primary' : 'secondary';
   const presets = entry.keywordGroup === 'work' ? sortedWorkPresets : entry.keywordGroup === 'hobby' ? sortedHobbyPresets : [];
 
@@ -59,6 +62,15 @@ const KeywordCard = memo(function KeywordCard({
       inputRef.current.focus();
     }
   }, [entry.isCustom]);
+
+  // 프리셋 키워드가 선택돼 keyword 가 채워졌고 textarea 가 화면에 그려지면 자동 포커스.
+  // PC/모바일 양쪽에서 사용자가 따로 탭하지 않아도 바로 설명 입력 가능.
+  useEffect(() => {
+    if (focusDescriptionPendingRef.current && entry.keyword.trim() && textareaRef.current) {
+      textareaRef.current.focus();
+      focusDescriptionPendingRef.current = false;
+    }
+  }, [entry.keyword]);
 
   const update = useCallback((patch: Partial<KeywordEntry>) => {
     onUpdate(idx, patch);
@@ -72,6 +84,7 @@ const KeywordCard = memo(function KeywordCard({
   };
 
   const selectHashtag = (keyword: string) => {
+    focusDescriptionPendingRef.current = true; // 렌더 직후 textarea 로 자동 포커스
     update({ keyword, isCustom: false, customInput: '' });
   };
 
@@ -198,6 +211,7 @@ const KeywordCard = memo(function KeywordCard({
             {entry.keyword}
           </div>
           <textarea
+            ref={textareaRef}
             value={entry.description}
             onChange={e => update({ description: e.target.value })}
             placeholder={role === 'giver'

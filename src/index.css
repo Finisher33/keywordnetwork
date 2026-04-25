@@ -127,3 +127,20 @@
     padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
   }
 }
+
+/* ─── NetworkMap 연결선 흐름(반짝이) 애니메이션 ───────────────────────────
+   조류 흐름 / 항해 경로 컨셉. 짧은 점이 화살표 방향으로 흐르며 반짝.
+   x1,y1 → x2,y2 가 화살표 방향이므로 dashoffset 음수 = 화살표 방향. */
+@keyframes nw-flow-dash {
+  0%   { stroke-dashoffset: 0;   stroke-opacity: 0.45; }
+  50%  { stroke-opacity: 1; }
+  100% { stroke-dashoffset: -28; stroke-opacity: 0.45; }
+}
+.nw-flow-line {
+  stroke-dasharray: 2 12;
+  animation: nw-flow-dash 1.5s linear infinite;
+  filter: drop-shadow(0 0 1.5px rgba(77, 166, 255, 0.6));
+}
+@media (prefers-reduced-motion: reduce) {
+  .nw-flow-line { animation: none; stroke-opacity: 0.6; }
+}
