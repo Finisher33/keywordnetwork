@@ -8,9 +8,11 @@ interface TeaTimeModalProps {
   targetInterests: Interest[];
   onSend: (toUserId: string, message: string) => void;
   onClose: () => void;
+  // compact: 상대방의 Giver/Taker 키워드/설명 섹션을 숨기고 메시지 입력만 노출
+  compact?: boolean;
 }
 
-export default function TeaTimeModal({ targetUser, currentUser, myInterests, targetInterests, onSend, onClose }: TeaTimeModalProps) {
+export default function TeaTimeModal({ targetUser, currentUser, myInterests, targetInterests, onSend, onClose, compact = false }: TeaTimeModalProps) {
   const [msg, setMsg] = useState('');
   const [msgError, setMsgError] = useState(false);
   const [isSending, setIsSending] = useState(false);
@@ -61,8 +63,8 @@ export default function TeaTimeModal({ targetUser, currentUser, myInterests, tar
           </button>
         </div>
 
-        {/* Target user interests */}
-        {targetInterests.length > 0 && (
+        {/* Target user interests — compact 모드에서는 전체 정보 숨김 (메시지 중심 UX) */}
+        {!compact && targetInterests.length > 0 && (
           <div className="space-y-4 mb-6">
             {['giver', 'taker'].map(type => {
               const items = targetInterests.filter(i => i.type === type);
@@ -89,8 +91,8 @@ export default function TeaTimeModal({ targetUser, currentUser, myInterests, tar
           </div>
         )}
 
-        {/* Tea time request form */}
-        <div className="space-y-3 pt-4 border-t border-outline">
+        {/* Tea time request form — compact 모드에서는 상단 구분선 불필요 */}
+        <div className={`space-y-3 ${compact || targetInterests.length === 0 ? '' : 'pt-4 border-t border-outline'}`}>
           <h4 className="text-xs font-bold text-on-surface uppercase tracking-widest">티타임 요청</h4>
           <p className="text-[10px] text-on-surface-variant font-medium">
             {targetUser.name}님에게 구체적인 일정과 장소를 기재하여 티타임을 제안해보세요.

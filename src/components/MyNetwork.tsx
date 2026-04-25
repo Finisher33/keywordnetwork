@@ -193,33 +193,32 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
                                   : 'bg-secondary/[0.06] border-l-secondary border-secondary/15'
                               }`}
                             >
-                              {/* 1단: 공통 키워드 — 가장 크고 진하게 */}
+                              {/* 1단: 공통 키워드 — 가장 크고 진하게 강조 */}
                               <p
-                                className={`text-[15px] font-black tracking-tight leading-tight ${
+                                className={`text-[16px] font-black tracking-tight leading-tight ${
                                   isGiver ? 'text-primary' : 'text-secondary'
                                 }`}
                               >
                                 #{i.keyword}
                               </p>
 
-                              {/* 2단: 유형 배지 */}
-                              <div className="mt-1.5 mb-2">
+                              {/* 2단: 유형 + 보조 안내 — 작고 차분하게 (텍스트형) */}
+                              <div className="mt-1 mb-2 flex items-center gap-1.5 flex-wrap">
                                 <span
-                                  className={`inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.18em] px-2 py-0.5 rounded-md ${
-                                    isGiver
-                                      ? 'bg-primary text-on-primary'
-                                      : 'bg-secondary text-on-secondary'
+                                  className={`text-[10px] font-bold uppercase tracking-wider ${
+                                    isGiver ? 'text-primary/70' : 'text-secondary/70'
                                   }`}
                                 >
-                                  <span className="material-symbols-outlined text-[12px] leading-none">
-                                    {isGiver ? 'volunteer_activism' : 'pan_tool'}
-                                  </span>
-                                  {isGiver ? 'GIVER' : 'TAKER'}
+                                  {isGiver ? 'Giver' : 'Taker'}
+                                </span>
+                                <span className="text-[10px] text-on-surface-variant/60">·</span>
+                                <span className="text-[10px] text-on-surface-variant/80 font-medium">
+                                  {isGiver ? '도움을 드릴 수 있어요.' : '도움을 받고 싶어요.'}
                                 </span>
                               </div>
 
-                              {/* 3단: 작성 의견 */}
-                              <p className="text-[12.5px] text-on-surface leading-relaxed italic">
+                              {/* 3단: 작성 의견 — 카드 본문으로 강조 */}
+                              <p className="text-[13px] text-on-surface leading-relaxed font-medium">
                                 "{i.description?.trim() || '(설명 없음)'}"
                               </p>
                             </li>
@@ -477,6 +476,7 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
           targetInterests={selectedUserInterests}
           onSend={handleSendTeaTime}
           onClose={() => setSelectedUser(null)}
+          compact
         />
       )}
 
