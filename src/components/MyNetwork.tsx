@@ -294,18 +294,56 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
                     {selectedKeyword.givers.map(i => {
                       const user = db.users.find((u: User) => u.id === i.userId);
                       if (!user) return null;
+                      const isSelf = user.id === currentUser?.id;
+                      const sentReq = !isSelf
+                        ? db.teaTimeRequests.find(r => r.fromUserId === currentUser?.id && r.toUserId === user.id)
+                        : undefined;
+                      const receivedReq = !isSelf && !sentReq
+                        ? db.teaTimeRequests.find(r => r.fromUserId === user.id && r.toUserId === currentUser?.id)
+                        : undefined;
                       return (
                         <div key={i.id} className="bg-primary/5 border border-primary/15 rounded-xl p-3">
-                          <div className="flex items-center gap-2 mb-1">
+                          <div className="flex items-start gap-2 mb-1">
                             <div className="w-7 h-7 rounded-lg bg-primary/10 overflow-hidden flex items-center justify-center shrink-0 border border-primary/20">
                               {user.profilePic
                                 ? <img src={user.profilePic} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                                 : <span className="text-xs font-bold text-primary">{user.name.charAt(0)}</span>}
                             </div>
-                            <div className="min-w-0">
-                              <p className="text-xs font-bold text-on-surface truncate">{user.name}</p>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-bold text-on-surface truncate">{user.name}{isSelf && <span className="ml-1 text-[9px] font-bold text-on-surface-variant">(나)</span>}</p>
                               <p className="text-[10px] text-on-surface-variant truncate">{user.company} · {user.department} · {user.title}</p>
                             </div>
+                            {!isSelf && (
+                              sentReq ? (
+                                <span className={`shrink-0 text-[10px] font-bold px-2 py-1 rounded-md border ${
+                                  sentReq.status === 'accepted' ? 'bg-green-50 text-green-700 border-green-200' :
+                                  sentReq.status === 'rejected' ? 'bg-surface-container text-on-surface-variant border-outline/40' :
+                                  'bg-blue-50 text-blue-600 border-blue-200'
+                                }`}>
+                                  {sentReq.status === 'accepted' ? '수락됨 ✓' : sentReq.status === 'rejected' ? '거절됨' : '신청 완료'}
+                                </span>
+                              ) : receivedReq ? (
+                                <button
+                                  onClick={() => setReplyingToReq(receivedReq)}
+                                  className={`shrink-0 text-[10px] font-bold px-2 py-1 rounded-md border transition-colors ${
+                                    receivedReq.status === 'pending'
+                                      ? 'bg-amber-500 text-white border-amber-500 hover:bg-amber-600'
+                                      : receivedReq.status === 'accepted'
+                                      ? 'bg-green-50 text-green-700 border-green-200'
+                                      : 'bg-surface-container text-on-surface-variant border-outline/40'
+                                  }`}
+                                >
+                                  {receivedReq.status === 'pending' ? '응답하기' : receivedReq.status === 'accepted' ? '수락함 ✓' : '거절함'}
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => setSelectedUser(user)}
+                                  className="shrink-0 text-[10px] font-bold bg-primary/10 text-primary border border-primary/20 px-2 py-1 rounded-md hover:bg-primary/20 transition-colors"
+                                >
+                                  티타임 요청
+                                </button>
+                              )
+                            )}
                           </div>
                           {i.description && <p className="text-[11px] text-on-surface-variant leading-relaxed italic">"{i.description}"</p>}
                         </div>
@@ -326,18 +364,56 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
                     {selectedKeyword.takers.map(i => {
                       const user = db.users.find((u: User) => u.id === i.userId);
                       if (!user) return null;
+                      const isSelf = user.id === currentUser?.id;
+                      const sentReq = !isSelf
+                        ? db.teaTimeRequests.find(r => r.fromUserId === currentUser?.id && r.toUserId === user.id)
+                        : undefined;
+                      const receivedReq = !isSelf && !sentReq
+                        ? db.teaTimeRequests.find(r => r.fromUserId === user.id && r.toUserId === currentUser?.id)
+                        : undefined;
                       return (
                         <div key={i.id} className="bg-secondary/5 border border-secondary/15 rounded-xl p-3">
-                          <div className="flex items-center gap-2 mb-1">
+                          <div className="flex items-start gap-2 mb-1">
                             <div className="w-7 h-7 rounded-lg bg-secondary/10 overflow-hidden flex items-center justify-center shrink-0 border border-secondary/20">
                               {user.profilePic
                                 ? <img src={user.profilePic} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                                 : <span className="text-xs font-bold text-secondary">{user.name.charAt(0)}</span>}
                             </div>
-                            <div className="min-w-0">
-                              <p className="text-xs font-bold text-on-surface truncate">{user.name}</p>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-bold text-on-surface truncate">{user.name}{isSelf && <span className="ml-1 text-[9px] font-bold text-on-surface-variant">(나)</span>}</p>
                               <p className="text-[10px] text-on-surface-variant truncate">{user.company} · {user.department} · {user.title}</p>
                             </div>
+                            {!isSelf && (
+                              sentReq ? (
+                                <span className={`shrink-0 text-[10px] font-bold px-2 py-1 rounded-md border ${
+                                  sentReq.status === 'accepted' ? 'bg-green-50 text-green-700 border-green-200' :
+                                  sentReq.status === 'rejected' ? 'bg-surface-container text-on-surface-variant border-outline/40' :
+                                  'bg-blue-50 text-blue-600 border-blue-200'
+                                }`}>
+                                  {sentReq.status === 'accepted' ? '수락됨 ✓' : sentReq.status === 'rejected' ? '거절됨' : '신청 완료'}
+                                </span>
+                              ) : receivedReq ? (
+                                <button
+                                  onClick={() => setReplyingToReq(receivedReq)}
+                                  className={`shrink-0 text-[10px] font-bold px-2 py-1 rounded-md border transition-colors ${
+                                    receivedReq.status === 'pending'
+                                      ? 'bg-amber-500 text-white border-amber-500 hover:bg-amber-600'
+                                      : receivedReq.status === 'accepted'
+                                      ? 'bg-green-50 text-green-700 border-green-200'
+                                      : 'bg-surface-container text-on-surface-variant border-outline/40'
+                                  }`}
+                                >
+                                  {receivedReq.status === 'pending' ? '응답하기' : receivedReq.status === 'accepted' ? '수락함 ✓' : '거절함'}
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => setSelectedUser(user)}
+                                  className="shrink-0 text-[10px] font-bold bg-secondary/10 text-secondary border border-secondary/20 px-2 py-1 rounded-md hover:bg-secondary/20 transition-colors"
+                                >
+                                  티타임 요청
+                                </button>
+                              )
+                            )}
                           </div>
                           {i.description && <p className="text-[11px] text-on-surface-variant leading-relaxed italic">"{i.description}"</p>}
                         </div>

@@ -108,8 +108,11 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
 
     const ids = Object.keys(groups);
 
-    // Step 2: Union-Find re-grouping using stored embeddings at 0.55 threshold
-    // This retroactively applies the new threshold to existing Firestore data
+    // Step 2: Union-Find re-grouping using stored embeddings.
+    // 임계치는 store.tsx 의 canonicalizeKeyword 와 동일하게 0.78 사용.
+    // (이전 0.55 는 한국어 anisotropy 로 인해 무관 키워드까지 동일 버블로 합쳐버림 —
+    //  예: "효율경제" ↔ "혁신 비용", "AI리스크" 등이 모두 한 그룹이 되는 문제)
+    const SIM_THRESHOLD = 0.78;
     const parent: Record<string, string> = {};
     ids.forEach(id => { parent[id] = id; });
 
@@ -123,7 +126,7 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
         const termA = db.canonicalTerms?.find(t => t.id === ids[i]);
         const termB = db.canonicalTerms?.find(t => t.id === ids[j]);
         if (termA?.embedding && termB?.embedding) {
-          if (cosineSimilarity(termA.embedding, termB.embedding) > 0.55) {
+          if (cosineSimilarity(termA.embedding, termB.embedding) > SIM_THRESHOLD) {
             // Union: lower-count group absorbs into higher-count root
             const ra = find(ids[i]);
             const rb = find(ids[j]);
@@ -1038,6 +1041,10 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
                     .map((insight) => {
                       const user = db.users.find(u => u.id === insight.userId);
                       const isLiked = insight.likes?.includes(currentUser?.id || '');
+                      // 해당 리더가 등록한 Giver/Taker 키워드 = 해시태그
+                      const userHashtags = db.interests
+                        .filter(it => it.userId === insight.userId)
+                        .map(it => ({ keyword: it.keyword, type: it.type }));
 
                     return (
                       <div key={insight.id} className="bg-surface-container-lowest p-5 rounded-2xl border border-outline-variant/10 space-y-4 shadow-sm">
@@ -1072,6 +1079,26 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
                             <span className="text-xs font-bold">{insight.likes?.length || 0}</span>
                           </button>
                         </div>
+
+                        {/* 리더의 Giver/Taker 해시태그 */}
+                        {userHashtags.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {userHashtags.map((h, idx) => (
+                              <span
+                                key={idx}
+                                className={`inline-flex items-center gap-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                                  h.type === 'giver'
+                                    ? 'bg-primary/8 text-primary border-primary/20'
+                                    : 'bg-secondary/8 text-secondary border-secondary/20'
+                                }`}
+                                title={h.type === 'giver' ? 'Giver 키워드' : 'Taker 키워드'}
+                              >
+                                {h.type === 'giver' ? '↗' : '↘'} #{h.keyword}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
                         <p className="text-sm text-on-surface-variant leading-relaxed bg-surface-container-low/50 p-4 rounded-xl italic">
                           "{insight.description}"
                         </p>
