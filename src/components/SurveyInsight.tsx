@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef, useEffect, ReactNode, CSSProperties } from 'react';
+import { useMemo, useState, useRef, useEffect, ReactNode, CSSProperties, SyntheticEvent } from 'react';
 import { useStore, User } from '../store';
 
 interface Props {
@@ -20,15 +20,23 @@ const SOFT_FONT = `'Gowun Dodum','Jua','Quicksand','Pretendard',-apple-system,Bl
 const softStyle: CSSProperties = { fontFamily: SOFT_FONT };
 
 // ─── Stage: 전체화면 래퍼 (webkit/ms prefix fallback 포함) ───────────────────
+// pseudoFs 상태로 Fullscreen API 미지원/실패 시에도 동일한 토글 UX 제공.
+// 전체화면 시 질문 전환 드롭다운을 함께 노출.
 function Stage({
   children,
   className = '',
+  q,
+  setQ,
 }: {
   children: ReactNode;
   className?: string;
+  q?: SurveyQ;
+  setQ?: (v: SurveyQ) => void;
 }) {
   const stageRef = useRef<HTMLDivElement>(null);
-  const [isFs, setIsFs] = useState(false);
+  const [nativeFs, setNativeFs] = useState(false);
+  const [pseudoFs, setPseudoFs] = useState(false);
+  const isFs = nativeFs || pseudoFs;
 
   useEffect(() => {
     const handler = () => {
@@ -36,7 +44,7 @@ function Stage({
         document.fullscreenElement ||
         (document as any).webkitFullscreenElement ||
         (document as any).msFullscreenElement;
-      setIsFs(!!fsEl && fsEl === stageRef.current);
+      setNativeFs(!!fsEl && fsEl === stageRef.current);
     };
     document.addEventListener('fullscreenchange', handler);
     document.addEventListener('webkitfullscreenchange', handler as any);
@@ -48,6 +56,14 @@ function Stage({
     };
   }, []);
 
+  // pseudoFs 진입 시 ESC 로 종료 가능
+  useEffect(() => {
+    if (!pseudoFs) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setPseudoFs(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [pseudoFs]);
+
   const toggleFs = () => {
     const el: any = stageRef.current;
     const doc: any = document;
@@ -56,7 +72,8 @@ function Stage({
       doc.webkitFullscreenElement ||
       doc.msFullscreenElement;
 
-    if (!fsEl) {
+    // 진입
+    if (!fsEl && !pseudoFs) {
       const req =
         el?.requestFullscreen ||
         el?.webkitRequestFullscreen ||
@@ -65,15 +82,18 @@ function Stage({
       if (req) {
         try {
           const p = req.call(el);
-          if (p && typeof p.catch === 'function') p.catch(() => setIsFs((v) => !v));
+          if (p && typeof p.catch === 'function') p.catch(() => setPseudoFs(true));
         } catch {
-          setIsFs((v) => !v);
+          setPseudoFs(true);
         }
       } else {
-        // Fullscreen API 미지원 브라우저: pseudo-fullscreen 으로 대체
-        setIsFs(true);
+        setPseudoFs(true);
       }
-    } else {
+      return;
+    }
+
+    // 종료
+    if (fsEl) {
       const exit =
         document.exitFullscreen ||
         doc.webkitExitFullscreen ||
@@ -81,14 +101,20 @@ function Stage({
       if (exit) {
         try {
           const p = exit.call(document);
-          if (p && typeof p.catch === 'function') p.catch(() => setIsFs(false));
+          if (p && typeof p.catch === 'function') p.catch(() => setPseudoFs(false));
         } catch {
-          setIsFs(false);
+          setPseudoFs(false);
         }
-      } else {
-        setIsFs(false);
       }
     }
+    if (pseudoFs) setPseudoFs(false);
+  };
+
+  // 모바일에서 안전한 탭 처리: pointerup으로 즉시 반응 + click 폴백
+  const tapHandler = (e: SyntheticEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    toggleFs();
   };
 
   return (
@@ -98,13 +124,53 @@ function Stage({
       style={softStyle}
     >
       {children}
+
+      {/* 전체화면 모드에서만 보이는 질문 전환 드롭다운 (좌상단) */}
+      {isFs && q && setQ && (
+        <div
+          className="absolute z-[60] flex items-center gap-2"
+          style={{
+            top: 'calc(env(safe-area-inset-top, 0px) + 12px)',
+            left: 'calc(env(safe-area-inset-left, 0px) + 12px)',
+          }}
+        >
+          <select
+            value={q}
+            onChange={(e) => setQ(e.target.value as SurveyQ)}
+            className="bg-black/60 hover:bg-black/80 backdrop-blur-sm text-white text-xs sm:text-sm font-bold rounded-full pl-4 pr-8 py-2 sm:py-2.5 border border-white/25 shadow-lg outline-none focus:ring-2 focus:ring-white/40 appearance-none"
+            style={{
+              ...softStyle,
+              backgroundImage:
+                'url("data:image/svg+xml;utf8,<svg xmlns=%27http://www.w3.org/2000/svg%27 fill=%27white%27 viewBox=%270 0 24 24%27><path d=%27M7 10l5 5 5-5z%27/></svg>")',
+              backgroundRepeat: 'no-repeat',
+              backgroundPosition: 'right 8px center',
+              backgroundSize: '16px',
+            }}
+          >
+            {Q_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value} style={{ color: '#000' }}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* 전체화면 토글 버튼: 우하단 (모바일에서도 닿기 쉬운 위치 + safe-area 고려) */}
       <button
-        onClick={toggleFs}
-        className="absolute top-3 right-3 z-50 w-11 h-11 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-sm text-white flex items-center justify-center shadow-lg border border-white/20 transition-all"
+        type="button"
+        onClick={tapHandler}
+        onPointerUp={tapHandler}
+        className="absolute z-[60] w-14 h-14 rounded-full bg-black/70 active:bg-black/90 hover:bg-black/85 backdrop-blur-sm text-white flex items-center justify-center shadow-2xl border border-white/30 transition-all touch-manipulation"
+        style={{
+          bottom: `calc(env(safe-area-inset-bottom, 0px) + ${isFs ? 20 : 12}px)`,
+          right: `calc(env(safe-area-inset-right, 0px) + ${isFs ? 20 : 12}px)`,
+          WebkitTapHighlightColor: 'transparent',
+        }}
         title={isFs ? '전체화면 종료' : '전체화면'}
         aria-label={isFs ? '전체화면 종료' : '전체화면'}
       >
-        <span className="material-symbols-outlined text-xl">
+        <span className="material-symbols-outlined text-2xl">
           {isFs ? 'fullscreen_exit' : 'fullscreen'}
         </span>
       </button>
@@ -167,12 +233,16 @@ export default function SurveyInsight({ courseId }: Props) {
         </select>
       </div>
 
-      <div className="bg-white rounded-2xl border border-outline-variant/20 overflow-hidden shadow-sm" key={q}>
-        {q === 'condition' && <ConditionScene users={courseUsers} />}
-        {q === 'memory'    && <WordCloudScene users={courseUsers} field="memorableQuote" theme="memory" />}
-        {q === 'fear'      && <WordCloudScene users={courseUsers} field="fearWord"       theme="fear" />}
-        {q === 'exciting'  && <WordCloudScene users={courseUsers} field="excitingWord"   theme="exciting" />}
-        {q === 'career'    && <CareerScene users={courseUsers} />}
+      {/* 단일 Stage로 감싸서 전체화면 중에도 q 전환이 가능하도록 함
+          (Stage가 언마운트되면 native fullscreen 도 풀려버리므로 key={q} 사용 X) */}
+      <div className="bg-white rounded-2xl border border-outline-variant/20 overflow-hidden shadow-sm">
+        <Stage q={q} setQ={setQ}>
+          {q === 'condition' && <ConditionScene users={courseUsers} />}
+          {q === 'memory'    && <WordCloudScene users={courseUsers} field="memorableQuote" theme="memory" />}
+          {q === 'fear'      && <WordCloudScene users={courseUsers} field="fearWord"       theme="fear" />}
+          {q === 'exciting'  && <WordCloudScene users={courseUsers} field="excitingWord"   theme="exciting" />}
+          {q === 'career'    && <CareerScene users={courseUsers} />}
+        </Stage>
       </div>
     </div>
   );
@@ -207,7 +277,7 @@ function ConditionScene({ users }: { users: User[] }) {
   };
 
   return (
-    <Stage>
+    <>
       <div
         className="absolute inset-0"
         style={{
@@ -374,7 +444,7 @@ function ConditionScene({ users }: { users: User[] }) {
           </div>
         )}
       </div>
-    </Stage>
+    </>
   );
 }
 
@@ -443,7 +513,7 @@ function WordCloudScene({
   const totalResp = items.reduce((a, b) => a + b.count, 0);
 
   return (
-    <Stage>
+    <>
       <div className="absolute inset-0" style={{ background: t.bg }} />
       <div className="absolute inset-0 pointer-events-none" style={{ background: t.overlay }} />
       <svg className="absolute inset-0 w-full h-full opacity-[0.07] pointer-events-none" preserveAspectRatio="none">
@@ -525,7 +595,7 @@ function WordCloudScene({
           </p>
         </div>
       )}
-    </Stage>
+    </>
   );
 }
 
@@ -537,7 +607,7 @@ function CareerScene({ users }: { users: User[] }) {
   const maxYear = years.length ? Math.max(...years) : null;
 
   return (
-    <Stage>
+    <>
       <div
         className="absolute inset-0"
         style={{
@@ -610,6 +680,6 @@ function CareerScene({ users }: { users: User[] }) {
           </p>
         )}
       </div>
-    </Stage>
+    </>
   );
 }

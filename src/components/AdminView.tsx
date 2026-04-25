@@ -542,13 +542,20 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
     <div className="absolute inset-0 bg-background text-on-surface flex flex-col overflow-hidden">
       <header className="header-safe w-full z-50 bg-primary shadow-lg shrink-0">
         <div className="h-16 flex justify-between items-center px-4 sm:px-6">
-        <div className="flex items-center gap-3 sm:gap-8 flex-1 min-w-0">
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            <span className="material-symbols-outlined text-white">hub</span>
-            <span className="text-sm sm:text-base font-black tracking-[0.15em] text-white font-headline hidden min-[400px]:block whitespace-nowrap">KEYWORD NETWORKING ADMIN</span>
+        <div className="flex items-center gap-2 sm:gap-6 flex-1 min-w-0">
+          {/* 타이틀: 화면이 좁아질수록 폰트가 줄어들지만 버튼 박스에게 자리를 양보 */}
+          <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 shrink">
+            <span className="material-symbols-outlined text-white shrink-0">hub</span>
+            <span
+              className="font-black tracking-[0.12em] text-white font-headline whitespace-nowrap overflow-hidden text-ellipsis hidden min-[360px]:block"
+              style={{ fontSize: 'clamp(0.55rem, 2.2vw, 1rem)' }}
+            >
+              KEYWORD NETWORKING ADMIN
+            </span>
           </div>
-          
-          <nav className="flex items-center gap-1 bg-white/10 p-1 rounded-lg overflow-x-auto no-scrollbar flex-1 min-w-0">
+
+          {/* 버튼 박스는 우선 보장 (shrink-0) */}
+          <nav className="flex items-center gap-1 bg-white/10 p-1 rounded-lg overflow-x-auto no-scrollbar shrink-0">
             <button 
               onClick={() => setAdminSubView('management')}
               className={`px-3 sm:px-4 py-1.5 rounded-md text-[10px] sm:text-xs font-black transition-all whitespace-nowrap uppercase tracking-wider ${adminSubView === 'management' ? 'bg-white text-primary' : 'text-white/60 hover:text-white'}`}
