@@ -4,6 +4,7 @@ import * as d3 from 'd3';
 import { motion, AnimatePresence } from 'motion/react';
 import { useToast } from '../hooks/useToast';
 import Toast from './Toast';
+import { buildInterestKeyIndex } from '../utils/networkUtils';
 interface PeopleNode extends d3.SimulationNodeDatum {
   id: string;        // user id
   label: string;
@@ -56,18 +57,19 @@ export default function PeopleMap({ adminCourseId }: { adminCourseId?: string })
   );
 
   // ── build graph ─────────────────────────────────────────────────────────────
-  /** 유저별 정규화 키워드 Set */
+  /** 같은 키워드 텍스트지만 canonicalId 가 다른 케이스도 같은 그룹으로 통합. */
   const userKeywordMap = useMemo(() => {
+    const idx = buildInterestKeyIndex(courseInterests, db.canonicalTerms);
     const map = new Map<string, Set<string>>();
     courseUsers.forEach(u => {
       map.set(u.id, new Set(
         courseInterests
           .filter((i: Interest) => i.userId === u.id)
-          .map((i: Interest) => (i.canonicalId || i.keyword) as string)
+          .map((i: Interest) => idx.groupOf(i.id))
       ));
     });
     return map;
-  }, [courseUsers, courseInterests]);
+  }, [courseUsers, courseInterests, db.canonicalTerms]);
 
   // ── D3 simulation ──────────────────────────────────────────────────────────
   useEffect(() => {

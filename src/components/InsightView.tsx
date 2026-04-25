@@ -1041,10 +1041,20 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
                     .map((insight) => {
                       const user = db.users.find(u => u.id === insight.userId);
                       const isLiked = insight.likes?.includes(currentUser?.id || '');
-                      // 해당 리더가 등록한 Giver/Taker 키워드 = 해시태그
-                      const userHashtags = db.interests
-                        .filter(it => it.userId === insight.userId)
-                        .map(it => ({ keyword: it.keyword, type: it.type }));
+                      // 해당 리더가 세션마다 작성한 인사이트 키워드 = 해시태그
+                      // (관심사가 아닌 학습 인사이트 키워드를 노출 — 동일 인사이트는 1회만 표시)
+                      const userInsightTags = (() => {
+                        const seen = new Set<string>();
+                        const out: { keyword: string; isCurrent: boolean }[] = [];
+                        for (const it of db.userInsights) {
+                          if (it.userId !== insight.userId) continue;
+                          const k = it.keyword.trim();
+                          if (!k || seen.has(k)) continue;
+                          seen.add(k);
+                          out.push({ keyword: k, isCurrent: it.id === insight.id });
+                        }
+                        return out;
+                      })();
 
                     return (
                       <div key={insight.id} className="bg-surface-container-lowest p-5 rounded-2xl border border-outline-variant/10 space-y-4 shadow-sm">
@@ -1080,20 +1090,20 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
                           </button>
                         </div>
 
-                        {/* 리더의 Giver/Taker 해시태그 */}
-                        {userHashtags.length > 0 && (
+                        {/* 리더의 인사이트 키워드 해시태그 (세션별 입력) */}
+                        {userInsightTags.length > 0 && (
                           <div className="flex flex-wrap gap-1.5">
-                            {userHashtags.map((h, idx) => (
+                            {userInsightTags.map((h, idx) => (
                               <span
                                 key={idx}
                                 className={`inline-flex items-center gap-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                                  h.type === 'giver'
-                                    ? 'bg-primary/8 text-primary border-primary/20'
-                                    : 'bg-secondary/8 text-secondary border-secondary/20'
+                                  h.isCurrent
+                                    ? 'bg-primary/15 text-primary border-primary/30 ring-1 ring-primary/20'
+                                    : 'bg-surface-container text-on-surface-variant border-outline-variant/40'
                                 }`}
-                                title={h.type === 'giver' ? 'Giver 키워드' : 'Taker 키워드'}
+                                title={h.isCurrent ? '현재 세션 인사이트 키워드' : '다른 세션 인사이트 키워드'}
                               >
-                                {h.type === 'giver' ? '↗' : '↘'} #{h.keyword}
+                                #{h.keyword}
                               </span>
                             ))}
                           </div>

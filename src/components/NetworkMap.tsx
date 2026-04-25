@@ -4,6 +4,7 @@ import * as d3 from 'd3';
 import { motion, AnimatePresence } from 'motion/react';
 import { useToast } from '../hooks/useToast';
 import Toast from './Toast';
+import { buildInterestKeyIndex } from '../utils/networkUtils';
 
 interface BubbleNode extends d3.SimulationNodeDatum {
   id: string;
@@ -127,27 +128,25 @@ export default function NetworkMap({ adminCourseId }: { adminCourseId?: string }
     return db.interests.filter(i => userIds.has(i.userId));
   }, [db.interests, courseUsers]);
 
-  // Extract unique keywords and group them by canonicalId
+  // 표시-친화 그룹 인덱스: canonicalId race / 누락 / 마이그레이션 ID 변경에도
+  // 같은 키워드는 단일 노드로 통합.
+  const interestIndex = useMemo(
+    () => buildInterestKeyIndex(courseInterests, db.canonicalTerms),
+    [courseInterests, db.canonicalTerms]
+  );
+
+  // 그룹 루트키 → 키워드 변형 목록
   const keywordGroups = useMemo(() => {
     const groups: Record<string, string[]> = {};
-    
-    courseInterests.forEach(i => {
-      const id = i.canonicalId || i.keyword; // Fallback to raw keyword for legacy data
-      if (!groups[id]) {
-        groups[id] = [];
-      }
-      if (!groups[id].includes(i.keyword)) {
-        groups[id].push(i.keyword);
-      }
-    });
-
+    interestIndex.groups.forEach((g, key) => { groups[key] = [...g.originals]; });
     return groups;
-  }, [courseInterests]);
+  }, [interestIndex]);
 
-  const getKeywordName = (id: string) => {
-    const term = db.canonicalTerms?.find(t => t.id === id);
-    return term ? term.term : id;
-  };
+  const getKeywordName = (id: string) =>
+    interestIndex.groups.get(id)?.displayName || id;
+
+  // interest 한 건 → 그룹 루트키 (selectedKeyword 비교 시 사용)
+  const groupKeyOf = (i: Interest): string => interestIndex.groupOf(i.id);
 
   const getKeywordColor = (str: string) => {
     const colors = ['#002c5f', '#00aad2', '#e4dcd3', '#1c1c1c', '#666666'];
@@ -202,7 +201,7 @@ export default function NetworkMap({ adminCourseId }: { adminCourseId?: string }
 
       // Create links
       courseInterests.forEach(i => {
-        if ((i.canonicalId || i.keyword) === id) {
+        if (groupKeyOf(i) === id) {
           links.push({
             source: `user-${i.userId}`,
             target: `kw-${id}`,
@@ -283,7 +282,7 @@ export default function NetworkMap({ adminCourseId }: { adminCourseId?: string }
 
   const selectedKeywordInterests = useMemo(() => {
     if (!selectedKeyword) return [];
-    const interests = courseInterests.filter(i => (i.canonicalId || i.keyword) === selectedKeyword);
+    const interests = courseInterests.filter(i => groupKeyOf(i) === selectedKeyword);
     
     return [...interests].sort((a, b) => {
       // 1순위: 본인 데이터 (Current User First)
@@ -588,8 +587,8 @@ export default function NetworkMap({ adminCourseId }: { adminCourseId?: string }
                         <div className="flex gap-2">
                           <span className="bg-primary text-on-primary text-xs font-black px-2 py-0.5 rounded uppercase tracking-widest">Admin View</span>
                           <div className="flex items-center gap-2 bg-surface-container-highest px-2 py-0.5 rounded border border-outline">
-                            <span className="text-[11px] font-black text-primary">G: {courseInterests.filter(i => (i.canonicalId || i.keyword) === selectedKeyword && i.type === 'giver').length}</span>
-                            <span className="text-[11px] font-black text-secondary">T: {courseInterests.filter(i => (i.canonicalId || i.keyword) === selectedKeyword && i.type === 'taker').length}</span>
+                            <span className="text-[11px] font-black text-primary">G: {courseInterests.filter(i => groupKeyOf(i) === selectedKeyword && i.type === 'giver').length}</span>
+                            <span className="text-[11px] font-black text-secondary">T: {courseInterests.filter(i => groupKeyOf(i) === selectedKeyword && i.type === 'taker').length}</span>
                           </div>
                         </div>
                       )}
@@ -597,7 +596,7 @@ export default function NetworkMap({ adminCourseId }: { adminCourseId?: string }
                         <p className="text-xs font-black text-primary flex items-center gap-1.5 uppercase tracking-widest">
                           <span className="material-symbols-outlined text-[14px]">tips_and_updates</span>
                           {(() => {
-                            const interests = courseInterests.filter(i => (i.canonicalId || i.keyword) === selectedKeyword && i.userId !== currentUser?.id);
+                            const interests = courseInterests.filter(i => groupKeyOf(i) === selectedKeyword && i.userId !== currentUser?.id);
                             if (interests.length === 0) return '캐쥬얼한 모임 추천';
                             const giverCount = interests.filter(i => i.type === 'giver').length;
                             const takerCount = interests.filter(i => i.type === 'taker').length;
@@ -858,9 +857,15 @@ function PersonalNetworkMap({ currentUser, db, onSelectUser, onSelectKeyword }: 
     const width = containerRef.current.clientWidth;
     const height = containerRef.current.clientHeight;
 
-    // 1. Get my keywords
-    const myInterests = db.interests.filter((i: any) => i.userId === currentUser.id);
-    const myKeywordIds = new Set(myInterests.map((i: any) => i.canonicalId || i.keyword));
+    // 1. 같은 과정 interest 만 사용해 도메인-스코프된 그룹 인덱스 빌드
+    const courseInterests = db.interests.filter((i: any) => {
+      const u = db.users.find((x: any) => x.id === i.userId);
+      return u && u.courseId === currentUser.courseId;
+    });
+    const idx = buildInterestKeyIndex(courseInterests, db.canonicalTerms);
+
+    const myInterests = courseInterests.filter((i: any) => i.userId === currentUser.id);
+    const myKeywordIds = new Set(myInterests.map((i: any) => idx.groupOf(i.id)));
 
     const simulationNodes: NetworkNode[] = [];
     const simulationLinks: NetworkLink[] = [];
@@ -876,8 +881,7 @@ function PersonalNetworkMap({ currentUser, db, onSelectUser, onSelectKeyword }: 
 
     // Add Keywords
     myKeywordIds.forEach((id: any) => {
-      const term = db.canonicalTerms?.find((t: any) => t.id === id);
-      const name = term ? term.term : id;
+      const name = idx.groups.get(id)?.displayName || id;
       simulationNodes.push({
         id: `kw-${id}`,
         type: 'keyword',
@@ -886,18 +890,20 @@ function PersonalNetworkMap({ currentUser, db, onSelectUser, onSelectKeyword }: 
       });
 
       // Link me to keyword
-      const myInt = myInterests.find((i: any) => (i.canonicalId || i.keyword) === id);
-      simulationLinks.push({
-        source: `user-${currentUser.id}`,
-        target: `kw-${id}`,
-        type: myInt.type
-      });
+      const myInt = myInterests.find((i: any) => idx.groupOf(i.id) === id);
+      if (myInt) {
+        simulationLinks.push({
+          source: `user-${currentUser.id}`,
+          target: `kw-${id}`,
+          type: myInt.type
+        });
+      }
 
-      // Add other users connected to this keyword
-      db.interests.forEach((i: any) => {
-        if ((i.canonicalId || i.keyword) === id && i.userId !== currentUser.id) {
+      // Add other users connected to this keyword (same group)
+      courseInterests.forEach((i: any) => {
+        if (idx.groupOf(i.id) === id && i.userId !== currentUser.id) {
           const u = db.users.find((user: any) => user.id === i.userId);
-          if (u && u.courseId === currentUser.courseId) {
+          if (u) {
             if (!simulationNodes.find(n => n.id === `user-${u.id}`)) {
               simulationNodes.push({
                 id: `user-${u.id}`,

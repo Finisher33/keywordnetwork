@@ -2,6 +2,7 @@ import React, { useMemo, useState, useRef, useEffect, type ReactNode } from 'rea
 import { useStore, User, UserInsight } from '../store';
 import { motion, AnimatePresence } from 'motion/react';
 import { summarizeInsights } from '../services/geminiService';
+import { buildInterestKeyIndex } from '../utils/networkUtils';
 
 // ─── 팔레트 ───────────────────────────────────────────────────────────────────
 
@@ -319,9 +320,11 @@ export default function TotalInsight({ courseId }: TotalInsightProps) {
 
   const networkStats = useMemo(() => {
     const courseInterests = db.interests.filter(i => userIds.has(i.userId));
+    // 같은 키워드 텍스트지만 canonicalId 가 다르게 들어온 경우도 단일 그룹으로 통합.
+    const idx = buildInterestKeyIndex(courseInterests, db.canonicalTerms);
     const kwData: Record<string, { users: Set<string>; givers: Set<string>; takers: Set<string>; items: any[] }> = {};
     courseInterests.forEach(i => {
-      const id = i.canonicalId || i.keyword;
+      const id = idx.groupOf(i.id);
       if (!kwData[id]) kwData[id] = { users: new Set(), givers: new Set(), takers: new Set(), items: [] };
       kwData[id].users.add(i.userId);
       kwData[id].items.push(i);
@@ -332,14 +335,14 @@ export default function TotalInsight({ courseId }: TotalInsightProps) {
       const count = data.users.size;
       const givers = data.givers.size;
       const takers = data.takers.size;
-      const term = db.canonicalTerms?.find(t => t.id === id);
       const giverRate = count > 0 ? Math.round((givers / count) * 100) : 0;
-      return { id, keyword: term ? term.term : id, count, items: data.items, givers, takers, giverRate, takerRate: 100 - giverRate };
+      const displayName = idx.groups.get(id)?.displayName || id;
+      return { id, keyword: displayName, count, items: data.items, givers, takers, giverRate, takerRate: 100 - giverRate };
     }).sort((a, b) => b.count - a.count).slice(0, 10);
 
     const userKeywords: Record<string, Set<string>> = {};
     courseUsers.forEach(u => {
-      userKeywords[u.id] = new Set(courseInterests.filter(i => i.userId === u.id).map(i => i.canonicalId || i.keyword));
+      userKeywords[u.id] = new Set(courseInterests.filter(i => i.userId === u.id).map(i => idx.groupOf(i.id)));
     });
     const users = Array.from(userIds) as string[];
     const userPairs: { u1: string; u2: string; weight: number }[] = [];
@@ -358,18 +361,17 @@ export default function TotalInsight({ courseId }: TotalInsightProps) {
       totalDegree += degree;
     });
     const topPartners = userPairs.sort((a, b) => b.weight - a.weight).slice(0, 3).map(p => {
-      const sharedKeywords = Array.from(userKeywords[p.u1]).filter(kw => userKeywords[p.u2].has(kw)).map(id => {
-        const term = db.canonicalTerms?.find(t => t.id === id);
-        return term ? term.term : id;
-      });
+      const sharedKeywords = Array.from(userKeywords[p.u1])
+        .filter(kw => userKeywords[p.u2].has(kw))
+        .map(id => idx.groups.get(id)?.displayName || id);
       return { user1: db.users.find(u => u.id === p.u1), user2: db.users.find(u => u.id === p.u2), weight: p.weight, sharedKeywords };
     });
     const superKeyword = top10[0];
     const heavyUser = courseUsers.map(u => ({ user: u, count: userKeywords[u.id]?.size || 0 })).sort((a, b) => b.count - a.count)[0];
     const bridgeKeyword = Object.entries(kwData).map(([id, data]) => {
-      const term = db.canonicalTerms?.find(t => t.id === id);
+      const displayName = idx.groups.get(id)?.displayName || id;
       const kwUsers = Array.from(new Set(data.items.map(i => i.userId)));
-      if (kwUsers.length < 2) return { id, keyword: term ? term.term : id, score: 0 };
+      if (kwUsers.length < 2) return { id, keyword: displayName, score: 0 };
       let totalDist = 0, pairs = 0;
       for (let i = 0; i < kwUsers.length; i++) {
         for (let j = i + 1; j < kwUsers.length; j++) {
@@ -381,7 +383,7 @@ export default function TotalInsight({ courseId }: TotalInsightProps) {
           totalDist += 1 - inter.length / union.size; pairs++;
         }
       }
-      return { id, keyword: term ? term.term : id, score: pairs > 0 ? totalDist / pairs : 0 };
+      return { id, keyword: displayName, score: pairs > 0 ? totalDist / pairs : 0 };
     }).sort((a, b) => b.score - a.score)[0];
     return { top10, totalConnections: totalDegree, topPartners, superKeyword, heavyUser, bridgeKeyword };
   }, [db.interests, userIds, courseUsers, db.users, db.canonicalTerms]);

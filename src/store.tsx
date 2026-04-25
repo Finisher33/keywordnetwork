@@ -123,6 +123,12 @@ export interface CanonicalTerm {
   id: string;
   term: string;
   embedding?: number[];
+  // 키워드 도메인 격리:
+  //   - 'insight'  : 학습 인사이트 키워드 (userInsights 가 참조)
+  //   - 'interest' : 유저 관심사 키워드 (interests 가 참조)
+  // 동일 단어("AI")라도 insight 측과 interest 측 canonicalId 가 분리되어 충돌 차단.
+  // 기존 데이터(legacy)는 kind 가 없을 수 있음 → 매칭 후보에서는 제외, 표시 lookup 만 가능.
+  kind?: 'insight' | 'interest';
 }
 
 export interface PresetInterest {
@@ -777,7 +783,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const canonicalizeKeyword = async (keyword: string) => {
+  const canonicalizeKeyword = async (keyword: string, kind: 'insight' | 'interest') => {
     const normalized = keyword.replace(/\s+/g, '').toLowerCase();
 
     const safeKeyId = (raw: string) =>
@@ -785,13 +791,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     // onSnapshot 반영 전인 세션-로컬 새 term도 함께 비교 (연속 저장 시 중복 생성 방지)
     // 같은 id는 중복 제거 — onSnapshot이 나중에 따라잡아도 문제 없음
-    const merged: CanonicalTerm[] = [...canonicalTerms];
+    const all: CanonicalTerm[] = [...canonicalTerms];
     const seen = new Set(canonicalTerms.map(t => t.id));
     for (const t of newCanonicalTermsRef.current) {
-      if (!seen.has(t.id)) merged.push(t);
+      if (!seen.has(t.id)) all.push(t);
     }
 
-    // 1) 정규화 후 exact match
+    // ★ 도메인 격리: 매칭은 같은 kind 끼리만. legacy(kind 없음) 는 매칭 제외.
+    const merged = all.filter(t => t.kind === kind);
+
+    // 1) 정규화 후 exact match (같은 도메인 내에서)
     for (const ct of merged) {
       const ctNormalized = (ct.term || '').replace(/\s+/g, '').toLowerCase();
       if (ctNormalized === normalized) {
@@ -829,9 +838,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
 
     // 새 term — 세션 캐시에도 즉시 반영 (stale closure 방지)
-    const newId = `ct_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-    newCanonicalTermsRef.current.push({ id: newId, term: keyword, embedding });
-    return { canonicalId: newId, term: keyword, embedding };
+    const newId = `ct_${kind}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    newCanonicalTermsRef.current.push({ id: newId, term: keyword, embedding, kind });
+    return { canonicalId: newId, term: keyword, embedding, kind };
   };
 
   const saveUserInsight = async (insight: UserInsight) => {
@@ -841,10 +850,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
     await ensureAuth();
     try {
-      const { canonicalId, term, embedding } = await canonicalizeKeyword(insight.keyword);
+      const { canonicalId, term, embedding } = await canonicalizeKeyword(insight.keyword, 'insight');
       const batch = writeBatch(firestore);
       if (!canonicalTerms.find(t => t.id === canonicalId)) {
-        batch.set(doc(firestore, 'canonicalTerms', canonicalId), sanitize({ id: canonicalId, term, embedding }));
+        batch.set(doc(firestore, 'canonicalTerms', canonicalId), sanitize({ id: canonicalId, term, embedding, kind: 'insight' }));
       }
       batch.set(doc(firestore, 'userInsights', insight.id), sanitize({ ...insight, canonicalId, likes: insight.likes || [] }));
       await batch.commit();
@@ -922,9 +931,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       // 2. Canonicalize and add new — canonicalization 실패 시 canonicalId 없이 저장
       for (const i of interestsToSave) {
         try {
-          const { canonicalId, term, embedding } = await canonicalizeKeyword(i.keyword);
+          const { canonicalId, term, embedding } = await canonicalizeKeyword(i.keyword, 'interest');
           if (!canonicalTerms.find(t => t.id === canonicalId)) {
-            batch.set(doc(firestore, 'canonicalTerms', canonicalId), sanitize({ id: canonicalId, term, embedding }));
+            batch.set(doc(firestore, 'canonicalTerms', canonicalId), sanitize({ id: canonicalId, term, embedding, kind: 'interest' }));
           }
           batch.set(doc(firestore, 'interests', i.id), sanitize({ ...i, canonicalId }));
         } catch {
@@ -990,7 +999,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const canonicalized = await Promise.all(
         newInterests.map(async (i) => {
           try {
-            const res = await canonicalizeKeyword(i.keyword);
+            const res = await canonicalizeKeyword(i.keyword, 'interest');
             return { i, res, ok: true as const };
           } catch {
             return { i, res: null, ok: false as const };
@@ -1002,7 +1011,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           const { canonicalId, term, embedding } = res;
           try {
             if (!canonicalTerms.find(t => t.id === canonicalId)) {
-              batch.set(doc(firestore, 'canonicalTerms', canonicalId), sanitize({ id: canonicalId, term, embedding }));
+              batch.set(doc(firestore, 'canonicalTerms', canonicalId), sanitize({ id: canonicalId, term, embedding, kind: 'interest' }));
             }
             batch.set(doc(firestore, 'interests', i.id), sanitize({ ...i, canonicalId }));
           } catch {
