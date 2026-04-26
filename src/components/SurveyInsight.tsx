@@ -1,5 +1,6 @@
 import { useMemo, useState, useRef, useEffect, ReactNode, CSSProperties, SyntheticEvent } from 'react';
 import { useStore, User } from '../store';
+import { groupByNormalizedKorean } from '../utils/normalizeKoreanWord';
 
 interface Props {
   courseId: string;
@@ -497,16 +498,15 @@ function WordCloudScene({
   const t = THEME[theme];
 
   const items = useMemo(() => {
-    const freq = new Map<string, { display: string; count: number }>();
+    // 한국어 표면 변형(조사/어미/공백/대소문자) 정규화 후 그룹화.
+    //   "두려움이" + "두려움 " + "Fear" + "fear" → 같은 그룹.
+    //   대표 표시는 가장 자주 쓰인 표면 형태 (동률 시 가장 짧은 형태).
+    const raws: string[] = [];
     users.forEach((u) => {
-      const raw = (u as any)[field];
-      if (typeof raw !== 'string' || !raw.trim()) return;
-      const key = raw.trim().toLowerCase().replace(/\s+/g, ' ');
-      const prev = freq.get(key);
-      if (prev) prev.count++;
-      else freq.set(key, { display: raw.trim(), count: 1 });
+      const v = (u as any)[field];
+      if (typeof v === 'string' && v.trim()) raws.push(v);
     });
-    return Array.from(freq.values()).sort((a, b) => b.count - a.count).slice(0, 40);
+    return groupByNormalizedKorean(raws).slice(0, 40);
   }, [users, field]);
 
   const maxCount = items[0]?.count || 1;
@@ -539,37 +539,73 @@ function WordCloudScene({
         </h2>
       </div>
 
-      <div className="absolute inset-0 pt-28 sm:pt-36 pb-10 px-6 flex items-center justify-center">
+      <div className="absolute inset-0 pt-24 sm:pt-32 pb-12 px-4 sm:px-6 flex items-center justify-center overflow-hidden">
         {items.length === 0 ? (
           <p className={`text-sm font-bold ${theme === 'exciting' ? 'text-slate-700' : 'text-white/80'}`} style={softStyle}>
             아직 응답이 없습니다.
           </p>
         ) : (
-          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 sm:gap-x-6 sm:gap-y-3 max-w-5xl">
-            {items.map((it, idx) => {
-              const weight = it.count / maxCount;
-              const size = 14 + Math.round(weight * 54);
-              const color = t.palette[idx % t.palette.length];
-              const rotate = (idx % 7 === 0) ? -6 : (idx % 5 === 0 ? 6 : 0);
-              return (
-                <span
-                  key={it.display + idx}
-                  style={{
-                    fontFamily: SOFT_FONT,
-                    fontSize: `${size}px`,
-                    color,
-                    textShadow: t.textShadow,
-                    transform: `rotate(${rotate}deg)`,
-                    fontWeight: 700,
-                    letterSpacing: '-0.01em',
-                    lineHeight: 1.1,
-                  }}
-                  title={`${it.display} · ${it.count}회`}
-                >
-                  {it.display}
-                </span>
-              );
-            })}
+          <div
+            className="flex flex-wrap items-center justify-center w-full max-w-5xl max-h-full overflow-hidden content-center"
+            style={{ gap: 'clamp(6px, 1vw, 12px)' }}
+          >
+            {(() => {
+              // 키워드 개수에 따라 최대 폰트 크기를 자동 축소 — 화면 밖으로 넘치지 않도록.
+              const n = items.length;
+              const maxFont = n > 30 ? 30 : n > 18 ? 38 : n > 10 ? 46 : 54;
+              const minFont = 13;
+              const range = maxFont - minFont;
+
+              // 키워드 별 구름/풍선 배경 색조 (3가지 미세 톤 순환).
+              // 너무 도드라지지 않도록 alpha 매우 낮게.
+              const isLight = theme === 'exciting';
+              const cloudBgs = isLight
+                ? ['rgba(255,255,255,0.55)', 'rgba(248,250,252,0.5)', 'rgba(241,245,249,0.55)']
+                : ['rgba(255,255,255,0.07)', 'rgba(255,255,255,0.10)', 'rgba(255,255,255,0.05)'];
+              const cloudBorders = isLight
+                ? ['rgba(15,23,42,0.10)', 'rgba(15,23,42,0.07)', 'rgba(15,23,42,0.12)']
+                : ['rgba(255,255,255,0.18)', 'rgba(255,255,255,0.13)', 'rgba(255,255,255,0.22)'];
+              const cloudShadow = isLight
+                ? '0 1px 2px rgba(15,23,42,0.06), 0 4px 12px rgba(15,23,42,0.04)'
+                : '0 1px 3px rgba(0,0,0,0.18), 0 4px 14px rgba(0,0,0,0.12)';
+
+              return items.map((it, idx) => {
+                const weight = it.count / maxCount;
+                const size = minFont + Math.round(weight * range);
+                const color = t.palette[idx % t.palette.length];
+                const rotate = (idx % 7 === 0) ? -3 : (idx % 5 === 0 ? 3 : 0);
+                const padX = Math.max(10, Math.round(size * 0.45));
+                const padY = Math.max(4, Math.round(size * 0.18));
+                return (
+                  <span
+                    key={it.display + idx}
+                    className="inline-flex items-center justify-center select-none"
+                    style={{
+                      fontFamily: SOFT_FONT,
+                      fontSize: `${size}px`,
+                      color,
+                      textShadow: t.textShadow,
+                      transform: `rotate(${rotate}deg)`,
+                      fontWeight: 700,
+                      letterSpacing: '-0.01em',
+                      lineHeight: 1.1,
+                      // 구름/풍선 형태 배경 — 미세 색조 차이로 키워드 구분
+                      background: cloudBgs[idx % cloudBgs.length],
+                      border: `1px solid ${cloudBorders[idx % cloudBorders.length]}`,
+                      borderRadius: '9999px',
+                      padding: `${padY}px ${padX}px`,
+                      boxShadow: cloudShadow,
+                      backdropFilter: 'blur(2px)',
+                      WebkitBackdropFilter: 'blur(2px)',
+                      whiteSpace: 'nowrap',
+                    }}
+                    title={`${it.display} · ${it.count}회`}
+                  >
+                    {it.display}
+                  </span>
+                );
+              });
+            })()}
           </div>
         )}
       </div>
