@@ -1,4 +1,5 @@
 import { useMemo, useState, useRef, useEffect, ReactNode, CSSProperties, SyntheticEvent } from 'react';
+import * as d3 from 'd3';
 import { useStore, User } from '../store';
 import { groupByNormalizedKorean } from '../utils/normalizeKoreanWord';
 
@@ -300,7 +301,7 @@ function ConditionScene({ users }: { users: User[] }) {
         })}
       </svg>
 
-      <div className="absolute inset-0 flex flex-col items-center px-4 sm:px-8 py-6 sm:py-8 overflow-y-auto">
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 sm:gap-5 px-4 sm:px-8 py-6 sm:py-10 overflow-y-auto">
         {/* 타이틀 */}
         <div className="text-center shrink-0">
           <p className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.4em] text-white/70" style={softStyle}>
@@ -316,7 +317,7 @@ function ConditionScene({ users }: { users: User[] }) {
 
         {/* 평균 (개별 탭 공개) */}
         {vals.length > 0 && (
-          <div className="mt-4 sm:mt-5 flex items-center gap-3 bg-white/90 backdrop-blur-sm rounded-2xl px-4 sm:px-6 py-2.5 sm:py-3 shadow-2xl border border-white/70">
+          <div className="flex items-center gap-3 bg-white/90 backdrop-blur-sm rounded-2xl px-4 sm:px-6 py-2.5 sm:py-3 shadow-2xl border border-white/70">
             <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-md">
               <span className="material-symbols-outlined text-white text-xl sm:text-2xl">mood</span>
             </div>
@@ -337,7 +338,7 @@ function ConditionScene({ users }: { users: User[] }) {
 
         {/* 세로 막대 그래프 */}
         {vals.length === 0 ? (
-          <p className="mt-10 text-white/80 text-sm font-bold" style={softStyle}>아직 응답이 없습니다.</p>
+          <p className="text-white/80 text-sm font-bold" style={softStyle}>아직 응답이 없습니다.</p>
         ) : (
           <div
             role="button"
@@ -345,7 +346,7 @@ function ConditionScene({ users }: { users: User[] }) {
             onClick={() => setChartRevealed((v) => !v)}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setChartRevealed((v) => !v); } }}
             title={chartRevealed ? '다시 가리기' : '그래프를 탭하여 전체 공개'}
-            className="mt-5 sm:mt-6 w-full max-w-3xl bg-white/10 backdrop-blur-sm rounded-2xl border border-white/15 p-3 sm:p-5 shadow-2xl cursor-pointer hover:bg-white/15 transition-colors text-left select-none"
+            className="w-full max-w-3xl bg-white/10 backdrop-blur-sm rounded-2xl border border-white/15 p-3 sm:p-5 shadow-2xl cursor-pointer hover:bg-white/15 transition-colors text-left select-none"
           >
             {/* 안내 배너 */}
             {!chartRevealed && (
@@ -486,6 +487,207 @@ const THEME: Record<WordTheme, {
   },
 };
 
+// ─── WordCloudBody: 가중치 비례 폰트 + 중앙→외곽 레이아웃 ───────────────────
+// 1) 폰트 크기는 count 에 strict 비례. count=4 는 count=1 의 4배 크기.
+//    - baseFont 를 maxAllowedFont / maxCount 로 잡아 화면을 넘지 않게 보정.
+// 2) 가장 큰 키워드를 정중앙에 고정 (fx/fy), 나머지는 D3 forceCollide 로
+//    서로 안 겹치게 펼치되 forceX/Y 로 중앙으로 끌어당겨 큰 것은 안쪽,
+//    작은 것은 자연스럽게 바깥쪽에 배치.
+function WordCloudBody({
+  items,
+  maxCount,
+  totalResp,
+  theme,
+  palette,
+  title,
+  subtitle,
+}: {
+  items: { key: string; display: string; count: number }[];
+  maxCount: number;
+  totalResp: number;
+  theme: WordTheme;
+  palette: string[];
+  title: string;
+  subtitle: string;
+}) {
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  const [positions, setPositions] = useState<{ x: number; y: number }[]>([]);
+
+  // 폰트 크기 — count 에 strict 비례. baseFont = maxAllowedFont / maxCount.
+  const n = items.length;
+  const maxAllowedFont = n > 30 ? 28 : n > 18 ? 36 : n > 10 ? 46 : 56;
+  const baseFont = maxCount > 0 ? maxAllowedFont / maxCount : maxAllowedFont;
+  const fontOf = (count: number) => Math.max(8, baseFont * count);
+
+  // 컨테이너 사이즈 추적 (전체화면 토글 / 리사이즈 대응)
+  useEffect(() => {
+    if (!stageRef.current) return;
+    const ro = new ResizeObserver((entries) => {
+      const r = entries[0]?.contentRect;
+      if (r && (r.width > 0 || r.height > 0)) {
+        setSize({ w: r.width, h: r.height });
+      }
+    });
+    ro.observe(stageRef.current);
+    return () => ro.disconnect();
+  }, []);
+
+  // 레이아웃 시뮬레이션
+  useEffect(() => {
+    if (size.w <= 0 || size.h <= 0 || items.length === 0) {
+      setPositions([]);
+      return;
+    }
+    const cx = size.w / 2;
+    const cy = size.h / 2;
+
+    type Node = d3.SimulationNodeDatum & { r: number; fx?: number | null; fy?: number | null };
+    // 각 단어의 충돌 반경 추정 (텍스트 폭 + padding)
+    const nodes: Node[] = items.map((it, idx) => {
+      const fs = fontOf(it.count);
+      const charW = fs * 0.62;          // 한글 평균 글자 폭
+      const padX = Math.max(12, fs * 0.55);
+      const padY = Math.max(6, fs * 0.28);
+      const widthPx = it.display.length * charW + padX * 2;
+      const heightPx = fs * 1.1 + padY * 2;
+      const r = Math.max(widthPx, heightPx) / 2 + 4;
+      // 초기 좌표: 중앙 + 약간의 jitter (idx 클수록 더 멀리)
+      const angle = idx * 2.4;
+      const dist = idx === 0 ? 0 : Math.sqrt(idx) * (r * 1.2);
+      return {
+        x: cx + Math.cos(angle) * dist,
+        y: cy + Math.sin(angle) * dist,
+        r,
+      };
+    });
+
+    // 가장 큰(=index 0) 키워드는 정중앙 고정
+    if (nodes[0]) { nodes[0].fx = cx; nodes[0].fy = cy; }
+
+    const sim = d3
+      .forceSimulation(nodes)
+      .force('x', d3.forceX(cx).strength(0.07))
+      .force('y', d3.forceY(cy).strength(0.07))
+      .force('collide', d3.forceCollide<Node>((d) => d.r).strength(1).iterations(6))
+      .alpha(1)
+      .alphaDecay(0.04)
+      .stop();
+
+    for (let i = 0; i < 320; i++) sim.tick();
+
+    setPositions(nodes.map((n) => ({ x: n.x as number, y: n.y as number })));
+  }, [items, size.w, size.h, baseFont]);
+
+  // 색상 톤
+  const isLight = theme === 'exciting';
+  const cloudBgs = isLight
+    ? ['rgba(255,255,255,0.70)', 'rgba(254,243,232,0.66)', 'rgba(232,243,255,0.66)']
+    : ['rgba(255,255,255,0.12)', 'rgba(255,236,202,0.10)', 'rgba(202,225,255,0.10)'];
+  const cloudBorders = isLight
+    ? ['rgba(15,23,42,0.08)', 'rgba(180,83,9,0.10)', 'rgba(30,64,175,0.10)']
+    : ['rgba(255,255,255,0.22)', 'rgba(252,211,77,0.18)', 'rgba(147,197,253,0.18)'];
+  const cloudShadow = isLight
+    ? '0 2px 6px rgba(15,23,42,0.05), 0 6px 18px rgba(15,23,42,0.04)'
+    : '0 2px 6px rgba(0,0,0,0.22), 0 6px 18px rgba(0,0,0,0.14)';
+  const inPillTextShadow = isLight
+    ? '0 1px 2px rgba(255,255,255,0.5)'
+    : '0 1px 3px rgba(0,0,0,0.5)';
+
+  return (
+    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 sm:gap-6 px-4 sm:px-6 py-8 sm:py-12 overflow-hidden">
+      {/* 타이틀 */}
+      <div className="text-center shrink-0">
+        <p
+          className={`text-[10px] sm:text-xs font-bold uppercase tracking-[0.4em] ${theme === 'exciting' ? 'text-slate-700/80' : 'text-white/70'}`}
+          style={softStyle}
+        >
+          {subtitle}
+        </p>
+        <h2
+          className={`mt-2 text-xl sm:text-3xl md:text-4xl font-bold drop-shadow-xl leading-snug ${theme === 'exciting' ? 'text-slate-900' : 'text-white'}`}
+          style={softStyle}
+        >
+          {title}
+        </h2>
+      </div>
+
+      {/* 워드클라우드 — 절대좌표 배치, 중앙→바깥 */}
+      {items.length === 0 ? (
+        <p className={`text-sm font-bold ${theme === 'exciting' ? 'text-slate-700' : 'text-white/80'}`} style={softStyle}>
+          아직 응답이 없습니다.
+        </p>
+      ) : (
+        <div
+          ref={stageRef}
+          className="relative w-full max-w-5xl"
+          style={{ flex: '1 1 auto', minHeight: 0 }}
+        >
+          {positions.length === items.length &&
+            items.map((it, idx) => {
+              const pos = positions[idx];
+              const fs = fontOf(it.count);
+              const color = palette[idx % palette.length];
+              const padX = Math.max(12, fs * 0.55);
+              const padY = Math.max(6, fs * 0.28);
+              return (
+                <span
+                  key={it.key + idx}
+                  className="absolute inline-flex items-center justify-center select-none"
+                  style={{
+                    left: pos.x,
+                    top: pos.y,
+                    transform: 'translate(-50%, -50%)',
+                    fontFamily: SOFT_FONT,
+                    fontSize: `${fs}px`,
+                    color,
+                    textShadow: inPillTextShadow,
+                    fontWeight: 700,
+                    letterSpacing: '-0.01em',
+                    lineHeight: 1.1,
+                    background: cloudBgs[idx % cloudBgs.length],
+                    border: `1px solid ${cloudBorders[idx % cloudBorders.length]}`,
+                    borderRadius: '9999px',
+                    padding: `${padY}px ${padX}px`,
+                    boxShadow: cloudShadow,
+                    backdropFilter: 'blur(3px)',
+                    WebkitBackdropFilter: 'blur(3px)',
+                    whiteSpace: 'nowrap',
+                    transition: 'left 0.4s ease, top 0.4s ease, font-size 0.3s ease',
+                  }}
+                  title={`${it.display} · ${it.count}회`}
+                >
+                  {it.display}
+                </span>
+              );
+            })}
+        </div>
+      )}
+
+      {/* 푸터: 응답 통계 */}
+      {items.length > 0 && (
+        <p
+          className={`text-[11px] sm:text-xs font-bold flex items-center justify-center gap-1.5 flex-wrap shrink-0 text-center ${theme === 'exciting' ? 'text-slate-700/80' : 'text-white/70'}`}
+          style={softStyle}
+        >
+          <ClickToReveal
+            value={<span>{items.length}</span>}
+            placeholder={<span className="opacity-60">??</span>}
+            className={`px-2 py-0.5 rounded-md ${theme === 'exciting' ? 'bg-slate-900/10 hover:bg-slate-900/20' : 'bg-white/15 hover:bg-white/25'}`}
+          />
+          개 고유 키워드 · 총
+          <ClickToReveal
+            value={<span>{totalResp}</span>}
+            placeholder={<span className="opacity-60">??</span>}
+            className={`px-2 py-0.5 rounded-md ${theme === 'exciting' ? 'bg-slate-900/10 hover:bg-slate-900/20' : 'bg-white/15 hover:bg-white/25'}`}
+          />
+          명 응답
+        </p>
+      )}
+    </div>
+  );
+}
+
 function WordCloudScene({
   users,
   field,
@@ -524,113 +726,15 @@ function WordCloudScene({
         <rect width="100%" height="100%" filter={`url(#noise-${theme})`} />
       </svg>
 
-      <div className="absolute top-6 sm:top-10 inset-x-0 text-center z-10 px-6">
-        <p
-          className={`text-[10px] sm:text-xs font-bold uppercase tracking-[0.4em] ${theme === 'exciting' ? 'text-slate-700/80' : 'text-white/70'}`}
-          style={softStyle}
-        >
-          {t.subtitle}
-        </p>
-        <h2
-          className={`mt-2 text-xl sm:text-3xl md:text-4xl font-bold drop-shadow-xl leading-snug ${theme === 'exciting' ? 'text-slate-900' : 'text-white'}`}
-          style={softStyle}
-        >
-          {t.title}
-        </h2>
-      </div>
-
-      <div className="absolute inset-0 pt-24 sm:pt-32 pb-12 px-4 sm:px-6 flex items-center justify-center overflow-hidden">
-        {items.length === 0 ? (
-          <p className={`text-sm font-bold ${theme === 'exciting' ? 'text-slate-700' : 'text-white/80'}`} style={softStyle}>
-            아직 응답이 없습니다.
-          </p>
-        ) : (
-          <div
-            className="flex flex-wrap items-center justify-center w-full max-w-5xl max-h-full overflow-hidden content-center"
-            style={{ gap: 'clamp(6px, 1vw, 12px)' }}
-          >
-            {(() => {
-              // 키워드 개수에 따라 최대 폰트 크기를 자동 축소 — 화면 밖으로 넘치지 않도록.
-              const n = items.length;
-              const maxFont = n > 30 ? 30 : n > 18 ? 38 : n > 10 ? 46 : 54;
-              const minFont = 13;
-              const range = maxFont - minFont;
-
-              // 키워드 별 구름/풍선 배경 색조 (3가지 미세 톤 순환).
-              // 너무 도드라지지 않도록 alpha 매우 낮게.
-              const isLight = theme === 'exciting';
-              const cloudBgs = isLight
-                ? ['rgba(255,255,255,0.55)', 'rgba(248,250,252,0.5)', 'rgba(241,245,249,0.55)']
-                : ['rgba(255,255,255,0.07)', 'rgba(255,255,255,0.10)', 'rgba(255,255,255,0.05)'];
-              const cloudBorders = isLight
-                ? ['rgba(15,23,42,0.10)', 'rgba(15,23,42,0.07)', 'rgba(15,23,42,0.12)']
-                : ['rgba(255,255,255,0.18)', 'rgba(255,255,255,0.13)', 'rgba(255,255,255,0.22)'];
-              const cloudShadow = isLight
-                ? '0 1px 2px rgba(15,23,42,0.06), 0 4px 12px rgba(15,23,42,0.04)'
-                : '0 1px 3px rgba(0,0,0,0.18), 0 4px 14px rgba(0,0,0,0.12)';
-
-              return items.map((it, idx) => {
-                const weight = it.count / maxCount;
-                const size = minFont + Math.round(weight * range);
-                const color = t.palette[idx % t.palette.length];
-                const rotate = (idx % 7 === 0) ? -3 : (idx % 5 === 0 ? 3 : 0);
-                const padX = Math.max(10, Math.round(size * 0.45));
-                const padY = Math.max(4, Math.round(size * 0.18));
-                return (
-                  <span
-                    key={it.display + idx}
-                    className="inline-flex items-center justify-center select-none"
-                    style={{
-                      fontFamily: SOFT_FONT,
-                      fontSize: `${size}px`,
-                      color,
-                      textShadow: t.textShadow,
-                      transform: `rotate(${rotate}deg)`,
-                      fontWeight: 700,
-                      letterSpacing: '-0.01em',
-                      lineHeight: 1.1,
-                      // 구름/풍선 형태 배경 — 미세 색조 차이로 키워드 구분
-                      background: cloudBgs[idx % cloudBgs.length],
-                      border: `1px solid ${cloudBorders[idx % cloudBorders.length]}`,
-                      borderRadius: '9999px',
-                      padding: `${padY}px ${padX}px`,
-                      boxShadow: cloudShadow,
-                      backdropFilter: 'blur(2px)',
-                      WebkitBackdropFilter: 'blur(2px)',
-                      whiteSpace: 'nowrap',
-                    }}
-                    title={`${it.display} · ${it.count}회`}
-                  >
-                    {it.display}
-                  </span>
-                );
-              });
-            })()}
-          </div>
-        )}
-      </div>
-
-      {items.length > 0 && (
-        <div className="absolute bottom-4 inset-x-0 text-center z-10 px-6">
-          <p
-            className={`text-[11px] sm:text-xs font-bold flex items-center justify-center gap-1.5 flex-wrap ${theme === 'exciting' ? 'text-slate-700/80' : 'text-white/70'}`}
-            style={softStyle}
-          >
-            <ClickToReveal
-              value={<span>{items.length}</span>}
-              placeholder={<span className="opacity-60">??</span>}
-              className={`px-2 py-0.5 rounded-md ${theme === 'exciting' ? 'bg-slate-900/10 hover:bg-slate-900/20' : 'bg-white/15 hover:bg-white/25'}`}
-            />
-            개 고유 키워드 · 총
-            <ClickToReveal
-              value={<span>{totalResp}</span>}
-              placeholder={<span className="opacity-60">??</span>}
-              className={`px-2 py-0.5 rounded-md ${theme === 'exciting' ? 'bg-slate-900/10 hover:bg-slate-900/20' : 'bg-white/15 hover:bg-white/25'}`}
-            />
-            명 응답
-          </p>
-        </div>
-      )}
+      <WordCloudBody
+        items={items}
+        maxCount={maxCount}
+        totalResp={totalResp}
+        theme={theme}
+        palette={t.palette}
+        title={t.title}
+        subtitle={t.subtitle}
+      />
     </>
   );
 }
