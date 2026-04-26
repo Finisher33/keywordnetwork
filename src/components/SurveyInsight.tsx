@@ -1,5 +1,4 @@
 import { useMemo, useState, useRef, useEffect, ReactNode, CSSProperties, SyntheticEvent } from 'react';
-import * as d3 from 'd3';
 import { useStore, User } from '../store';
 import { groupByNormalizedKorean } from '../utils/normalizeKoreanWord';
 
@@ -517,8 +516,20 @@ function WordCloudBody({
   // 폰트 크기 — count 에 strict 비례. baseFont = maxAllowedFont / maxCount.
   const n = items.length;
   const maxAllowedFont = n > 30 ? 28 : n > 18 ? 36 : n > 10 ? 46 : 56;
-  const baseFont = maxCount > 0 ? maxAllowedFont / maxCount : maxAllowedFont;
-  const fontOf = (count: number) => Math.max(8, baseFont * count);
+  const rawBaseFont = maxCount > 0 ? maxAllowedFont / maxCount : maxAllowedFont;
+  // 컨테이너에 맞춰 비례 축소된 baseFont (가장 큰 키워드가 폭을 넘지 않도록).
+  // 렌더 단계와 layout effect 가 동일 값을 사용하도록 state 로 보관.
+  const [safeBaseFont, setSafeBaseFont] = useState(rawBaseFont);
+
+  // 텍스트 박스 (풍선 외곽) 추정 — 정렬·충돌 모두 같은 박스 사용
+  const boxOf = (display: string, fs: number) => {
+    const charW = fs * 0.62;
+    const padX = Math.max(12, fs * 0.55);
+    const padY = Math.max(6, fs * 0.28);
+    const w = Math.max(fs * 1.6, display.length * charW + padX * 2);
+    const h = fs * 1.1 + padY * 2;
+    return { w, h };
+  };
 
   // 컨테이너 사이즈 추적 (전체화면 토글 / 리사이즈 대응)
   useEffect(() => {
@@ -533,7 +544,9 @@ function WordCloudBody({
     return () => ro.disconnect();
   }, []);
 
-  // 레이아웃 시뮬레이션
+  // 레이아웃 — Archimedean spiral + AABB 충돌 검사로 절대 겹치지 않게 배치.
+  // 가장 큰(빈도 1순위) 키워드를 정중앙에 두고, 나머지는 중앙에서 나선형으로
+  // 빈 자리를 찾아 배치 → 자연스러운 중앙→외곽 분포 + 겹침 0.
   useEffect(() => {
     if (size.w <= 0 || size.h <= 0 || items.length === 0) {
       setPositions([]);
@@ -541,43 +554,75 @@ function WordCloudBody({
     }
     const cx = size.w / 2;
     const cy = size.h / 2;
+    const GAP = 6; // 풍선 간 최소 여백
 
-    type Node = d3.SimulationNodeDatum & { r: number; fx?: number | null; fy?: number | null };
-    // 각 단어의 충돌 반경 추정 (텍스트 폭 + padding)
-    const nodes: Node[] = items.map((it, idx) => {
-      const fs = fontOf(it.count);
-      const charW = fs * 0.62;          // 한글 평균 글자 폭
-      const padX = Math.max(12, fs * 0.55);
-      const padY = Math.max(6, fs * 0.28);
-      const widthPx = it.display.length * charW + padX * 2;
-      const heightPx = fs * 1.1 + padY * 2;
-      const r = Math.max(widthPx, heightPx) / 2 + 4;
-      // 초기 좌표: 중앙 + 약간의 jitter (idx 클수록 더 멀리)
-      const angle = idx * 2.4;
-      const dist = idx === 0 ? 0 : Math.sqrt(idx) * (r * 1.2);
-      return {
-        x: cx + Math.cos(angle) * dist,
-        y: cy + Math.sin(angle) * dist,
-        r,
-      };
-    });
+    // 가장 큰 단어가 컨테이너 너비를 초과하면 모든 폰트를 비례 축소 (strict ratio 유지)
+    const largest = items[0];
+    const largestFs = rawBaseFont * largest.count;
+    let safeBase = rawBaseFont;
+    const maxBox = boxOf(largest.display, largestFs);
+    const widthBudget = size.w * 0.92;
+    if (maxBox.w > widthBudget) {
+      safeBase = rawBaseFont * (widthBudget / maxBox.w);
+    }
+    const fontFinal = (count: number) => Math.max(8, safeBase * count);
 
-    // 가장 큰(=index 0) 키워드는 정중앙 고정
-    if (nodes[0]) { nodes[0].fx = cx; nodes[0].fy = cy; }
+    type Box = { x: number; y: number; w: number; h: number };
+    const placed: Box[] = [];
 
-    const sim = d3
-      .forceSimulation(nodes)
-      .force('x', d3.forceX(cx).strength(0.07))
-      .force('y', d3.forceY(cy).strength(0.07))
-      .force('collide', d3.forceCollide<Node>((d) => d.r).strength(1).iterations(6))
-      .alpha(1)
-      .alphaDecay(0.04)
-      .stop();
+    const fits = (x: number, y: number, w: number, h: number): boolean => {
+      for (const p of placed) {
+        const dx = Math.abs(x - p.x);
+        const dy = Math.abs(y - p.y);
+        if (dx < (w + p.w) / 2 + GAP && dy < (h + p.h) / 2 + GAP) return false;
+      }
+      return true;
+    };
 
-    for (let i = 0; i < 320; i++) sim.tick();
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      const fs = fontFinal(it.count);
+      const { w, h } = boxOf(it.display, fs);
 
-    setPositions(nodes.map((n) => ({ x: n.x as number, y: n.y as number })));
-  }, [items, size.w, size.h, baseFont]);
+      if (i === 0) {
+        // 빈도 1순위 → 정중앙
+        placed.push({ x: cx, y: cy, w, h });
+        continue;
+      }
+
+      // Archimedean nautilus: r = b * θ, 작은 단어부터 빈 자리 탐색.
+      // step 은 단어 크기에 따라 가변(작은 단어는 더 촘촘)
+      const stepAngle = 0.18;
+      const stepR = Math.max(2.5, Math.min(w, h) * 0.06);
+      const maxR = Math.max(size.w, size.h);
+      let found = false;
+      for (let theta = 0; theta < 1000; theta += stepAngle) {
+        const r = stepR * theta;
+        if (r > maxR) break;
+        const x = cx + r * Math.cos(theta);
+        const y = cy + r * Math.sin(theta);
+        if (fits(x, y, w, h)) {
+          placed.push({ x, y, w, h });
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        // 극단적인 경우 fallback — 컨테이너 가장자리에 임의 배치
+        placed.push({
+          x: cx + (Math.random() - 0.5) * size.w * 0.8,
+          y: cy + (Math.random() - 0.5) * size.h * 0.8,
+          w,
+          h,
+        });
+      }
+    }
+
+    setPositions(placed.map((p) => ({ x: p.x, y: p.y })));
+    setSafeBaseFont(safeBase);
+  }, [items, size.w, size.h, rawBaseFont]);
+
+  const fontOf = (count: number) => Math.max(8, safeBaseFont * count);
 
   // 색상 톤
   const isLight = theme === 'exciting';
