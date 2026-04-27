@@ -299,7 +299,6 @@ export default function QuickSurvey({ onComplete }: QuickSurveyProps) {
           <QuestionCard
             icon="format_quote"
             title="회사에서 들었던 가장 기억에 남는 한마디는?"
-            hint="짧고 인상 깊었던 한 문장"
             error={errors.memorableQuote}
             accent="secondary"
           >
@@ -316,7 +315,6 @@ export default function QuickSurvey({ onComplete }: QuickSurveyProps) {
           <QuestionCard
             icon="warning"
             title="요즘 나를 가장 두렵게 하는 단어는?"
-            hint="떠오르는 한 단어"
             error={errors.fearWord}
             accent="rose"
           >
@@ -333,7 +331,6 @@ export default function QuickSurvey({ onComplete }: QuickSurveyProps) {
           <QuestionCard
             icon="favorite"
             title="요즘 나를 가장 설레게 하는 단어는?"
-            hint="가슴 뛰는 한 단어"
             error={errors.excitingWord}
             accent="amber"
           >
@@ -361,11 +358,6 @@ export default function QuickSurvey({ onComplete }: QuickSurveyProps) {
                 </span>
                 <span className="text-lg font-bold text-on-surface-variant">년차</span>
               </div>
-              {careerYears !== null && (
-                <span className="text-[11px] font-bold text-on-surface-variant/70">
-                  {careerYears <= 5 ? '주니어' : careerYears <= 15 ? '시니어' : careerYears <= 25 ? '리더' : '마스터'}
-                </span>
-              )}
             </div>
             <ScaleSlider
               value={careerYears}

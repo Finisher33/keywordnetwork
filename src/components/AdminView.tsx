@@ -224,6 +224,14 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
   };
 
 
+  // 세션 복사 — 텍스트 메타정보만 새 doc 으로 복제.
+  // [복사되는 것]   name / time / module / day / contents / instructor
+  // [복사되지 않음] id (genId 로 새로 발급), courseId (도착지로 변경),
+  //                userInsights (sessionId 가 원본 ID 라 자동 분리),
+  //                interests / teaTimeRequests / canonicalTerms (세션과 무관),
+  //                isActive (도착지에서 항상 true 로 새로 시작),
+  //                order (도착지 끝 번호로 새로 부여), objectives (UI 제거됨)
+  // → 원본 과정의 사용자 입력 데이터와 100% 격리.
   const handleCopySessions = async () => {
     if (!selectedCourseId || !copySourceCourseId || copySelectedIds.length === 0) {
       showStatus('error', '복사할 세션을 선택해주세요.');
@@ -231,7 +239,15 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
     }
     setIsProcessing(true);
     try {
-      const sessionsToCopy = db.sessions.filter(s => copySelectedIds.includes(s.id));
+      // 도착지 과정의 마지막 order 값 산출 → 복사본을 그 뒤에 이어붙임
+      const destExisting = db.sessions.filter(s => s.courseId === selectedCourseId);
+      const maxOrder = destExisting.reduce((m, s) => {
+        const o = typeof s.order === 'number' ? s.order : -1;
+        return o > m ? o : m;
+      }, -1);
+
+      // 원본의 정렬 순서 유지 (sortSessions) — 원본 화면 순서대로 복사됨
+      const sessionsToCopy = sortSessions(db.sessions.filter(s => copySelectedIds.includes(s.id)));
       for (let i = 0; i < sessionsToCopy.length; i++) {
         const src = sessionsToCopy[i];
         await addSession({
@@ -244,6 +260,7 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
           contents: src.contents,
           instructor: src.instructor,
           isActive: true,
+          order: maxOrder + 1 + i,
         });
       }
       setCopySelectedIds([]);

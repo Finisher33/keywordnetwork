@@ -20,11 +20,10 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
 
   const [activeTab, setActiveTab] = useState<'my' | 'classroom'>(adminCourseId ? 'classroom' : 'my');
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
-  // 초기 선택: 정렬된 세션 목록의 첫 번째(활성 우선, 동률 시 order 순)
+  // 초기 선택: 정렬된 활성 세션 중 첫 번째 (없으면 빈 문자열)
   const [classroomSessionId, setClassroomSessionId] = useState<string>(() => {
-    const courseList = sortSessions(db.sessions.filter(s => s.courseId === effectiveCourseId));
-    const firstActive = courseList.find(s => s.isActive);
-    return (firstActive || courseList[0])?.id || '';
+    const list = sortSessions(db.sessions.filter(s => s.courseId === effectiveCourseId && s.isActive));
+    return list[0]?.id || '';
   });
 
   const [keyword, setKeyword] = useState('');
@@ -767,11 +766,9 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
                       onChange={e => setClassroomSessionId(e.target.value)}
                       className="w-full bg-white border border-outline rounded-lg px-4 py-3 text-sm font-black text-primary outline-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer uppercase tracking-tight"
                     >
-                      {/* 활성/비활성 모두 어드민 설정 순서대로 노출. 비활성은 라벨에 표기. */}
-                      {sortSessions(db.sessions.filter(s => s.courseId === effectiveCourseId)).map(s => (
-                        <option key={s.id} value={s.id}>
-                          {s.name}{!s.isActive ? '  · 비활성' : ''}
-                        </option>
+                      {/* 어드민 활성화 토글된 세션만 어드민 설정 순서대로 노출. */}
+                      {activeSessions.map(s => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
                       ))}
                     </select>
                     <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-primary">expand_more</span>
@@ -1063,18 +1060,11 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
                       const isLiked = insight.likes?.includes(currentUser?.id || '');
                       // 해당 리더가 세션마다 작성한 인사이트 키워드 = 해시태그
                       // (관심사가 아닌 학습 인사이트 키워드를 노출 — 동일 인사이트는 1회만 표시)
-                      const userInsightTags = (() => {
-                        const seen = new Set<string>();
-                        const out: { keyword: string; isCurrent: boolean }[] = [];
-                        for (const it of db.userInsights) {
-                          if (it.userId !== insight.userId) continue;
-                          const k = it.keyword.trim();
-                          if (!k || seen.has(k)) continue;
-                          seen.add(k);
-                          out.push({ keyword: k, isCurrent: it.id === insight.id });
-                        }
-                        return out;
-                      })();
+                      // 해당 유저가 "이 세션" 에 작성한 인사이트 키워드 1건만 노출.
+                      // (이전: 모든 세션의 키워드를 표시)
+                      const userInsightTags = insight.keyword?.trim()
+                        ? [{ keyword: insight.keyword.trim(), isCurrent: true }]
+                        : [];
 
                     return (
                       <div key={insight.id} className="bg-surface-container-lowest p-5 rounded-2xl border border-outline-variant/10 space-y-4 shadow-sm">

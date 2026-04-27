@@ -98,6 +98,8 @@ export default function LibraryView() {
   const [replyingToReq, setReplyingToReq] = useState<TeaTimeRequest | null>(null);
   const [search, setSearch] = useState('');
   const [selectedKeyword, setSelectedKeyword] = useState<string | null>(null);
+  // 키워드 선택 시 Giver/Taker 필터 (none = 전체)
+  const [roleFilter, setRoleFilter] = useState<'all' | 'giver' | 'taker'>('all');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleRefresh = async () => {
@@ -150,15 +152,17 @@ export default function LibraryView() {
           if (!matches) return false;
         }
         if (selectedKeyword) {
-          const hasKeyword = db.interests.some(
+          const matched = db.interests.filter(
             (i: Interest) => i.userId === u.id && i.keyword.trim() === selectedKeyword
           );
-          if (!hasKeyword) return false;
+          if (matched.length === 0) return false;
+          if (roleFilter === 'giver' && !matched.some(i => i.type === 'giver')) return false;
+          if (roleFilter === 'taker' && !matched.some(i => i.type === 'taker')) return false;
         }
         return true;
       })
       .sort((a, b) => a.name.localeCompare(b.name, 'ko'));
-  }, [courseUsers, search, selectedKeyword, db.interests]);
+  }, [courseUsers, search, selectedKeyword, roleFilter, db.interests]);
 
   const handleSend = (toUserId: string, message: string) => {
     const exists = db.teaTimeRequests.find(r =>
@@ -215,7 +219,7 @@ export default function LibraryView() {
           <p className="text-[11px] font-bold uppercase tracking-widest text-on-surface-variant">키워드로 필터</p>
           <div className="flex flex-wrap gap-1.5">
             <button
-              onClick={() => setSelectedKeyword(null)}
+              onClick={() => { setSelectedKeyword(null); setRoleFilter('all'); }}
               className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border transition-all ${
                 !selectedKeyword
                   ? 'bg-primary text-on-primary border-primary shadow-sm'
@@ -223,13 +227,14 @@ export default function LibraryView() {
               }`}
             >
               <span>전체</span>
+              <span className={`text-[10px] ${!selectedKeyword ? 'text-on-primary/70' : 'text-on-surface-variant/60'}`}>{courseUsers.length}</span>
             </button>
             {allKeywords.map(({ keyword, count }) => {
               const active = selectedKeyword === keyword;
               return (
                 <button
                   key={keyword}
-                  onClick={() => setSelectedKeyword(active ? null : keyword)}
+                  onClick={() => { setSelectedKeyword(active ? null : keyword); setRoleFilter('all'); }}
                   className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border transition-all ${
                     active
                       ? 'bg-primary text-on-primary border-primary shadow-sm'
@@ -245,14 +250,34 @@ export default function LibraryView() {
         </div>
       )}
 
-      {/* Result count */}
+      {/* Result count + (선택 키워드 있을 때) Giver/Taker 정렬 토글 */}
       {(search || selectedKeyword) && (
-        <p className="text-xs text-on-surface-variant">
-          검색 결과 <span className="font-bold text-primary">{filteredUsers.length}</span>명
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <p className="text-xs text-on-surface-variant">
+            검색 결과 <span className="font-bold text-primary">{filteredUsers.length}</span>명
+            {selectedKeyword && (
+              <span className="ml-1">· <span className="font-bold text-primary">#{selectedKeyword}</span> 관심 리더</span>
+            )}
+          </p>
           {selectedKeyword && (
-            <span className="ml-1">· <span className="font-bold text-primary">#{selectedKeyword}</span> 관심 리더</span>
+            <div className="inline-flex items-center bg-surface-container-low border border-outline rounded-full p-0.5 text-[10px] font-black uppercase tracking-widest">
+              {(['all','giver','taker'] as const).map(opt => {
+                const label = opt === 'all' ? '전체' : opt === 'giver' ? 'Giver' : 'Taker';
+                const active = roleFilter === opt;
+                const color = opt === 'giver' ? 'bg-primary text-on-primary' : opt === 'taker' ? 'bg-secondary text-on-secondary' : 'bg-on-surface text-surface';
+                return (
+                  <button
+                    key={opt}
+                    onClick={() => setRoleFilter(opt)}
+                    className={`px-2.5 py-1 rounded-full transition-all ${active ? `${color} shadow-sm` : 'text-on-surface-variant hover:text-on-surface'}`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
           )}
-        </p>
+        </div>
       )}
 
       {/* Gallery Grid */}
@@ -322,22 +347,23 @@ export default function LibraryView() {
                 {uInterests.length > 0 ? (
                   <div className="space-y-2 flex-1">
                     {selectedKeyword ? (
-                      /* 필터 선택 시: 해당 키워드 관심사만 Giver/Taker 라벨과 함께 표시 */
+                      /* 필터 선택 시: 해당 키워드 관심사 — Giver/Taker 유형 + 안내문구 + 설명 (해시태그 미표기) */
                       (() => {
-                        const matched = uInterests.filter((i: Interest) => i.keyword.trim() === selectedKeyword);
+                        let matched = uInterests.filter((i: Interest) => i.keyword.trim() === selectedKeyword);
+                        if (roleFilter === 'giver') matched = matched.filter(i => i.type === 'giver');
+                        if (roleFilter === 'taker') matched = matched.filter(i => i.type === 'taker');
                         return matched.map((i: Interest) => (
                           <div key={i.id} className={`border rounded-lg px-2.5 py-1.5 ${i.type === 'giver' ? 'bg-primary/5 border-primary/15' : 'bg-secondary/5 border-secondary/15'}`}>
-                            <div className="flex items-center gap-1.5 mb-0.5 min-w-0 overflow-hidden">
+                            <div className="flex items-center gap-1.5 mb-1">
                               <span className={`text-[10px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded shrink-0 ${i.type === 'giver' ? 'bg-primary text-on-primary' : 'bg-secondary text-on-secondary'}`}>
                                 {i.type === 'giver' ? 'Giver' : 'Taker'}
                               </span>
-                              <span className={`text-[9px] font-normal text-on-surface-variant truncate`}>
-                                · {i.type === 'giver' ? '도움을 드릴 수 있어요.' : '도움을 받고 싶어요.'}
+                              <span className="text-[10px] font-medium text-on-surface-variant">
+                                {i.type === 'giver' ? '도움을 드릴 수 있어요.' : '도움을 받고 싶어요.'}
                               </span>
-                              <p className={`text-[11px] font-bold shrink-0 ml-auto ${i.type === 'giver' ? 'text-primary' : 'text-secondary'}`}>#{i.keyword}</p>
                             </div>
                             {i.description && (
-                              <p className="text-[10px] text-on-surface-variant leading-relaxed line-clamp-2">{i.description}</p>
+                              <p className="text-[11px] text-on-surface leading-relaxed">{i.description}</p>
                             )}
                           </div>
                         ));
