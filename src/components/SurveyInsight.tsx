@@ -434,11 +434,7 @@ function ConditionScene({ users }: { users: User[] }) {
                 style={softStyle}
               >
                 총
-                <ClickToReveal
-                  value={<span>{vals.length}</span>}
-                  placeholder={<span className="opacity-60">??</span>}
-                  className="px-2 py-0.5 rounded-md bg-white/15 hover:bg-white/25"
-                />
+                <span className="px-2 py-0.5 rounded-md bg-white/15">{vals.length}</span>
                 명 응답 · 10점 만점 기준
               </p>
             </div>
@@ -554,72 +550,86 @@ function WordCloudBody({
     }
     const cx = size.w / 2;
     const cy = size.h / 2;
-    const GAP = 6; // 풍선 간 최소 여백
+    // 풍선 간 최소 여백 — 윤곽선까지 확실히 떨어져 보이도록 충분히 키움
+    const GAP = 14;
 
-    // 가장 큰 단어가 컨테이너 너비를 초과하면 모든 폰트를 비례 축소 (strict ratio 유지)
+    // 1차 시도: rawBaseFont 로 그대로 배치. 박스 너비가 컨테이너를 초과하면 1차 축소.
     const largest = items[0];
-    const largestFs = rawBaseFont * largest.count;
+    const largestFs0 = rawBaseFont * largest.count;
     let safeBase = rawBaseFont;
-    const maxBox = boxOf(largest.display, largestFs);
-    const widthBudget = size.w * 0.92;
-    if (maxBox.w > widthBudget) {
-      safeBase = rawBaseFont * (widthBudget / maxBox.w);
+    const maxBox0 = boxOf(largest.display, largestFs0);
+    const widthBudget = size.w * 0.94;
+    if (maxBox0.w > widthBudget) {
+      safeBase = rawBaseFont * (widthBudget / maxBox0.w);
     }
-    const fontFinal = (count: number) => Math.max(8, safeBase * count);
 
     type Box = { x: number; y: number; w: number; h: number };
-    const placed: Box[] = [];
 
-    const fits = (x: number, y: number, w: number, h: number): boolean => {
-      for (const p of placed) {
-        const dx = Math.abs(x - p.x);
-        const dy = Math.abs(y - p.y);
-        if (dx < (w + p.w) / 2 + GAP && dy < (h + p.h) / 2 + GAP) return false;
+    // 한번의 spiral 배치 시도 — 주어진 baseFont 로 모든 단어를 배치
+    const tryLayout = (base: number): { placed: Box[]; bbox: { minX: number; maxX: number; minY: number; maxY: number } } => {
+      const placed: Box[] = [];
+      const fits = (x: number, y: number, w: number, h: number): boolean => {
+        for (const p of placed) {
+          const dx = Math.abs(x - p.x);
+          const dy = Math.abs(y - p.y);
+          if (dx < (w + p.w) / 2 + GAP && dy < (h + p.h) / 2 + GAP) return false;
+        }
+        return true;
+      };
+      for (let i = 0; i < items.length; i++) {
+        const it = items[i];
+        const fs = Math.max(8, base * it.count);
+        const { w, h } = boxOf(it.display, fs);
+        if (i === 0) { placed.push({ x: cx, y: cy, w, h }); continue; }
+        const stepAngle = 0.18;
+        const stepR = Math.max(3, Math.min(w, h) * 0.08);
+        // 매우 큰 maxR — 일단 자유롭게 펼치고 나중에 fit 으로 축소
+        const maxR = Math.max(size.w, size.h) * 6;
+        let found = false;
+        for (let theta = 0; theta < 4000 && !found; theta += stepAngle) {
+          const r = stepR * theta;
+          if (r > maxR) break;
+          const x = cx + r * Math.cos(theta);
+          const y = cy + r * Math.sin(theta);
+          if (fits(x, y, w, h)) { placed.push({ x, y, w, h }); found = true; }
+        }
+        if (!found) placed.push({ x: cx + (Math.random()-0.5)*size.w, y: cy + (Math.random()-0.5)*size.h, w, h });
       }
-      return true;
+      // 전체 bounding box
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      for (const p of placed) {
+        minX = Math.min(minX, p.x - p.w / 2);
+        maxX = Math.max(maxX, p.x + p.w / 2);
+        minY = Math.min(minY, p.y - p.h / 2);
+        maxY = Math.max(maxY, p.y + p.h / 2);
+      }
+      return { placed, bbox: { minX, maxX, minY, maxY } };
     };
 
-    for (let i = 0; i < items.length; i++) {
-      const it = items[i];
-      const fs = fontFinal(it.count);
-      const { w, h } = boxOf(it.display, fs);
-
-      if (i === 0) {
-        // 빈도 1순위 → 정중앙
-        placed.push({ x: cx, y: cy, w, h });
-        continue;
-      }
-
-      // Archimedean nautilus: r = b * θ, 작은 단어부터 빈 자리 탐색.
-      // step 은 단어 크기에 따라 가변(작은 단어는 더 촘촘)
-      const stepAngle = 0.18;
-      const stepR = Math.max(2.5, Math.min(w, h) * 0.06);
-      const maxR = Math.max(size.w, size.h);
-      let found = false;
-      for (let theta = 0; theta < 1000; theta += stepAngle) {
-        const r = stepR * theta;
-        if (r > maxR) break;
-        const x = cx + r * Math.cos(theta);
-        const y = cy + r * Math.sin(theta);
-        if (fits(x, y, w, h)) {
-          placed.push({ x, y, w, h });
-          found = true;
-          break;
-        }
-      }
-      if (!found) {
-        // 극단적인 경우 fallback — 컨테이너 가장자리에 임의 배치
-        placed.push({
-          x: cx + (Math.random() - 0.5) * size.w * 0.8,
-          y: cy + (Math.random() - 0.5) * size.h * 0.8,
-          w,
-          h,
-        });
-      }
+    // 첫 배치 + fit-to-container 균등 축소 (strict 비율 유지)
+    const targetW = size.w * 0.96;
+    const targetH = size.h * 0.96;
+    const { placed, bbox } = tryLayout(safeBase);
+    const layoutW = bbox.maxX - bbox.minX;
+    const layoutH = bbox.maxY - bbox.minY;
+    let fitScale = 1;
+    if (layoutW > 0 && layoutH > 0) {
+      fitScale = Math.min(1, targetW / layoutW, targetH / layoutH);
     }
 
-    setPositions(placed.map((p) => ({ x: p.x, y: p.y })));
-    setSafeBaseFont(safeBase);
+    if (fitScale < 1) {
+      // 위치도, 폰트도 모두 동일한 scale 로 압축 → 비율(4배) 보존하면서 화면 안에 잘 담김
+      const finalBase = safeBase * fitScale;
+      const finalPlaced = placed.map((p) => ({
+        x: cx + (p.x - cx) * fitScale,
+        y: cy + (p.y - cy) * fitScale,
+      }));
+      setPositions(finalPlaced);
+      setSafeBaseFont(finalBase);
+    } else {
+      setPositions(placed.map((p) => ({ x: p.x, y: p.y })));
+      setSafeBaseFont(safeBase);
+    }
   }, [items, size.w, size.h, rawBaseFont]);
 
   const fontOf = (count: number) => Math.max(8, safeBaseFont * count);
@@ -709,23 +719,15 @@ function WordCloudBody({
         </div>
       )}
 
-      {/* 푸터: 응답 통계 */}
+      {/* 푸터: 응답 통계 — 클릭 없이 기본으로 표시 */}
       {items.length > 0 && (
         <p
           className={`text-[11px] sm:text-xs font-bold flex items-center justify-center gap-1.5 flex-wrap shrink-0 text-center ${theme === 'exciting' ? 'text-slate-700/80' : 'text-white/70'}`}
           style={softStyle}
         >
-          <ClickToReveal
-            value={<span>{items.length}</span>}
-            placeholder={<span className="opacity-60">??</span>}
-            className={`px-2 py-0.5 rounded-md ${theme === 'exciting' ? 'bg-slate-900/10 hover:bg-slate-900/20' : 'bg-white/15 hover:bg-white/25'}`}
-          />
+          <span className={`px-2 py-0.5 rounded-md ${theme === 'exciting' ? 'bg-slate-900/10' : 'bg-white/15'}`}>{items.length}</span>
           개 고유 키워드 · 총
-          <ClickToReveal
-            value={<span>{totalResp}</span>}
-            placeholder={<span className="opacity-60">??</span>}
-            className={`px-2 py-0.5 rounded-md ${theme === 'exciting' ? 'bg-slate-900/10 hover:bg-slate-900/20' : 'bg-white/15 hover:bg-white/25'}`}
-          />
+          <span className={`px-2 py-0.5 rounded-md ${theme === 'exciting' ? 'bg-slate-900/10' : 'bg-white/15'}`}>{totalResp}</span>
           명 응답
         </p>
       )}
@@ -844,23 +846,11 @@ function CareerScene({ users }: { users: User[] }) {
         </p>
         {years.length > 0 && (
           <p className="mt-8 text-xs sm:text-sm text-amber-100/80 font-bold flex items-center justify-center gap-1.5 flex-wrap" style={softStyle}>
-            <ClickToReveal
-              value={<span>{years.length}</span>}
-              placeholder={<span className="opacity-60">??</span>}
-              className="px-2 py-0.5 rounded-md bg-white/15 hover:bg-white/25"
-            />
+            <span className="px-2 py-0.5 rounded-md bg-white/15">{years.length}</span>
             명의 리더 · 평균
-            <ClickToReveal
-              value={<span>{avg}</span>}
-              placeholder={<span className="opacity-60">??</span>}
-              className="px-2 py-0.5 rounded-md bg-white/15 hover:bg-white/25"
-            />
+            <span className="px-2 py-0.5 rounded-md bg-white/15">{avg}</span>
             년 · 최장
-            <ClickToReveal
-              value={<span>{maxYear}</span>}
-              placeholder={<span className="opacity-60">??</span>}
-              className="px-2 py-0.5 rounded-md bg-white/15 hover:bg-white/25"
-            />
+            <span className="px-2 py-0.5 rounded-md bg-white/15">{maxYear}</span>
             년
           </p>
         )}
