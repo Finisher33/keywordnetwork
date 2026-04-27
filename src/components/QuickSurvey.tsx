@@ -323,7 +323,7 @@ export default function QuickSurvey({ onComplete }: QuickSurveyProps) {
             <CleanTextInput
               value={fearWord}
               onChange={(v) => { setFearWord(v); setErrors(p => ({ ...p, fearWord: undefined })); }}
-              placeholder="예) 인사평가"
+              placeholder="예) 면담요청"
               error={!!errors.fearWord}
               accent="rose"
             />
