@@ -274,7 +274,9 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
         .force('collision', d3.forceCollide().radius((d: any) => d.r + 4).strength(1).iterations(6))
         .force('x', d3.forceX(W / 2).strength(0.04))
         .force('y', d3.forceY(H / 2).strength(0.04))
-        .alphaDecay(0.012)
+        // 안정화되면 정지 (50명 동시 접속 시 CPU 절약). alphaMin 기본 0.001
+        .alphaTarget(0)
+        .alphaDecay(0.03)
         .on('tick', () => {
           const pos: Record<string, { x: number; y: number; r: number }> = {};
           nodes.forEach((n: any) => { pos[n.id] = { x: n.x, y: n.y, r: n.r }; });

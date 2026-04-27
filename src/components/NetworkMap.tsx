@@ -343,7 +343,7 @@ export default function NetworkMap({ adminCourseId }: { adminCourseId?: string }
     };
 
     const handlePointerUp = () => {
-      simulationRef.current?.alphaTarget(0.1); // Keep moving at base speed
+      simulationRef.current?.alphaTarget(0); // 안정화되면 정지 (CPU 절약)
       node.fx = null;
       node.fy = null;
       window.removeEventListener('pointermove', handlePointerMove);
@@ -457,7 +457,7 @@ export default function NetworkMap({ adminCourseId }: { adminCourseId?: string }
                   setSelectedKeyword(id);
                 }
                 // Reset alpha target after a short delay to keep it moving
-                setTimeout(() => simulationRef.current?.alphaTarget(0.1), 500);
+                setTimeout(() => simulationRef.current?.alphaTarget(0), 500);
               }}
             >
               {node.type === 'user' && node.data?.id === currentUser?.id && (
@@ -945,6 +945,8 @@ function PersonalNetworkMap({ currentUser, db, onSelectUser, onSelectKeyword }: 
       .force('charge', d3.forceManyBody().strength(-400))
       .force('center', d3.forceCenter(width / 2, height / 2))
       .force('collision', d3.forceCollide().radius(60))
+      .alphaTarget(0)
+      .alphaDecay(0.04)
       .on('tick', () => {
         setNodes([...simulationNodes]);
         setLinks([...simulationLinks]);

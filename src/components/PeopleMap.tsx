@@ -126,6 +126,8 @@ export default function PeopleMap({ adminCourseId }: { adminCourseId?: string })
 
     const maxWeight = Math.max(1, ...simLinks.map(l => l.weight));
 
+    // 안정화되면 자연 정지 (50명 동시 접속 시 CPU/배터리 절약).
+    // 사용자 인터랙션(드래그/줌/노드 클릭) 시 alphaTarget 일시 상승 → 다시 0 으로 감쇠.
     const simulation = d3.forceSimulation<PeopleNode, PeopleLink>(simNodes)
       .force('link', d3.forceLink<PeopleNode, PeopleLink>(simLinks)
         .id(d => d.id)
@@ -135,7 +137,8 @@ export default function PeopleMap({ adminCourseId }: { adminCourseId?: string })
       .force('charge', d3.forceManyBody().strength(-280))
       .force('center', d3.forceCenter(width / 2, height / 2))
       .force('collision', d3.forceCollide().radius(28))
-      .alphaTarget(0.05)
+      .alphaTarget(0)
+      .alphaDecay(0.05)
       .on('tick', () => {
         setNodes([...simNodes]);
         setLinks([...simLinks]);
@@ -211,7 +214,7 @@ export default function PeopleMap({ adminCourseId }: { adminCourseId?: string })
       node.fy = initFy + (me.clientY - startY) / transform.k;
     };
     const onUp = () => {
-      simulationRef.current?.alphaTarget(0.05);
+      simulationRef.current?.alphaTarget(0);
       node.fx = null; node.fy = null;
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
@@ -298,7 +301,7 @@ export default function PeopleMap({ adminCourseId }: { adminCourseId?: string })
                 e.stopPropagation();
                 simulationRef.current?.alphaTarget(0.2).restart();
                 setSelectedUser(node.data);
-                setTimeout(() => simulationRef.current?.alphaTarget(0.05), 500);
+                setTimeout(() => simulationRef.current?.alphaTarget(0), 500);
               }}
             >
               {/* "나" 강조 링 (본인 노드 = 일반 노드의 1.5배) */}

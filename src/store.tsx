@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, createContext, useContext, ReactNode, useC
 import { getEmbedding, cosineSimilarity } from './services/embeddingService';
 import { db as firestore, auth, authReady, ensureAuth } from './firebase';
 import { doc, onSnapshot, setDoc, getDoc, collection, deleteDoc, writeBatch, query, where, getDocs, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { hashId } from './utils/hashId';
+import { normalizeUserField } from './utils/normalizeUserField';
 import { generateMockData } from './utils/mockData';
 
 // Firebase 에러 코드를 사용자 친화적 메시지로 변환하고 디버그 로그를 남긴다.
@@ -188,6 +190,8 @@ interface StoreContextType {
   fetchData: () => Promise<void>;
   addPresetInterest: (keyword: string, group: 'work' | 'hobby') => Promise<void>;
   deletePresetInterest: (id: string) => Promise<void>;
+  /** canonicalTerms 컬렉션 정리 — 동일 정규화 텍스트의 분기된 ID 를 통일하고 미사용 doc 삭제. */
+  cleanupCanonicalTerms: () => Promise<{ unified: number; deletedUnused: number; total: number }>;
   isDemoMode: boolean;
   toggleDemoMode: (active: boolean, role?: 'user' | 'admin') => void;
   resetDemoData: () => void;
@@ -341,11 +345,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         checkAllLoaded('userInsights');
       }, (error) => handleError(error, 'userInsights')));
 
-      // CanonicalTerms
-      unsubscribers.push(onSnapshot(collection(firestore, 'canonicalTerms'), (snap) => {
-        setCanonicalTerms(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CanonicalTerm)));
-        checkAllLoaded('canonicalTerms');
-      }, (error) => handleError(error, 'canonicalTerms')));
+      // CanonicalTerms — heaviest collection (3072차원 embedding/doc, ~24KB).
+      // 50명 동시 접속 시 read fan-out 폭증 방지를 위해 onSnapshot 대신
+      // 1회 getDocs 로 적재 후 (a) 사용자가 새 키워드를 저장할 때 (b) 수동 새로고침
+      // 시점에만 갱신. 동기화 지연이 있어도 buildInterestKeyIndex 가 텍스트 정규화로
+      // 자동 통합하므로 시각적 일관성에는 영향 없음.
+      withRetry(() => getDocs(collection(firestore, 'canonicalTerms')))
+        .then((snap) => {
+          setCanonicalTerms(snap.docs.map((doc) => ({ id: doc.id, ...doc.data() } as CanonicalTerm)));
+          checkAllLoaded('canonicalTerms');
+        })
+        .catch((error) => handleError(error, 'canonicalTerms'));
 
       // PresetInterests
       unsubscribers.push(onSnapshot(collection(firestore, 'presetInterests'), (snap) => {
@@ -496,10 +506,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
     await ensureAuth();
     try {
-      await withRetry(() => setDoc(doc(firestore, 'users', user.id), sanitize(user)));
-      setCurrentUser(user);
+      // 이름·회사 표면 정규화 (NFC + zero-width 제거 + 공백 압축)
+      // 동명이인 ID 충돌 / 보이지 않는 문자로 인한 분리 방지.
+      const cleaned: User = {
+        ...user,
+        name: normalizeUserField(user.name) || user.name,
+        company: normalizeUserField(user.company) || user.company,
+      };
+      await withRetry(() => setDoc(doc(firestore, 'users', cleaned.id), sanitize(cleaned)));
+      setCurrentUser(cleaned);
       try {
-        localStorage.setItem('currentUser', JSON.stringify(user));
+        localStorage.setItem('currentUser', JSON.stringify(cleaned));
       } catch (e) {
         console.warn('localStorage write failed (non-fatal):', e);
       }
@@ -524,7 +541,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
     await ensureAuth();
     try {
-      await setDoc(doc(firestore, 'courses', course.id), sanitize(course));
+      await withRetry(() => setDoc(doc(firestore, 'courses', course.id), sanitize(course)));
     } catch (error: any) {
       throw translateFirestoreError(error, `courses/${course.id}`);
     }
@@ -537,7 +554,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
     await ensureAuth();
     try {
-      await setDoc(doc(firestore, 'courses', course.id), sanitize(course));
+      await withRetry(() => setDoc(doc(firestore, 'courses', course.id), sanitize(course)));
     } catch (error: any) {
       throw translateFirestoreError(error, `courses/${course.id}`);
     }
@@ -745,7 +762,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     await ensureAuth();
     try {
       const data = { ...session, isActive: session.isActive ?? true };
-      await setDoc(doc(firestore, 'sessions', session.id), sanitize(data));
+      await withRetry(() => setDoc(doc(firestore, 'sessions', session.id), sanitize(data)));
     } catch (error: any) {
       throw translateFirestoreError(error, `sessions/${session.id}`);
     }
@@ -758,7 +775,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
     await ensureAuth();
     try {
-      await setDoc(doc(firestore, 'sessions', session.id), sanitize(session));
+      await withRetry(() => setDoc(doc(firestore, 'sessions', session.id), sanitize(session)));
     } catch (error: any) {
       throw translateFirestoreError(error, `sessions/${session.id}`);
     }
@@ -776,7 +793,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     try {
       const session = sessions.find(s => s.id === id);
       if (session) {
-        await setDoc(doc(firestore, 'sessions', id), sanitize({ ...session, isActive: !session.isActive }));
+        await withRetry(() =>
+          setDoc(doc(firestore, 'sessions', id), sanitize({ ...session, isActive: !session.isActive }))
+        );
       }
     } catch (error: any) {
       throw translateFirestoreError(error, `sessions/${id}`);
@@ -837,8 +856,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return { canonicalId: bestMatch.id, term: bestMatch.term };
     }
 
-    // 새 term — 세션 캐시에도 즉시 반영 (stale closure 방지)
-    const newId = `ct_${kind}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    // 새 term — 결정적 ID (정규화 텍스트 hash) 사용.
+    // 두 사용자가 동시에 같은 키워드를 처음 등록해도 동일 ID 로 수렴 → setDoc 멱등 → 중복 doc 0.
+    const newId = `ct_${kind}_${hashId(normalized + '|' + kind)}`;
     newCanonicalTermsRef.current.push({ id: newId, term: keyword, embedding, kind });
     return { canonicalId: newId, term: keyword, embedding, kind };
   };
@@ -852,11 +872,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     try {
       const { canonicalId, term, embedding } = await canonicalizeKeyword(insight.keyword, 'insight');
       const batch = writeBatch(firestore);
-      if (!canonicalTerms.find(t => t.id === canonicalId)) {
+      const isNewCanonical = !canonicalTerms.find(t => t.id === canonicalId);
+      if (isNewCanonical) {
         batch.set(doc(firestore, 'canonicalTerms', canonicalId), sanitize({ id: canonicalId, term, embedding, kind: 'insight' }));
       }
       batch.set(doc(firestore, 'userInsights', insight.id), sanitize({ ...insight, canonicalId, likes: insight.likes || [] }));
       await withRetry(() => batch.commit());
+      // canonicalTerms 는 onSnapshot 미사용이라 로컬 상태 즉시 반영 필요
+      if (isNewCanonical) {
+        setCanonicalTerms((prev) =>
+          prev.find((t) => t.id === canonicalId) ? prev : [...prev, { id: canonicalId, term, embedding, kind: 'insight' }]
+        );
+      }
     } catch (error: any) {
       // canonicalization 또는 batch 실패 시 canonicalId 없이 단순 저장으로 fallback (재시도 포함)
       try {
@@ -907,7 +934,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
     await ensureAuth();
     try {
-      await deleteDoc(doc(firestore, 'sessions', id));
+      await withRetry(() => deleteDoc(doc(firestore, 'sessions', id)));
     } catch (error: any) {
       throw translateFirestoreError(error, `sessions/${id}`);
     }
@@ -932,11 +959,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
 
       // 2. Canonicalize and add new — canonicalization 실패 시 canonicalId 없이 저장
+      const newCanonicals: CanonicalTerm[] = [];
       for (const i of interestsToSave) {
         try {
           const { canonicalId, term, embedding } = await canonicalizeKeyword(i.keyword, 'interest');
-          if (!canonicalTerms.find(t => t.id === canonicalId)) {
+          if (!canonicalTerms.find(t => t.id === canonicalId) && !newCanonicals.find(t => t.id === canonicalId)) {
             batch.set(doc(firestore, 'canonicalTerms', canonicalId), sanitize({ id: canonicalId, term, embedding, kind: 'interest' }));
+            newCanonicals.push({ id: canonicalId, term, embedding, kind: 'interest' });
           }
           batch.set(doc(firestore, 'interests', i.id), sanitize({ ...i, canonicalId }));
         } catch {
@@ -945,6 +974,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
 
       await withRetry(() => batch.commit());
+      // canonicalTerms 는 onSnapshot 미사용이라 로컬 상태 즉시 반영 필요
+      if (newCanonicals.length > 0) {
+        setCanonicalTerms((prev) => {
+          const have = new Set(prev.map(t => t.id));
+          const adds = newCanonicals.filter(t => !have.has(t.id));
+          return adds.length > 0 ? [...prev, ...adds] : prev;
+        });
+      }
     } catch (error: any) {
       throw translateFirestoreError(error, 'interests');
     }
@@ -1009,12 +1046,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           }
         })
       );
+      const newCanonicals: CanonicalTerm[] = [];
       for (const { i, res, ok } of canonicalized) {
         if (ok && res) {
           const { canonicalId, term, embedding } = res;
           try {
-            if (!canonicalTerms.find(t => t.id === canonicalId)) {
+            if (!canonicalTerms.find(t => t.id === canonicalId) && !newCanonicals.find(t => t.id === canonicalId)) {
               batch.set(doc(firestore, 'canonicalTerms', canonicalId), sanitize({ id: canonicalId, term, embedding, kind: 'interest' }));
+              newCanonicals.push({ id: canonicalId, term, embedding, kind: 'interest' });
             }
             batch.set(doc(firestore, 'interests', i.id), sanitize({ ...i, canonicalId }));
           } catch {
@@ -1032,6 +1071,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ...prev.filter(i => i.userId !== user.id),
         ...newInterests,
       ]);
+      // canonicalTerms 도 즉시 반영 (snapshot listener 없음)
+      if (newCanonicals.length > 0) {
+        setCanonicalTerms((prev) => {
+          const have = new Set(prev.map(t => t.id));
+          const adds = newCanonicals.filter(t => !have.has(t.id));
+          return adds.length > 0 ? [...prev, ...adds] : prev;
+        });
+      }
 
       if (currentUser?.id === user.id) {
         setCurrentUser(user);
@@ -1152,10 +1199,121 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
     await ensureAuth();
     try {
-      await deleteDoc(doc(firestore, 'presetInterests', id));
+      await withRetry(() => deleteDoc(doc(firestore, 'presetInterests', id)));
     } catch (error: any) {
       throw translateFirestoreError(error, `presetInterests/${id}`);
     }
+  };
+
+  // canonicalTerms 정리 — 같은 정규화 텍스트 + 같은 kind 인 doc 들이 여러 ID 로 분기된
+  // 경우 가장 많이 참조되는 ID 로 통일하고, 어디에서도 참조되지 않는 doc 은 삭제.
+  // race / 마이그레이션 잔여물 누적 방지용. 관리자 수동 호출.
+  const cleanupCanonicalTerms = async () => {
+    if (isDemoMode) return { unified: 0, deletedUnused: 0, total: 0 };
+    await ensureAuth();
+
+    // 정규화: store.tsx canonicalize 와 동일 규칙
+    const norm = (s: string | undefined | null) => {
+      if (!s) return '';
+      let v = s;
+      try { v = v.normalize('NFC'); } catch {}
+      return v.replace(/[​-‍﻿ ]/g, '').replace(/\s+/g, '').toLowerCase();
+    };
+
+    // 최신 데이터 재조회 (snapshot 미사용이므로 stale 가능성 차단)
+    const [termsSnap, insightsSnap, interestsSnap] = await Promise.all([
+      withRetry(() => getDocs(collection(firestore, 'canonicalTerms'))),
+      withRetry(() => getDocs(collection(firestore, 'userInsights'))),
+      withRetry(() => getDocs(collection(firestore, 'interests'))),
+    ]);
+    const allTerms = termsSnap.docs.map(d => ({ id: d.id, ...d.data() } as CanonicalTerm));
+    const allInsights = insightsSnap.docs.map(d => ({ id: d.id, ...d.data() } as UserInsight));
+    const allInterestsLatest = interestsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Interest));
+
+    // (norm + kind) → 사용 빈도 count 후보 매트릭스
+    const ref = new Map<string, Map<string, number>>(); // cid → count
+    const keyOfRef = new Map<string, string>(); // cid → "norm|kind"
+    for (const t of allTerms) {
+      const key = `${norm(t.term)}|${t.kind || 'unknown'}`;
+      keyOfRef.set(t.id, key);
+      if (!ref.has(key)) ref.set(key, new Map());
+      ref.get(key)!.set(t.id, 0);
+    }
+    for (const i of allInterestsLatest) {
+      if (!i.canonicalId) continue;
+      const k = keyOfRef.get(i.canonicalId) ?? `${norm(i.keyword)}|interest`;
+      if (!ref.has(k)) ref.set(k, new Map());
+      const m = ref.get(k)!;
+      m.set(i.canonicalId, (m.get(i.canonicalId) || 0) + 1);
+    }
+    for (const i of allInsights) {
+      if (!i.canonicalId) continue;
+      const k = keyOfRef.get(i.canonicalId) ?? `${norm(i.keyword)}|insight`;
+      if (!ref.has(k)) ref.set(k, new Map());
+      const m = ref.get(k)!;
+      m.set(i.canonicalId, (m.get(i.canonicalId) || 0) + 1);
+    }
+
+    // 그룹별 winner 선정 + 패치 ops 수집
+    const ops: Array<{ kind: 'set'; coll: string; id: string; data: any } | { kind: 'delete'; coll: string; id: string }> = [];
+    let unifiedGroups = 0;
+    let deletedUnused = 0;
+    const cidRedirect = new Map<string, string>(); // 옛 ID → 통일된 ID
+
+    for (const [_groupKey, idToCount] of ref) {
+      const ids = [...idToCount.keys()];
+      if (ids.length === 0) continue;
+      // 정렬: count 내림차순 → ID 사전순 (오래된 우선)
+      ids.sort((a, b) => (idToCount.get(b)! - idToCount.get(a)!) || a.localeCompare(b));
+      const winner = ids[0];
+      if (idToCount.get(winner) === 0) {
+        // 그룹 전체가 미사용 → 모두 삭제
+        for (const id of ids) {
+          ops.push({ kind: 'delete', coll: 'canonicalTerms', id });
+          deletedUnused++;
+        }
+        continue;
+      }
+      if (ids.length > 1) {
+        unifiedGroups++;
+        for (let i = 1; i < ids.length; i++) {
+          if (idToCount.get(ids[i]) === 0) {
+            ops.push({ kind: 'delete', coll: 'canonicalTerms', id: ids[i] });
+            deletedUnused++;
+          } else {
+            cidRedirect.set(ids[i], winner);
+            ops.push({ kind: 'delete', coll: 'canonicalTerms', id: ids[i] });
+          }
+        }
+      }
+    }
+
+    // 참조 패치 — interests / userInsights 의 canonicalId 갱신
+    for (const i of allInterestsLatest) {
+      const newId = i.canonicalId ? cidRedirect.get(i.canonicalId) : undefined;
+      if (newId) ops.push({ kind: 'set', coll: 'interests', id: i.id, data: { ...i, canonicalId: newId } });
+    }
+    for (const i of allInsights) {
+      const newId = i.canonicalId ? cidRedirect.get(i.canonicalId) : undefined;
+      if (newId) ops.push({ kind: 'set', coll: 'userInsights', id: i.id, data: { ...i, canonicalId: newId } });
+    }
+
+    // 450 단위 batch commit (Firestore batch limit 500)
+    for (let i = 0; i < ops.length; i += 450) {
+      const slice = ops.slice(i, i + 450);
+      const batch = writeBatch(firestore);
+      for (const op of slice) {
+        if (op.kind === 'set') batch.set(doc(firestore, op.coll, op.id), sanitize(op.data));
+        else batch.delete(doc(firestore, op.coll, op.id));
+      }
+      await withRetry(() => batch.commit());
+    }
+
+    // 로컬 canonicalTerms 재조회로 동기화
+    const refreshed = await withRetry(() => getDocs(collection(firestore, 'canonicalTerms')));
+    setCanonicalTerms(refreshed.docs.map(d => ({ id: d.id, ...d.data() } as CanonicalTerm)));
+
+    return { unified: unifiedGroups, deletedUnused, total: refreshed.docs.length };
   };
 
   return (
@@ -1164,7 +1322,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addSession, updateSession, deleteSession,
       saveInterests, updateUser, deleteUser, updateUserProfile, sendTeaTimeRequest, updateTeaTimeRequest,
       toggleSessionActive, saveUserInsight, toggleInsightLike, fetchData,
-      addPresetInterest, deletePresetInterest,
+      addPresetInterest, deletePresetInterest, cleanupCanonicalTerms,
       isDemoMode, toggleDemoMode, resetDemoData,
       networkError, clearNetworkError,
     }}>

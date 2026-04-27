@@ -416,20 +416,40 @@ export default function TotalInsight({ courseId }: TotalInsightProps) {
   }, [db.sessions, db.userInsights, db.canonicalTerms, courseId, db.users]);
 
   useEffect(() => {
+    if (selectedAnalysisView !== '02' || isSummarizing) return;
+    const top3 = sessionStats.top10.slice(0, 3);
+    const toSummarize = top3.filter((item) => !aiSummaries[item.id]);
+    if (toSummarize.length === 0) return;
+
+    // 화면 전환 / 컴포넌트 언마운트 시 in-flight 요약 호출 중단 + setState 차단
+    const abortCtrl = new AbortController();
+    let cancelled = false;
+
     const run = async () => {
-      if (selectedAnalysisView !== '02' || isSummarizing) return;
-      const top3 = sessionStats.top10.slice(0, 3);
-      const toSummarize = top3.filter(item => !aiSummaries[item.id]);
-      if (toSummarize.length === 0) return;
       setIsSummarizing(true);
       const newSummaries = { ...aiSummaries };
-      for (const item of toSummarize) {
-        newSummaries[item.id] = await summarizeInsights(item.keyword, item.topInsights.map((i: any) => i.description));
+      try {
+        for (const item of toSummarize) {
+          if (cancelled) return;
+          const summary = await summarizeInsights(
+            item.keyword,
+            item.topInsights.map((i: any) => i.description),
+            { signal: abortCtrl.signal }
+          );
+          if (cancelled) return;
+          newSummaries[item.id] = summary;
+        }
+        if (!cancelled) setAiSummaries(newSummaries);
+      } finally {
+        if (!cancelled) setIsSummarizing(false);
       }
-      setAiSummaries(newSummaries);
-      setIsSummarizing(false);
     };
     run();
+
+    return () => {
+      cancelled = true;
+      abortCtrl.abort();
+    };
   }, [selectedAnalysisView, sessionStats.top10]);
 
   const selectedInterestKeywordData = useMemo(() => networkStats.top10.find(k => k.id === selectedInterestKeyword), [networkStats.top10, selectedInterestKeyword]);

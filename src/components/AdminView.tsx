@@ -10,6 +10,56 @@ import MyProfile from './MyProfile';
 import NotificationBell from './NotificationBell';
 import { genId } from '../utils/genId';
 
+// canonicalTerms 정리 작업을 트리거하는 작은 위젯.
+// race / 마이그레이션 잔여 doc 누적이 의심될 때 관리자가 수동 실행.
+function CleanupCanonicalButton() {
+  const { cleanupCanonicalTerms } = useStore();
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState<{ unified: number; deletedUnused: number; total: number } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const onRun = async () => {
+    if (running) return;
+    if (!confirm('canonicalTerms 컬렉션을 정리합니다.\n\n같은 의미의 분기된 키워드 ID 들을 통일하고 미사용 doc 을 삭제합니다.\n진행하시겠습니까?')) return;
+    setRunning(true); setError(null); setResult(null);
+    try {
+      const r = await cleanupCanonicalTerms();
+      setResult(r);
+    } catch (e: any) {
+      setError(e?.message || String(e));
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  return (
+    <div className="bg-surface-container-low border border-outline rounded-xl p-4 flex flex-wrap items-center gap-3">
+      <div className="flex-1 min-w-[260px]">
+        <p className="text-sm font-bold text-on-surface mb-0.5">canonicalTerms 정리</p>
+        <p className="text-[11px] text-on-surface-variant">
+          동시 등록 race 등으로 분기된 키워드 doc 을 통일하고, 미사용 doc 을 정리합니다. 안전하게 반복 실행 가능합니다.
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onRun}
+        disabled={running}
+        className="text-xs font-black uppercase tracking-widest bg-primary text-on-primary px-4 py-2 rounded-lg shadow-sm hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed"
+      >
+        {running ? '정리 중...' : '지금 정리하기'}
+      </button>
+      {result && (
+        <div className="basis-full text-[11px] text-on-surface-variant pt-1">
+          ✓ 통일된 그룹 <b>{result.unified}</b>건 · 미사용 삭제 <b>{result.deletedUnused}</b>건 · 남은 canonicalTerms <b>{result.total}</b>건
+        </div>
+      )}
+      {error && (
+        <div className="basis-full text-[11px] text-error font-bold pt-1">오류: {error}</div>
+      )}
+    </div>
+  );
+}
+
 export default function AdminView({ onBack, onLogout }: { onBack: () => void, onLogout: () => void }) {
   const { db, addCourse, updateCourse, deleteCourse, addSession, updateSession, deleteSession, toggleSessionActive, deleteUser, resetCourseData, fetchData, addPresetInterest, deletePresetInterest } = useStore();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -1239,6 +1289,10 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
               <h1 className="font-headline text-2xl sm:text-3xl font-bold text-on-surface mb-2">관심사 키워드 관리</h1>
               <p className="text-on-surface-variant text-xs sm:text-sm">유저가 프로필에서 선택할 수 있는 기본 관심사 키워드를 그룹별로 관리합니다.</p>
             </div>
+
+            {/* canonicalTerms 정기 정리 (race / 마이그레이션 잔여 doc 제거) */}
+            <CleanupCanonicalButton />
+
 
             {/* 그룹 탭 */}
             <div className="flex gap-2">

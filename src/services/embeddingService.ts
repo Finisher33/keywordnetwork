@@ -1,71 +1,78 @@
 // Gemini 임베딩 — gemini-embedding-001 (한국어/영어 모두 지원)
-// API 키: .env.local의 VITE_GEMINI_API_KEY 사용
+// 1순위: 동일 출처 /api/embedding 프록시 (Vercel Function) — 키 노출 0
+// 2순위(폴백): VITE_GEMINI_API_KEY 직접 호출 (개발 / 프록시 미배포 환경)
+//
+// 프록시는 자체적으로 408/429/5xx 재시도를 수행하므로 클라이언트는 단순 호출.
 
 const GEMINI_EMBED_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent";
 
-// 동시 다발 호출 시 429/5xx 에 대비한 지수 백오프 재시도.
-// 다중 사용자(50명 동시 등록) 폭주 상황에서 일부 요청이 일시 거절돼도 살아남도록.
-async function fetchWithBackoff(url: string, init: RequestInit, maxAttempts = 3): Promise<Response> {
-  let lastErr: any;
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    try {
-      const res = await fetch(url, init);
-      if (res.ok) return res;
-      // 재시도 가능한 상태코드만 retry: 408 timeout, 429 rate limit, 5xx 서버 오류
-      if (res.status === 408 || res.status === 429 || res.status >= 500) {
-        if (attempt < maxAttempts - 1) {
-          // jitter 추가로 동시 사용자가 동기화돼 다시 충돌하는 것 방지
-          const base = 600 * Math.pow(2, attempt);
-          const jitter = Math.random() * 400;
-          await new Promise(r => setTimeout(r, base + jitter));
-          continue;
-        }
-      }
-      throw new Error(`Gemini embedding ${res.status}`);
-    } catch (e) {
-      lastErr = e;
-      if (attempt >= maxAttempts - 1) throw e;
-      const base = 600 * Math.pow(2, attempt);
-      await new Promise(r => setTimeout(r, base + Math.random() * 400));
-    }
-  }
-  throw lastErr;
-}
-
-export const getEmbedding = async (text: string): Promise<number[] | null> => {
+export const getEmbedding = async (text: string, options?: { signal?: AbortSignal }): Promise<number[] | null> => {
   if (!text.trim()) return null;
 
-  const key = import.meta.env.VITE_GEMINI_API_KEY;
-  if (!key) {
-    console.warn("VITE_GEMINI_API_KEY not set — embedding unavailable");
-    return null;
+  // 1) 서버 프록시 시도
+  try {
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), 14000);
+    // 외부 signal 이 abort 되면 내부 ctrl 도 abort
+    const onExternalAbort = () => ctrl.abort();
+    options?.signal?.addEventListener('abort', onExternalAbort, { once: true });
+
+    try {
+      const res = await fetch('/api/embedding', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+        signal: ctrl.signal,
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return data?.embedding || null;
+      }
+      // 프록시가 아예 없거나 (404) 비활성 시 fallback 으로
+      if (res.status === 404 || res.status === 405) {
+        // pass through to fallback
+      } else if (res.status === 500) {
+        // 서버에 키가 없는 경우 (GEMINI_API_KEY missing) 도 fallback
+      } else {
+        // 그 외 오류는 그대로 실패 처리 (재시도는 프록시가 이미 시도)
+        return null;
+      }
+    } finally {
+      clearTimeout(tid);
+      options?.signal?.removeEventListener('abort', onExternalAbort);
+    }
+  } catch (e) {
+    // 네트워크/abort — fallback 으로
   }
 
-  // 인앱브라우저/느린 네트워크에서 fetch가 무한 대기하는 것을 방지.
-  // 임베딩은 저장 플로우의 차단 요소가 아니어야 하므로 실패해도 null 반환.
-  const controller = new AbortController();
-  // 재시도까지 고려해 전체 timeout 을 12s 로 확대 (단일 시도 시 6s × 재시도)
-  const timeoutId = setTimeout(() => controller.abort(), 12000);
+  // 2) Fallback: 클라이언트에서 직접 (개발용)
+  const key = (import.meta as any).env?.VITE_GEMINI_API_KEY;
+  if (!key) return null;
+
+  const ctrl = new AbortController();
+  const tid = setTimeout(() => ctrl.abort(), 8000);
+  const onExternalAbort = () => ctrl.abort();
+  options?.signal?.addEventListener('abort', onExternalAbort, { once: true });
 
   try {
-    const response = await fetchWithBackoff(`${GEMINI_EMBED_URL}?key=${key}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+    const r = await fetch(`${GEMINI_EMBED_URL}?key=${key}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: "models/gemini-embedding-001",
+        model: 'models/gemini-embedding-001',
         content: { parts: [{ text }] },
       }),
-      signal: controller.signal,
+      signal: ctrl.signal,
     });
-
-    const data = await response.json();
-    return data?.embedding?.values || null;
-  } catch (error) {
-    console.error("Error getting embedding:", error);
+    if (!r.ok) return null;
+    const d = await r.json();
+    return d?.embedding?.values || null;
+  } catch {
     return null;
   } finally {
-    clearTimeout(timeoutId);
+    clearTimeout(tid);
+    options?.signal?.removeEventListener('abort', onExternalAbort);
   }
 };
 
