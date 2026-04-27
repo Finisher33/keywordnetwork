@@ -20,7 +20,12 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
 
   const [activeTab, setActiveTab] = useState<'my' | 'classroom'>(adminCourseId ? 'classroom' : 'my');
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
-  const [classroomSessionId, setClassroomSessionId] = useState<string>(db.sessions.find(s => s.courseId === effectiveCourseId)?.id || '');
+  // 초기 선택: 정렬된 세션 목록의 첫 번째(활성 우선, 동률 시 order 순)
+  const [classroomSessionId, setClassroomSessionId] = useState<string>(() => {
+    const courseList = sortSessions(db.sessions.filter(s => s.courseId === effectiveCourseId));
+    const firstActive = courseList.find(s => s.isActive);
+    return (firstActive || courseList[0])?.id || '';
+  });
 
   const [keyword, setKeyword] = useState('');
   const [description, setDescription] = useState('');
@@ -762,8 +767,11 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
                       onChange={e => setClassroomSessionId(e.target.value)}
                       className="w-full bg-white border border-outline rounded-lg px-4 py-3 text-sm font-black text-primary outline-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer uppercase tracking-tight"
                     >
+                      {/* 활성/비활성 모두 어드민 설정 순서대로 노출. 비활성은 라벨에 표기. */}
                       {sortSessions(db.sessions.filter(s => s.courseId === effectiveCourseId)).map(s => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
+                        <option key={s.id} value={s.id}>
+                          {s.name}{!s.isActive ? '  · 비활성' : ''}
+                        </option>
                       ))}
                     </select>
                     <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-primary">expand_more</span>
