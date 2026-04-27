@@ -3,7 +3,7 @@ import { useToast } from '../hooks/useToast';
 import Toast from './Toast';
 import { useStore } from '../store';
 import { HYUNDAI_COMPANIES } from '../constants/companies';
-import DemoLauncher from '../demo/DemoLauncher';
+// import DemoLauncher from '../demo/DemoLauncher';  // 데모 모드 노출 OFF
 
 // ── 3D 네트워크 캔버스 배경 ───────────────────────────────────────────────────
 function NetworkCanvas() {
@@ -339,8 +339,8 @@ export default function MainView({ onAdminClick }: { onAdminClick: () => void })
               )}
             </div>
 
-            {/* 데모 체험 */}
-            <DemoLauncher onAdminClick={onAdminClick} />
+            {/* 데모 체험 — 운영 배포에서는 노출하지 않음 (관리자 진입은 별도 경로 유지) */}
+            {/* <DemoLauncher onAdminClick={onAdminClick} /> */}
 
             {/* 저작권 */}
             <p className="text-center text-[8px] font-medium tracking-wider text-white/30 pb-2">
