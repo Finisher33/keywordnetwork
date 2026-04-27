@@ -114,22 +114,10 @@ export default function App() {
       );
     }
 
-    // 최초 등록 레이스 컨디션: onSnapshot 이 먼저 도착해 hasInterests=true 로 바뀌었지만
-    // subView 는 아직 'landing' 인 경우, LandingPage 가 한 프레임 번쩍이는 현상 방지.
-    // 서베이 미완료 + 최초 등록 대기 상태면 즉시 QuickSurvey 로 강제 라우팅.
-    if (
-      awaitingFirstNavRef.current &&
-      !surveyAlreadyDone &&
-      subView !== 'survey'
-    ) {
-      return <QuickSurvey onComplete={() => {
-        awaitingFirstNavRef.current = false;
-        setSubView('landing');
-      }} />;
-    }
-
-    // Quick Survey: 최초 등록 직후 한 번만 표시
-    if (subView === 'survey') {
+    // ─── 서베이 게이트: 키워드 서베이 미완료 시 어떤 메인뷰로도 진입 차단 ───
+    // 신규 가입자뿐 아니라 과거에 surveyCompleted=false 로 남아있는 유저도 모두 강제.
+    // 응답하지 않으면 onComplete 가 호출되지 않아 자연스럽게 다음 페이지로 갈 수 없음.
+    if (!surveyAlreadyDone) {
       return (
         <QuickSurvey onComplete={() => {
           awaitingFirstNavRef.current = false;
@@ -138,8 +126,11 @@ export default function App() {
       );
     }
 
-    // 정보등록 이력이 있는 경우 선택 페이지로 이동
-    if (subView === 'landing') {
+    // 안전 fallback: subView 가 'survey' 인데 이미 완료한 경우 landing 으로 간주.
+    const effectiveSub = subView === 'survey' ? 'landing' : subView;
+
+    // 정보등록 이력이 있고 서베이도 완료된 경우 — 메인뷰(LandingPage)
+    if (effectiveSub === 'landing') {
       return (
         <LandingPageView
           onSelect={(v) => { if (v === 'app') setAppViewTab('network'); setSubView(v); }}
@@ -150,7 +141,7 @@ export default function App() {
       );
     }
 
-    if (subView === 'insight') {
+    if (effectiveSub === 'insight') {
       return (
         <InsightView 
           onBack={() => setSubView('landing')} 

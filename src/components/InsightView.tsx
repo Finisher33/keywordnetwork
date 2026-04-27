@@ -4,6 +4,7 @@ import { cosineSimilarity } from '../services/embeddingService';
 import { motion, AnimatePresence } from 'motion/react';
 import NotificationBell from './NotificationBell';
 import * as d3 from 'd3';
+import { sortSessions } from '../utils/sortSessions';
 
 interface InsightViewProps {
   onBack?: () => void;
@@ -49,7 +50,7 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
   const panLayerRef = useRef<HTMLDivElement>(null);
   const liveState   = useRef({ x: 0, y: 0, zoom: 1 });
 
-  const activeSessions = db.sessions.filter(s => s.courseId === effectiveCourseId && s.isActive);
+  const activeSessions = sortSessions(db.sessions.filter(s => s.courseId === effectiveCourseId && s.isActive));
   const userInsights = (db.userInsights || []).filter(i => i.userId === currentUser?.id);
 
   // Prevent duplicate: reuse existing insight ID if one exists for this session
@@ -573,10 +574,10 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
                 );
               })()}
 
-              {/* Session Info — minimal row layout */}
+              {/* Session Info — minimal row layout (학습목표 노출 제외) */}
               {(() => {
                 const session = db.sessions.find(s => s.id === selectedSessionId);
-                const hasInfo = session?.instructor || session?.objectives || session?.contents;
+                const hasInfo = session?.instructor || session?.contents;
                 if (!hasInfo) return null;
                 return (
                   <div className="divide-y divide-outline/15">
@@ -584,12 +585,6 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
                       <div className="py-3 flex gap-5">
                         <span className="text-[9px] font-black text-on-surface-variant/30 uppercase tracking-widest w-14 shrink-0 pt-0.5">강사</span>
                         <p className="text-sm font-semibold text-on-surface">{session.instructor}</p>
-                      </div>
-                    )}
-                    {session?.objectives && (
-                      <div className="py-3 flex gap-5">
-                        <span className="text-[9px] font-black text-on-surface-variant/30 uppercase tracking-widest w-14 shrink-0 pt-0.5">목표</span>
-                        <p className="text-sm text-on-surface-variant/80 leading-relaxed">{session.objectives}</p>
                       </div>
                     )}
                     {session?.contents && (
@@ -767,7 +762,7 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
                       onChange={e => setClassroomSessionId(e.target.value)}
                       className="w-full bg-white border border-outline rounded-lg px-4 py-3 text-sm font-black text-primary outline-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer uppercase tracking-tight"
                     >
-                      {db.sessions.filter(s => s.courseId === effectiveCourseId).map(s => (
+                      {sortSessions(db.sessions.filter(s => s.courseId === effectiveCourseId)).map(s => (
                         <option key={s.id} value={s.id}>{s.name}</option>
                       ))}
                     </select>

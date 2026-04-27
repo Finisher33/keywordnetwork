@@ -9,6 +9,7 @@ import MyNetwork from './MyNetwork';
 import MyProfile from './MyProfile';
 import NotificationBell from './NotificationBell';
 import { genId } from '../utils/genId';
+import { sortSessions } from '../utils/sortSessions';
 
 // canonicalTerms 정리 작업을 트리거하는 작은 위젯.
 // race / 마이그레이션 잔여 doc 누적이 의심될 때 관리자가 수동 실행.
@@ -61,8 +62,9 @@ function CleanupCanonicalButton() {
 }
 
 export default function AdminView({ onBack, onLogout }: { onBack: () => void, onLogout: () => void }) {
-  const { db, addCourse, updateCourse, deleteCourse, addSession, updateSession, deleteSession, toggleSessionActive, deleteUser, resetCourseData, fetchData, addPresetInterest, deletePresetInterest } = useStore();
+  const { db, addCourse, updateCourse, deleteCourse, addSession, updateSession, deleteSession, toggleSessionActive, reorderSessions, deleteUser, resetCourseData, fetchData, addPresetInterest, deletePresetInterest } = useStore();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [draggingSessionId, setDraggingSessionId] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleRefresh = async () => {
@@ -105,7 +107,6 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
   const [sessionTime, setSessionTime] = useState('');
   const [sessionModule, setSessionModule] = useState('');
   const [sessionDay, setSessionDay] = useState('');
-  const [sessionObjectives, setSessionObjectives] = useState('');
   const [sessionContents, setSessionContents] = useState('');
   const [sessionInstructor, setSessionInstructor] = useState('');
 
@@ -240,7 +241,6 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
           time: src.time,
           module: src.module,
           day: src.day,
-          objectives: src.objectives,
           contents: src.contents,
           instructor: src.instructor,
           isActive: true,
@@ -271,7 +271,6 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
         time: sessionTime,
         module: sessionModule,
         day: sessionDay,
-        objectives: sessionObjectives,
         contents: sessionContents,
         instructor: sessionInstructor,
         isActive: true
@@ -280,7 +279,6 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
       setSessionTime('');
       setSessionModule('');
       setSessionDay('');
-      setSessionObjectives('');
       setSessionContents('');
       setSessionInstructor('');
       showStatus('success', '세션이 추가되었습니다.');
@@ -303,17 +301,17 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
         time: sessionTime,
         module: sessionModule,
         day: sessionDay,
-        objectives: sessionObjectives,
         contents: sessionContents,
         instructor: sessionInstructor,
-        isActive: existingSession ? existingSession.isActive : true
+        isActive: existingSession ? existingSession.isActive : true,
+        // 기존 세션의 학습목표 필드는 유지 (UI 에는 더 이상 노출 X)
+        objectives: existingSession?.objectives,
       });
       setEditingSessionId(null);
       setSessionName('');
       setSessionTime('');
       setSessionModule('');
       setSessionDay('');
-      setSessionObjectives('');
       setSessionContents('');
       setSessionInstructor('');
       showStatus('success', '세션 정보가 수정되었습니다.');
@@ -348,13 +346,46 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
     }
   };
 
+  // 세션 순서 변경 — sortedList 기반으로 신규 순서를 계산해 reorderSessions 호출.
+  const persistOrder = async (sortedList: any[]) => {
+    try {
+      await reorderSessions(selectedCourseId, sortedList.map(s => s.id));
+    } catch (e) {
+      showStatus('error', '순서 변경에 실패했습니다.');
+    }
+  };
+
+  const handleMoveSession = async (id: string, dir: 'up' | 'down', sortedList: any[]) => {
+    const idx = sortedList.findIndex(s => s.id === id);
+    if (idx < 0) return;
+    const target = dir === 'up' ? idx - 1 : idx + 1;
+    if (target < 0 || target >= sortedList.length) return;
+    const next = [...sortedList];
+    [next[idx], next[target]] = [next[target], next[idx]];
+    await persistOrder(next);
+  };
+
+  const handleDropSession = async (targetId: string, sortedList: any[]) => {
+    if (!draggingSessionId || draggingSessionId === targetId) {
+      setDraggingSessionId(null);
+      return;
+    }
+    const fromIdx = sortedList.findIndex(s => s.id === draggingSessionId);
+    const toIdx = sortedList.findIndex(s => s.id === targetId);
+    if (fromIdx < 0 || toIdx < 0) { setDraggingSessionId(null); return; }
+    const next = [...sortedList];
+    const [moved] = next.splice(fromIdx, 1);
+    next.splice(toIdx, 0, moved);
+    setDraggingSessionId(null);
+    await persistOrder(next);
+  };
+
   const startEditSession = (s: any) => {
     setEditingSessionId(s.id);
     setSessionName(s.name);
     setSessionTime(s.time);
     setSessionModule(s.module);
     setSessionDay(s.day);
-    setSessionObjectives(s.objectives || '');
     setSessionContents(s.contents || '');
     setSessionInstructor(s.instructor || '');
   };
@@ -820,7 +851,7 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
                       </div>
 
                       {copySourceCourseId && (() => {
-                        const sourceSessions = db.sessions.filter(s => s.courseId === copySourceCourseId);
+                        const sourceSessions = sortSessions(db.sessions.filter(s => s.courseId === copySourceCourseId));
                         if (sourceSessions.length === 0) {
                           return <p className="text-[11px] sm:text-xs text-on-surface-variant italic">선택한 과정에 등록된 세션이 없습니다.</p>;
                         }
@@ -951,18 +982,6 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
                     </div>
                     <div className="space-y-2 md:col-span-2">
                       <label className="text-[9px] sm:text-[10px] font-black text-on-surface-variant flex items-center gap-1.5 uppercase tracking-widest">
-                        <span className="material-symbols-outlined text-[10px] sm:text-xs">target</span> 학습 목표
-                      </label>
-                      <textarea 
-                        value={sessionObjectives} 
-                        onChange={e => setSessionObjectives(e.target.value)} 
-                        placeholder="학습 목표를 입력하세요" 
-                        rows={2}
-                        className="w-full bg-white border border-outline rounded-lg px-4 py-3 text-sm sm:text-base text-on-surface outline-none focus:border-secondary focus:ring-1 focus:ring-secondary transition-all resize-none font-medium" 
-                      />
-                    </div>
-                    <div className="space-y-2 md:col-span-2">
-                      <label className="text-[9px] sm:text-[10px] font-black text-on-surface-variant flex items-center gap-1.5 uppercase tracking-widest">
                         <span className="material-symbols-outlined text-[10px] sm:text-xs">article</span> 주요 내용
                       </label>
                       <textarea 
@@ -978,12 +997,11 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
                     {editingSessionId && (
                       <button 
                         onClick={() => { 
-                          setEditingSessionId(null); 
-                          setSessionName(''); 
-                          setSessionTime(''); 
-                          setSessionModule(''); 
-                          setSessionDay(''); 
-                          setSessionObjectives('');
+                          setEditingSessionId(null);
+                          setSessionName('');
+                          setSessionTime('');
+                          setSessionModule('');
+                          setSessionDay('');
                           setSessionContents('');
                           setSessionInstructor('');
                         }}
@@ -1006,19 +1024,64 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
 
               {selectedCourseId && (
                 <div className="space-y-3 mt-6">
-                  <h4 className="font-bold text-xs sm:text-sm text-on-surface">등록된 세션 목록</h4>
-                  {db.sessions.filter(s => s.courseId === selectedCourseId).length === 0 ? (
-                    <p className="text-[10px] sm:text-xs text-on-surface-variant italic">등록된 세션이 없습니다.</p>
-                  ) : (
-                    db.sessions.filter(s => s.courseId === selectedCourseId).map(session => (
-                      <div key={session.id} className="bg-surface-container-high p-3 sm:p-4 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 group">
-                        <div className="flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-[9px] sm:text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded font-bold">{session.module}</span>
-                            <span className="text-[9px] sm:text-[10px] bg-secondary/20 text-secondary px-2 py-0.5 rounded font-bold">{session.day}</span>
-                            <span className="text-[9px] sm:text-[10px] text-on-surface-variant ml-0 sm:ml-2">{session.time}</span>
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold text-xs sm:text-sm text-on-surface">등록된 세션 목록</h4>
+                    <span className="text-[10px] text-on-surface-variant/70 hidden sm:inline">
+                      ↕ 좌측 핸들로 순서 드래그 또는 ↑↓ 버튼으로 이동
+                    </span>
+                  </div>
+                  {(() => {
+                    const list = sortSessions(db.sessions.filter(s => s.courseId === selectedCourseId));
+                    if (list.length === 0) {
+                      return <p className="text-[10px] sm:text-xs text-on-surface-variant italic">등록된 세션이 없습니다.</p>;
+                    }
+                    return list.map((session, idx) => (
+                      <div
+                        key={session.id}
+                        draggable
+                        onDragStart={(e) => { setDraggingSessionId(session.id); e.dataTransfer.effectAllowed = 'move'; }}
+                        onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
+                        onDrop={(e) => { e.preventDefault(); handleDropSession(session.id, list); }}
+                        onDragEnd={() => setDraggingSessionId(null)}
+                        className={`bg-surface-container-high p-3 sm:p-4 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 group transition-opacity ${draggingSessionId === session.id ? 'opacity-50' : ''}`}
+                      >
+                        <div className="flex items-start sm:items-center gap-3 flex-1 min-w-0">
+                          {/* 드래그 핸들 + 순서 인디케이터 */}
+                          <div className="flex flex-col items-center shrink-0 select-none">
+                            <button
+                              type="button"
+                              onClick={() => handleMoveSession(session.id, 'up', list)}
+                              disabled={idx === 0}
+                              title="위로"
+                              className="w-6 h-5 flex items-center justify-center text-on-surface-variant hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                              <span className="material-symbols-outlined text-base">arrow_drop_up</span>
+                            </button>
+                            <span
+                              className="cursor-grab active:cursor-grabbing text-on-surface-variant/60 hover:text-on-surface-variant"
+                              title="드래그로 순서 변경"
+                            >
+                              <span className="material-symbols-outlined text-base leading-none">drag_indicator</span>
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleMoveSession(session.id, 'down', list)}
+                              disabled={idx === list.length - 1}
+                              title="아래로"
+                              className="w-6 h-5 flex items-center justify-center text-on-surface-variant hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                              <span className="material-symbols-outlined text-base">arrow_drop_down</span>
+                            </button>
                           </div>
-                          <p className="font-bold text-xs sm:text-sm mt-1">{session.name}</p>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-[10px] font-black text-on-surface-variant/50 uppercase tracking-wider">#{idx + 1}</span>
+                              <span className="text-[9px] sm:text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded font-bold">{session.module}</span>
+                              <span className="text-[9px] sm:text-[10px] bg-secondary/20 text-secondary px-2 py-0.5 rounded font-bold">{session.day}</span>
+                              <span className="text-[9px] sm:text-[10px] text-on-surface-variant ml-0 sm:ml-2">{session.time}</span>
+                            </div>
+                            <p className="font-bold text-xs sm:text-sm mt-1">{session.name}</p>
+                          </div>
                         </div>
                         <div className="flex items-center justify-between w-full sm:w-auto gap-4">
                           <div className="flex items-center gap-2">
@@ -1035,13 +1098,13 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
                             </button>
                           </div>
                           <div className="flex gap-2 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                            <button 
+                            <button
                               onClick={() => startEditSession(session)}
                               className="p-1.5 sm:p-2 text-on-surface-variant hover:text-primary"
                             >
                               <span className="material-symbols-outlined text-sm sm:text-base">edit</span>
                             </button>
-                            <button 
+                            <button
                               onClick={() => handleDeleteSession(session.id)}
                               className="p-1.5 sm:p-2 text-on-surface-variant hover:text-error"
                             >
@@ -1050,8 +1113,8 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
                           </div>
                         </div>
                       </div>
-                    ))
-                  )}
+                    ));
+                  })()}
                 </div>
               )}
             </section>

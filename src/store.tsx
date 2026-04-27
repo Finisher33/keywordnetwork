@@ -70,6 +70,8 @@ export interface Session {
   objectives?: string;
   contents?: string;
   instructor?: string;
+  // 표시 순서 (작을수록 먼저). 미설정 시 fallback 정렬 사용.
+  order?: number;
 }
 
 export interface UserInsight {
@@ -185,6 +187,8 @@ interface StoreContextType {
   sendTeaTimeRequest: (req: TeaTimeRequest) => Promise<void>;
   updateTeaTimeRequest: (id: string, status: 'accepted' | 'rejected', responseMessage?: string) => Promise<void>;
   toggleSessionActive: (id: string) => Promise<void>;
+  /** 같은 과정 내 세션 순서를 일괄 갱신 (각 세션의 order 필드 기록). */
+  reorderSessions: (courseId: string, orderedIds: string[]) => Promise<void>;
   saveUserInsight: (insight: UserInsight) => Promise<void>;
   toggleInsightLike: (insightId: string, userId: string) => Promise<void>;
   fetchData: () => Promise<void>;
@@ -781,6 +785,31 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // 과정 내 세션의 표시 순서 갱신 — orderedIds 의 인덱스를 order 필드에 기록.
+  const reorderSessions = async (courseId: string, orderedIds: string[]) => {
+    if (isDemoMode) {
+      setDemoDb(prev => ({
+        ...prev,
+        sessions: prev.sessions.map(s => {
+          if (s.courseId !== courseId) return s;
+          const idx = orderedIds.indexOf(s.id);
+          return idx >= 0 ? { ...s, order: idx } : s;
+        }),
+      }));
+      return;
+    }
+    await ensureAuth();
+    try {
+      const batch = writeBatch(firestore);
+      orderedIds.forEach((sid, idx) => {
+        batch.update(doc(firestore, 'sessions', sid), { order: idx });
+      });
+      await withRetry(() => batch.commit());
+    } catch (error: any) {
+      throw translateFirestoreError(error, `sessions/reorder`);
+    }
+  };
+
   const toggleSessionActive = async (id: string) => {
     if (isDemoMode) {
       setDemoDb(prev => ({
@@ -1321,7 +1350,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       db, currentUser: effectiveCurrentUser, isDbLoaded, login, register, logout, addCourse, updateCourse, deleteCourse, resetCourseData,
       addSession, updateSession, deleteSession,
       saveInterests, updateUser, deleteUser, updateUserProfile, sendTeaTimeRequest, updateTeaTimeRequest,
-      toggleSessionActive, saveUserInsight, toggleInsightLike, fetchData,
+      toggleSessionActive, reorderSessions, saveUserInsight, toggleInsightLike, fetchData,
       addPresetInterest, deletePresetInterest, cleanupCanonicalTerms,
       isDemoMode, toggleDemoMode, resetDemoData,
       networkError, clearNetworkError,
