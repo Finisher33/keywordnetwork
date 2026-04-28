@@ -941,46 +941,107 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
                 </div>
 
                 {/* ── 2. BEST INSIGHTS (second) ───────────────────────────── */}
-                <div className="bg-surface-container-lowest p-8 rounded-xl border border-outline-variant/10 shadow-sm">
-                  <h3 className="text-primary font-headline font-bold text-lg md:text-xl mb-6">BEST INSIGHTS</h3>
+                <div className="bg-surface-container-lowest p-6 sm:p-8 rounded-xl border border-outline-variant/10 shadow-sm">
+                  <div className="flex items-baseline justify-between gap-3 mb-5">
+                    <h3 className="text-primary font-headline font-bold text-lg md:text-xl">BEST INSIGHTS</h3>
+                    {bestComments.length > 0 && (
+                      <span className="text-[10px] font-bold text-on-surface-variant/60 uppercase tracking-widest">
+                        TOP {bestComments.length} · 공감순
+                      </span>
+                    )}
+                  </div>
 
-                  <div className="space-y-8">
-                    {bestComments.length > 0 ? (
-                      <div className="grid grid-cols-1 gap-8">
-                        {bestComments.map((comment, idx) => {
-                          const user = db.users.find(u => u.id === comment.userId);
-                          return (
-                            <div key={comment.id} className="relative">
-                              <span className="absolute -top-4 -left-2 text-6xl font-serif text-primary/10 select-none">"</span>
-                              <div className="pl-8 pr-4">
-                                <p className="text-lg font-bold text-on-surface leading-snug italic mb-4 break-keep">
+                  {bestComments.length === 0 ? (
+                    <p className="text-on-surface-variant leading-snug font-medium text-sm py-6 text-center">
+                      {classroomData.length > 0
+                        ? `"${classroomData[0].name}" 키워드가 이번 세션에서 가장 많은 공감을 얻고 있습니다.`
+                        : '아직 등록된 인사이트가 없습니다.'}
+                    </p>
+                  ) : (
+                    <ol className="space-y-3">
+                      {bestComments.map((comment, idx) => {
+                        const user = db.users.find(u => u.id === comment.userId);
+                        const likes = comment.likes?.length || 0;
+                        const rank = idx + 1;
+                        const isTop = rank === 1;
+                        // 1위만 강조 — 그 외는 간결한 카드
+                        const cardCls = isTop
+                          ? 'bg-gradient-to-br from-amber-50 via-amber-50/60 to-white border-amber-300/60 shadow-md'
+                          : 'bg-white border-outline-variant/30 hover:border-primary/30 hover:shadow-sm';
+                        return (
+                          <li
+                            key={comment.id}
+                            className={`relative rounded-2xl border p-4 sm:p-5 transition-all ${cardCls}`}
+                          >
+                            <div className="flex items-start gap-3 sm:gap-4">
+                              {/* Rank badge */}
+                              <div
+                                className={`shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-black text-sm sm:text-base ${
+                                  isTop
+                                    ? 'bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-md'
+                                    : rank === 2 ? 'bg-slate-200 text-slate-700'
+                                    : rank === 3 ? 'bg-orange-100 text-orange-700'
+                                    : 'bg-surface-container-high text-on-surface-variant'
+                                }`}
+                              >
+                                {isTop ? (
+                                  <span className="material-symbols-outlined text-base sm:text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>
+                                    workspace_premium
+                                  </span>
+                                ) : (
+                                  rank
+                                )}
+                              </div>
+
+                              <div className="flex-1 min-w-0">
+                                {/* Header row: 키워드 칩 + 좋아요 칩 */}
+                                <div className="flex items-center justify-between gap-2 mb-2.5 flex-wrap">
+                                  <span className="inline-flex items-center text-[11px] font-black text-secondary bg-secondary/10 border border-secondary/25 px-2 py-0.5 rounded-md tracking-tight">
+                                    #{comment.keyword}
+                                  </span>
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-600 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full">
+                                    <span className="material-symbols-outlined text-[13px]" style={{ fontVariationSettings: "'FILL' 1" }}>favorite</span>
+                                    <span className="tabular-nums">{likes}</span>
+                                  </span>
+                                </div>
+
+                                {/* Body text — 가독성 우선 (italic 제거, 적정 행간, 좌측 컬러 인용 보더) */}
+                                <blockquote
+                                  className={`text-[15px] sm:text-base text-on-surface leading-relaxed font-medium break-keep border-l-2 pl-3 mb-3 ${
+                                    isTop ? 'border-amber-400' : 'border-outline-variant/40'
+                                  }`}
+                                >
                                   {comment.description}
-                                </p>
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[10px] font-black text-secondary uppercase tracking-widest">#{comment.keyword}</span>
-                                    <span className="text-[10px] text-on-surface-variant font-medium">
-                                      {user ? `${user.company} ${user.department} ${user.name} ${user.title}` : 'Anonymous'}
-                                    </span>
+                                </blockquote>
+
+                                {/* Footer: 작성자 정보 — 아바타 + 이름 + 소속 */}
+                                <div className="flex items-center gap-2 mt-2">
+                                  <div className="w-6 h-6 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden shrink-0">
+                                    {user?.profilePic ? (
+                                      <img src={user.profilePic} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                    ) : (
+                                      <span className="text-[10px] font-bold text-primary">{user?.name?.charAt(0) || '?'}</span>
+                                    )}
                                   </div>
-                                  <div className="flex items-center gap-1 text-error">
-                                    <span className="material-symbols-outlined text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>favorite</span>
-                                    <span className="text-[10px] font-bold">{comment.likes?.length || 0}</span>
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-[12px] font-bold text-on-surface leading-tight truncate">
+                                      {user?.name || 'Anonymous'}
+                                      {user?.title && <span className="font-medium text-on-surface-variant ml-1">· {user.title}</span>}
+                                    </p>
+                                    {user && (
+                                      <p className="text-[10px] text-on-surface-variant/70 truncate">
+                                        {user.company}{user.department ? ` · ${user.department}` : ''}
+                                      </p>
+                                    )}
                                   </div>
                                 </div>
                               </div>
                             </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <p className="text-on-surface leading-snug font-medium italic text-sm">
-                        {classroomData.length > 0
-                          ? `"${classroomData[0].name}" 키워드가 이번 세션에서 가장 많은 공감을 얻고 있습니다.`
-                          : "아직 등록된 인사이트가 없습니다."}
-                      </p>
-                    )}
-                  </div>
+                          </li>
+                        );
+                      })}
+                    </ol>
+                  )}
                 </div>
 
                 {/* ── 3. Keyword Hashtag ──────────────────────────────────── */}
