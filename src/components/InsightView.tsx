@@ -841,6 +841,17 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
                     </div>
                   </div>
 
+                  {/* 안내 문구 — 모바일/태블릿에서 화면 폭에 맞춰 폰트 사이즈 자동 적응 */}
+                  <p
+                    className="px-4 sm:px-6 -mt-1 mb-3 text-on-surface-variant/80 leading-snug flex items-start gap-1.5"
+                    style={{ fontSize: 'clamp(11px, 3vw, 13px)' }}
+                  >
+                    <span className="material-symbols-outlined text-primary/70 shrink-0" style={{ fontSize: 'clamp(13px, 3.5vw, 15px)' }}>
+                      touch_app
+                    </span>
+                    <span>각 버블을 클릭하시면 리더분들의 학습 인사이트를 확인하실 수 있어요.</span>
+                  </p>
+
                   {/* Bubble canvas — 모바일에서 위/아래 1.5배 확대 (55vw → 82.5vw)
                       sm 이상에서는 기존 420px 유지 */}
                   <div
