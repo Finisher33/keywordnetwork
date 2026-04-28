@@ -215,9 +215,15 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
   const bestComments = useMemo(() => {
     if (!classroomSessionId) return [];
     const sessionInsights = (db.userInsights || []).filter(i => i.sessionId === classroomSessionId);
+    // 공감(likes) 많은 순으로 정렬, 동률 시 description 짧은 순(=핵심) 우선.
+    // 모든 세션에서 동일하게 최대 5건까지 노출.
     return [...sessionInsights]
-      .sort((a, b) => (b.likes?.length || 0) - (a.likes?.length || 0))
-      .slice(0, 3);
+      .sort((a, b) => {
+        const lc = (b.likes?.length || 0) - (a.likes?.length || 0);
+        if (lc !== 0) return lc;
+        return (a.description?.length || 0) - (b.description?.length || 0);
+      })
+      .slice(0, 5);
   }, [db.userInsights, classroomSessionId]);
 
   // 현대자동차그룹 브랜드 컬러 팔레트 (인덱스 기반 — 순서대로 다른 색상 보장)
