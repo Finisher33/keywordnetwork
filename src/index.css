@@ -76,11 +76,38 @@
 }
 
 @layer utilities {
+  /* Material Symbols 아이콘 폰트 명시 — Samsung Internet, 인앱 브라우저, 구버전 등에서
+     ligature 가 자동 활성화되지 않을 때 아이콘 이름이 그대로 노출되는 현상 방지.
+     - font-family 강제 (다른 className 우선순위로 덮이는 케이스 차단)
+     - font-feature-settings: 'liga' 로 ligature 명시 활성화
+     - 폰트 미로딩 시 텍스트 노출되지 않도록 color: transparent 폴백
+       (display=block 으로 폰트 받기 전엔 글리프 자체가 보이지 않으므로
+        load 실패 후에도 깨진 아이콘 이름이 화면에 텍스트로 안 뜨도록 보호) */
   .material-symbols-outlined {
-    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-    vertical-align: middle;
-    display: inline-block;
+    font-family: 'Material Symbols Outlined' !important;
+    font-weight: normal;
+    font-style: normal;
+    font-size: 24px;
     line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    display: inline-block;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    -webkit-font-feature-settings: 'liga';
+    font-feature-settings: 'liga';
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    vertical-align: middle;
+  }
+  /* 폰트 로드 안 된 동안 텍스트 노출 차단.
+     main.tsx 가 document.fonts.ready 후 html.icons-ready 클래스를 부착.
+     로드 전에는 글자 색을 투명 처리해 "notifications" 같은 ligature 이름이
+     텍스트로 새지 않도록 보호. */
+  html:not(.icons-ready) .material-symbols-outlined {
+    color: transparent !important;
   }
 
   .bubble-float {

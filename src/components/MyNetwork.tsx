@@ -267,6 +267,15 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
               const giverPct = total > 0 ? Math.round((giverCount / total) * 100) : 0;
               const takerPct = 100 - giverPct;
               const medal = rankIcons[ranks[idx]] ?? `${ranks[idx]}위`;
+              // 모임 유형 추천 — Giver / Taker 비중 기반. 글씨 색상은 모든 케이스 동일.
+              let recommendationText: string;
+              if (giverPct >= 70) {
+                recommendationText = '업무 노하우를 적극 공유하는 심화학습 추천';
+              } else if (takerPct >= 70) {
+                recommendationText = '전문가를 섭외하는 학습모임 추천';
+              } else {
+                recommendationText = '캐쥬얼한 학습모임 추천';
+              }
 
               return (
                 <button
@@ -274,14 +283,26 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
                   onClick={() => setSelectedKeyword(kw)}
                   className="w-full bg-surface border border-outline rounded-2xl p-4 hover:border-primary/40 hover:shadow-md transition-all text-left group"
                 >
-                  <div className="flex items-center gap-3 mb-3">
+                  <div className="flex items-center gap-3 mb-2">
                     <span className="text-xl shrink-0">{medal}</span>
                     <div className="flex-1 min-w-0">
+                      {/* 키워드 명 + n명 관심 (한 줄) */}
                       <div className="flex items-center justify-between gap-2">
-                        <h3 className="font-bold text-on-surface text-sm group-hover:text-primary transition-colors">#{kw.displayName}</h3>
+                        <h3 className="font-bold text-on-surface text-sm group-hover:text-primary transition-colors truncate">#{kw.displayName}</h3>
                         <span className="text-[11px] text-on-surface-variant shrink-0">{total}명 관심</span>
                       </div>
                     </div>
+                  </div>
+
+                  {/* 모임 유형 추천 배지 — 화면 폭 자동 적응(clamp), 글씨 색상 통일 */}
+                  <div
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-md border font-bold tracking-tight max-w-full mb-2.5 bg-surface-container-high text-on-surface-variant border-outline"
+                    style={{ fontSize: 'clamp(10px, 2.6vw, 12px)' }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: 'clamp(11px, 2.8vw, 13px)' }}>
+                      groups
+                    </span>
+                    <span className="truncate">{recommendationText}</span>
                   </div>
 
                   {/* Giver / Taker bar */}
