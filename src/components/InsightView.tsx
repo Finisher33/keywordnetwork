@@ -959,16 +959,33 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
                     </p>
                   ) : (
                     <ol className="space-y-3">
-                      {bestComments.map((comment, idx) => {
-                        const user = db.users.find(u => u.id === comment.userId);
-                        const likes = comment.likes?.length || 0;
-                        const rank = idx + 1;
-                        const isTop = rank === 1;
-                        // 1위만 강조 — 그 외는 간결한 카드
-                        const cardCls = isTop
-                          ? 'bg-gradient-to-br from-amber-50 via-amber-50/60 to-white border-amber-300/60 shadow-md'
-                          : 'bg-white border-outline-variant/30 hover:border-primary/30 hover:shadow-sm';
-                        return (
+                      {(() => {
+                        // Dense ranking: 동률은 같은 등수, 다음 등수는 +1
+                        // 12,12,8,5,5 → 1,1,2,3,3
+                        let prevLikes = Number.POSITIVE_INFINITY;
+                        let currentRank = 0;
+                        const ranks = bestComments.map(c => {
+                          const lk = c.likes?.length || 0;
+                          if (lk !== prevLikes) { currentRank++; prevLikes = lk; }
+                          return currentRank;
+                        });
+                        return bestComments.map((comment, idx) => {
+                          const user = db.users.find(u => u.id === comment.userId);
+                          const likes = comment.likes?.length || 0;
+                          const rank = ranks[idx];
+                          // 메달은 금/은/동까지만 부여, 그 외는 일반 번호
+                          const medal: 'gold' | 'silver' | 'bronze' | null =
+                            rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : null;
+                          // 카드 강조: 금메달일 때만 화려, 은·동은 약한 강조, 그 외 평범
+                          const cardCls =
+                            medal === 'gold'
+                              ? 'bg-gradient-to-br from-amber-50 via-amber-50/60 to-white border-amber-300/60 shadow-md'
+                              : medal === 'silver'
+                              ? 'bg-gradient-to-br from-slate-50 to-white border-slate-300/60 shadow-sm'
+                              : medal === 'bronze'
+                              ? 'bg-gradient-to-br from-orange-50/70 to-white border-orange-300/40 shadow-sm'
+                              : 'bg-white border-outline-variant/30 hover:border-primary/30 hover:shadow-sm';
+                          return (
                           <li
                             key={comment.id}
                             className={`relative rounded-2xl border p-4 sm:p-5 transition-all ${cardCls}`}
@@ -977,14 +994,16 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
                               {/* Rank badge */}
                               <div
                                 className={`shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-black text-sm sm:text-base ${
-                                  isTop
+                                  medal === 'gold'
                                     ? 'bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-md'
-                                    : rank === 2 ? 'bg-slate-200 text-slate-700'
-                                    : rank === 3 ? 'bg-orange-100 text-orange-700'
+                                    : medal === 'silver'
+                                    ? 'bg-gradient-to-br from-slate-300 to-slate-400 text-white shadow'
+                                    : medal === 'bronze'
+                                    ? 'bg-gradient-to-br from-orange-400 to-amber-700 text-white shadow'
                                     : 'bg-surface-container-high text-on-surface-variant'
                                 }`}
                               >
-                                {isTop ? (
+                                {medal ? (
                                   <span className="material-symbols-outlined text-base sm:text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>
                                     workspace_premium
                                   </span>
@@ -1008,7 +1027,10 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
                                 {/* Body text — 가독성 우선 (italic 제거, 적정 행간, 좌측 컬러 인용 보더) */}
                                 <blockquote
                                   className={`text-[15px] sm:text-base text-on-surface leading-relaxed font-medium break-keep border-l-2 pl-3 mb-3 ${
-                                    isTop ? 'border-amber-400' : 'border-outline-variant/40'
+                                    medal === 'gold' ? 'border-amber-400'
+                                      : medal === 'silver' ? 'border-slate-400'
+                                      : medal === 'bronze' ? 'border-orange-400'
+                                      : 'border-outline-variant/40'
                                   }`}
                                 >
                                   {comment.description}
@@ -1038,8 +1060,9 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
                               </div>
                             </div>
                           </li>
-                        );
-                      })}
+                          );
+                        });
+                      })()}
                     </ol>
                   )}
                 </div>
