@@ -849,7 +849,7 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
                     <span className="material-symbols-outlined text-primary/70 shrink-0" style={{ fontSize: 'clamp(13px, 3.5vw, 15px)' }}>
                       touch_app
                     </span>
-                    <span>각 버블을 클릭하시면 리더분들의 학습 인사이트를 확인하실 수 있어요.</span>
+                    <span>각 버블을 클릭하신 후 리더분들의 학습 인사이트를 확인하시고, 공감을 표현해보세요.</span>
                   </p>
 
                   {/* Bubble canvas — 모바일에서 위/아래 1.5배 확대 (55vw → 82.5vw)
