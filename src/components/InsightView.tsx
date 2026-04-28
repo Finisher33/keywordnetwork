@@ -15,7 +15,12 @@ interface InsightViewProps {
 }
 
 export default function InsightView({ onBack, onLogout, onProfileClick, onNotificationClick, adminCourseId }: InsightViewProps) {
-  const { currentUser, db, saveUserInsight, toggleInsightLike, fetchData } = useStore();
+  const { currentUser, db, saveUserInsight, toggleInsightLike, fetchData, refreshCanonicalTerms } = useStore();
+
+  // 인사이트 화면 진입 시 canonicalTerms 만 가볍게 재조회 — 다른 유저가 방금
+  // 만든 새 키워드 doc 이 로컬 캐시에 없어 hash ID 가 노출되는 현상 방지.
+  // (50명 동시접속에도 안전한 1 컬렉션 ~50 docs read)
+  useEffect(() => { refreshCanonicalTerms(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const effectiveCourseId = adminCourseId || currentUser?.courseId;
 
   const [activeTab, setActiveTab] = useState<'my' | 'classroom'>(adminCourseId ? 'classroom' : 'my');
@@ -84,6 +89,9 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
     setIsSavingInsight(true);
     try {
       await saveUserInsight(insight);
+      // 저장 직후 canonicalTerms 캐시 갱신 — 같은 시점 다른 유저가 만든 doc 도 함께 동기화.
+      // 비동기 백그라운드로 실행해 UI 블로킹 X.
+      refreshCanonicalTerms();
       setSelectedSessionId(null);
       setKeyword('');
       setDescription('');
@@ -177,9 +185,13 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
 
     return Object.entries(merged).map(([id, data]) => {
       const term = db.canonicalTerms?.find(t => t.id === id);
+      // 폴백 우선순위: canonicalTerm.term → 원본 keyword 텍스트 → id (최후의 보루)
+      // canonicalTerm 이 로컬 캐시에 없을 때(다른 유저가 방금 생성한 경우 등)
+      // 해시 ID 가 화면에 노출되지 않도록 보호.
+      const fallback = data.originalKeywords[0] || id;
       return {
         id,
-        name: term ? term.term : id,
+        name: term?.term?.trim() || fallback,
         ...data
       };
     }).sort((a, b) => b.count - a.count);

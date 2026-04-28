@@ -192,6 +192,9 @@ interface StoreContextType {
   saveUserInsight: (insight: UserInsight) => Promise<void>;
   toggleInsightLike: (insightId: string, userId: string) => Promise<void>;
   fetchData: () => Promise<void>;
+  /** canonicalTerms 컬렉션만 가볍게 재조회 (50명 동시 fan-out 방지를 위해 onSnapshot 미사용,
+   *  대신 인사이트 화면 진입 / 자기 저장 직후 호출). */
+  refreshCanonicalTerms: () => Promise<void>;
   addPresetInterest: (keyword: string, group: 'work' | 'hobby') => Promise<void>;
   deletePresetInterest: (id: string) => Promise<void>;
   /** canonicalTerms 컬렉션 정리 — 동일 정규화 텍스트의 분기된 ID 를 통일하고 미사용 doc 삭제. */
@@ -259,6 +262,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setDemoDb(newMockData);
     if (demoUser) {
       setDemoUser(newMockData.users[0]);
+    }
+  };
+
+  // canonicalTerms 만 가볍게 재조회 (1 컬렉션 ~50 docs read).
+  // 다른 유저가 방금 만든 새 doc 가 내 로컬 캐시에 없어 화면에 hash ID 가
+  // 노출되는 현상 방지용. 50명 동시접속 시에도 서버 부하 무시 가능 수준.
+  const refreshCanonicalTerms = async () => {
+    if (isDemoMode) return;
+    try {
+      await ensureAuth();
+      const snap = await withRetry(() => getDocs(collection(firestore, 'canonicalTerms')));
+      setCanonicalTerms(snap.docs.map(d => ({ id: d.id, ...d.data() } as CanonicalTerm)));
+    } catch (e) {
+      // 실패해도 기존 로컬 캐시 유지 — UI 차단하지 않음
+      console.warn('refreshCanonicalTerms failed (non-fatal):', e);
     }
   };
 
@@ -1351,7 +1369,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addSession, updateSession, deleteSession,
       saveInterests, updateUser, deleteUser, updateUserProfile, sendTeaTimeRequest, updateTeaTimeRequest,
       toggleSessionActive, reorderSessions, saveUserInsight, toggleInsightLike, fetchData,
-      addPresetInterest, deletePresetInterest, cleanupCanonicalTerms,
+      addPresetInterest, deletePresetInterest, cleanupCanonicalTerms, refreshCanonicalTerms,
       isDemoMode, toggleDemoMode, resetDemoData,
       networkError, clearNetworkError,
     }}>
