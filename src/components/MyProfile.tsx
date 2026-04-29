@@ -447,8 +447,10 @@ export default function MyProfile({ onSave, onLogout, showBack = true, targetUse
                 onClick={onLogout}
                 className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-error/10 text-on-surface-variant hover:text-error transition-colors"
                 title="로그아웃"
+                aria-label="로그아웃"
               >
-                <span className="material-symbols-outlined text-2xl">logout</span>
+                {/* 미니멀한 power 아이콘 — 시각적 단순성 + 즉각 인지 */}
+                <span className="material-symbols-outlined text-[22px]">power_settings_new</span>
               </button>
             </div>
           )}

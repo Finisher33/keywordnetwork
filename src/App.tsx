@@ -119,10 +119,13 @@ export default function App() {
     // 응답하지 않으면 onComplete 가 호출되지 않아 자연스럽게 다음 페이지로 갈 수 없음.
     if (!surveyAlreadyDone) {
       return (
-        <QuickSurvey onComplete={() => {
-          awaitingFirstNavRef.current = false;
-          setSubView('landing');
-        }} />
+        <QuickSurvey
+          onComplete={() => {
+            awaitingFirstNavRef.current = false;
+            setSubView('landing');
+          }}
+          onLogout={handleLogout}
+        />
       );
     }
 

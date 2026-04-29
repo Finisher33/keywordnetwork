@@ -3,6 +3,7 @@ import { useStore } from '../store';
 
 interface QuickSurveyProps {
   onComplete: () => void;
+  onLogout?: () => void;
 }
 
 type Errors = {
@@ -165,7 +166,7 @@ function CleanTextInput({
 }
 
 // ─── 메인 컴포넌트 ─────────────────────────────────────────────────────────
-export default function QuickSurvey({ onComplete }: QuickSurveyProps) {
+export default function QuickSurvey({ onComplete, onLogout }: QuickSurveyProps) {
   const { currentUser, updateUser } = useStore();
 
   // 슬라이더 값은 null = "아직 선택 안 함"
@@ -231,11 +232,21 @@ export default function QuickSurvey({ onComplete }: QuickSurveyProps) {
           <span className="font-headline text-xl font-bold tracking-tight text-primary">
             Keyword Survey
           </span>
-          <span className="text-[11px] font-bold text-on-surface-variant">
-            {progress} / 5 완료
-          </span>
+          {onLogout && (
+            <div className="bg-surface-container-low border border-outline rounded-xl p-1 flex items-center shadow-sm">
+              <button
+                onClick={onLogout}
+                className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-error/10 text-on-surface-variant hover:text-error transition-colors"
+                title="로그아웃"
+                aria-label="로그아웃"
+              >
+                {/* 미니멀한 power 아이콘 — 시각적 단순성 + 즉각 인지 */}
+                <span className="material-symbols-outlined text-[22px]">power_settings_new</span>
+              </button>
+            </div>
+          )}
         </div>
-        {/* 진행률 바 */}
+        {/* 진행률 바 — 시각 표시는 유지 (텍스트 카운터만 제거) */}
         <div className="h-1 bg-surface-container-low overflow-hidden">
           <div
             className="h-full bg-primary transition-all duration-500 ease-out"
