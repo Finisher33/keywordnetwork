@@ -45,7 +45,7 @@ function Avatar({ user, size = 40 }: { user?: User | null; size?: number }) {
       className="rounded-full flex items-center justify-center overflow-hidden border-2 border-white shadow-sm"
     >
       {isUrl(user?.profilePic) ? (
-        <img src={user!.profilePic} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+        <img loading="lazy" decoding="async" src={user!.profilePic} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
       ) : user?.profilePic && user.profilePic.length < 5 ? (
         <span style={{ fontSize: fontSize * 1.1 }}>{user.profilePic}</span>
       ) : (

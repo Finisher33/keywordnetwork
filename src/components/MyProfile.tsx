@@ -467,7 +467,7 @@ export default function MyProfile({ onSave, onLogout, showBack = true, targetUse
                   profilePic.length < 5 ? (
                     <span className="text-5xl">{profilePic}</span>
                   ) : (
-                    <img src={profilePic} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    <img loading="lazy" decoding="async" src={profilePic} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                   )
                 ) : (
                   <span className="material-symbols-outlined text-8xl text-primary/40">face</span>
@@ -483,7 +483,7 @@ export default function MyProfile({ onSave, onLogout, showBack = true, targetUse
                     onClick={() => setProfilePic(animal.url)}
                     className={`flex items-center justify-center p-1.5 rounded-2xl transition-all ${profilePic === animal.url ? 'border-2 border-primary shadow-md scale-110 bg-primary/10' : 'border border-outline opacity-70 hover:opacity-100 hover:bg-primary/5 bg-surface-container-low'}`}
                   >
-                    <img src={animal.url} alt="" className="w-9 h-9 object-contain" />
+                    <img loading="lazy" decoding="async" src={animal.url} alt="" className="w-9 h-9 object-contain" />
                   </button>
                 ))}
               </div>

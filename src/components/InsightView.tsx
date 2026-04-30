@@ -536,7 +536,7 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
                   currentUser.profilePic.length < 5 ? (
                     <span className="text-sm">{currentUser.profilePic}</span>
                   ) : (
-                    <img src={currentUser.profilePic} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    <img loading="lazy" decoding="async" src={currentUser.profilePic} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                   )
                 ) : (
                   <span className="material-symbols-outlined text-xl text-secondary/40">face</span>
@@ -1052,7 +1052,7 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
                                 <div className="flex items-center gap-2 mt-2">
                                   <div className="w-6 h-6 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden shrink-0">
                                     {user?.profilePic ? (
-                                      <img src={user.profilePic} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                      <img loading="lazy" decoding="async" src={user.profilePic} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                                     ) : (
                                       <span className="text-[10px] font-bold text-primary">{user?.name?.charAt(0) || '?'}</span>
                                     )}
@@ -1189,7 +1189,7 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
                                 user.profilePic.length < 5 ? (
                                   <span className="text-xl">{user.profilePic}</span>
                                 ) : (
-                                  <img src={user.profilePic} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                  <img loading="lazy" decoding="async" src={user.profilePic} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                                 )
                               ) : (
                                 <span className="text-xs font-bold text-primary">{user?.name?.charAt(0)}</span>

@@ -60,7 +60,7 @@ export default function AppView({
                 currentUser.profilePic.length < 5 ? (
                   <span className="text-sm">{currentUser.profilePic}</span>
                 ) : (
-                  <img src={currentUser.profilePic} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  <img loading="lazy" decoding="async" src={currentUser.profilePic} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                 )
               ) : (
                 <span className="material-symbols-outlined text-xl text-primary/40">face</span>

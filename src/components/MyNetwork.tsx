@@ -133,7 +133,7 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
                       className="w-12 h-12 rounded-xl bg-surface-container-low overflow-hidden flex items-center justify-center border border-outline shrink-0 hover:border-primary/50 hover:scale-105 transition-all"
                     >
                       {u.profilePic
-                        ? <img src={u.profilePic} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                        ? <img loading="lazy" decoding="async" src={u.profilePic} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                         : <span className="text-base font-bold text-primary">{u.name.charAt(0)}</span>}
                     </button>
                     <div className="flex-1 min-w-0">
@@ -365,7 +365,7 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
                           <div className="flex items-start gap-2 mb-1">
                             <div className="w-7 h-7 rounded-lg bg-primary/10 overflow-hidden flex items-center justify-center shrink-0 border border-primary/20">
                               {user.profilePic
-                                ? <img src={user.profilePic} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                ? <img loading="lazy" decoding="async" src={user.profilePic} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                                 : <span className="text-xs font-bold text-primary">{user.name.charAt(0)}</span>}
                             </div>
                             <div className="min-w-0 flex-1">
@@ -435,7 +435,7 @@ export default function MyNetwork({ targetUser, hideActions = false }: MyNetwork
                           <div className="flex items-start gap-2 mb-1">
                             <div className="w-7 h-7 rounded-lg bg-secondary/10 overflow-hidden flex items-center justify-center shrink-0 border border-secondary/20">
                               {user.profilePic
-                                ? <img src={user.profilePic} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                ? <img loading="lazy" decoding="async" src={user.profilePic} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                                 : <span className="text-xs font-bold text-secondary">{user.name.charAt(0)}</span>}
                             </div>
                             <div className="min-w-0 flex-1">

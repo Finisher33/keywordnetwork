@@ -145,7 +145,7 @@ export default function NotificationBell({ onNotificationClick }: { onNotificati
                                   fromUser.profilePic.length < 5 ? (
                                     <span className="text-sm">{fromUser.profilePic}</span>
                                   ) : (
-                                    <img src={fromUser.profilePic} alt="" className="w-full h-full object-cover" />
+                                    <img loading="lazy" decoding="async" src={fromUser.profilePic} alt="" className="w-full h-full object-cover" />
                                   )
                                 ) : (
                                   <span className="text-xs font-bold text-primary">{fromUser?.name?.charAt(0)}</span>
@@ -208,7 +208,7 @@ export default function NotificationBell({ onNotificationClick }: { onNotificati
                                   toUser.profilePic.length < 5 ? (
                                     <span className="text-sm">{toUser.profilePic}</span>
                                   ) : (
-                                    <img src={toUser.profilePic} alt="" className="w-full h-full object-cover" />
+                                    <img loading="lazy" decoding="async" src={toUser.profilePic} alt="" className="w-full h-full object-cover" />
                                   )
                                 ) : (
                                   <span

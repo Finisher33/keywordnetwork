@@ -1,15 +1,14 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { getAuth, GoogleAuthProvider, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
-import { getAnalytics, isSupported } from 'firebase/analytics';
 import firebaseConfig from '../firebase-applet-config.json';
 
+// Firebase Analytics 자동 초기화 제거 (PIPA 동의 미수령 + 미사용 모듈 무게 절감 — ~30KB)
 const app = initializeApp(firebaseConfig);
 
 export const db = getFirestore(app, (firebaseConfig as any).firestoreDatabaseId || '(default)');
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
-export const analytics = isSupported().then(yes => yes ? getAnalytics(app) : null);
 
 // Firestore 규칙의 isAuthenticated() 조건을 충족하기 위해 익명 로그인 수행
 // 앱 사용자 인증(이름/회사 기반)과는 별개로 Firestore 접근 권한 확보용

@@ -670,7 +670,7 @@ export default function NetworkMap({ adminCourseId }: { adminCourseId?: string }
                         <div className="flex items-center gap-3">
                           <div className={`w-10 h-10 rounded-lg ${isMe ? 'bg-primary/10 border-primary/20' : 'bg-surface-container-low border-outline'} overflow-hidden flex items-center justify-center border`}>
                             {u.profilePic ? (
-                              <img src={u.profilePic} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                              <img loading="lazy" decoding="async" src={u.profilePic} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                             ) : (
                               <span className="material-symbols-outlined text-5xl text-primary/40">face</span>
                             )}
@@ -724,7 +724,7 @@ export default function NetworkMap({ adminCourseId }: { adminCourseId?: string }
                 <div className="flex items-center gap-5">
                   <div className="w-20 h-20 rounded-xl bg-surface-container-low overflow-hidden flex items-center justify-center border border-outline">
                     {selectedUser.profilePic ? (
-                      <img src={selectedUser.profilePic} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      <img loading="lazy" decoding="async" src={selectedUser.profilePic} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     ) : (
                       <span className="material-symbols-outlined text-8xl text-primary/40">face</span>
                     )}

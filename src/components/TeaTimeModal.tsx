@@ -45,7 +45,7 @@ export default function TeaTimeModal({ targetUser, currentUser, myInterests, tar
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 rounded-2xl bg-surface-container-low overflow-hidden flex items-center justify-center border border-outline">
               {targetUser.profilePic ? (
-                <img src={targetUser.profilePic} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                <img loading="lazy" decoding="async" src={targetUser.profilePic} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
               ) : (
                 <span className="material-symbols-outlined text-5xl text-primary/40">face</span>
               )}
@@ -163,7 +163,7 @@ export function TeaReplyModal({
         <div className="flex items-center gap-3 mb-5">
           <div className="w-12 h-12 rounded-xl overflow-hidden flex items-center justify-center border border-outline bg-surface-container-low shrink-0">
             {fromUser.profilePic && fromUser.profilePic.length > 4
-              ? <img src={fromUser.profilePic} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              ? <img loading="lazy" decoding="async" src={fromUser.profilePic} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
               : <span className="font-bold text-primary text-sm">{fromUser.name.charAt(0)}</span>}
           </div>
           <div className="flex-1 min-w-0">

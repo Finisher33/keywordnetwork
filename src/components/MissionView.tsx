@@ -23,7 +23,7 @@ function ProfileModal({ user, allInterests, onClose }: { user: User; allInterest
           <div className="flex items-center gap-3">
             <div className="w-14 h-14 rounded-xl bg-surface-container-low overflow-hidden flex items-center justify-center border border-outline shrink-0">
               {isUrl(user.profilePic)
-                ? <img src={user.profilePic} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                ? <img loading="lazy" decoding="async" src={user.profilePic} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                 : <span className="material-symbols-outlined text-5xl text-primary/40">face</span>}
             </div>
             <div>
@@ -195,7 +195,7 @@ export default function MissionView({
                     className="w-10 h-10 rounded-lg bg-surface-container-low overflow-hidden flex items-center justify-center shrink-0 border border-outline hover:border-primary/50 hover:scale-105 transition-all"
                   >
                     {isUrl(toUser.profilePic)
-                      ? <img src={toUser.profilePic} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      ? <img loading="lazy" decoding="async" src={toUser.profilePic} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                       : <span className="font-bold text-secondary text-[11px]">{toUser.name.charAt(0)}</span>}
                   </button>
                   <div className="flex-1 min-w-0">
@@ -264,7 +264,7 @@ export default function MissionView({
                     className="w-10 h-10 rounded-lg bg-surface-container-low overflow-hidden flex items-center justify-center shrink-0 border border-outline hover:border-primary/50 hover:scale-105 transition-all"
                   >
                     {isUrl(fromUser.profilePic)
-                      ? <img src={fromUser.profilePic} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      ? <img loading="lazy" decoding="async" src={fromUser.profilePic} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                       : <span className="font-bold text-secondary text-[11px]">{fromUser.name.charAt(0)}</span>}
                   </button>
                   <div className="flex-1 min-w-0">

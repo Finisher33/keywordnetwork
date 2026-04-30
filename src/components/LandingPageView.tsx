@@ -131,7 +131,7 @@ export default function LandingPageView({ onSelect, onLogout, onProfileClick, on
               {currentUser?.profilePic ? (
                 currentUser.profilePic.length < 5
                   ? <span className="text-base">{currentUser.profilePic}</span>
-                  : <img src={currentUser.profilePic} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  : <img loading="lazy" decoding="async" src={currentUser.profilePic} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
               ) : (
                 <span className="material-symbols-outlined text-2xl text-white/50">face</span>
               )}

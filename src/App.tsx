@@ -1,12 +1,25 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { useStore } from './store';
+// 첫 진입 화면(MainView)만 즉시 로드. 나머지는 React.lazy 로 라우팅 분기점에서 동적 import.
+// → 첫 다운로드 번들 감소 + 사용자 흐름에 따라 점진 로드.
 import MainView from './components/MainView';
-import AdminView from './components/AdminView';
-import MyProfile from './components/MyProfile';
-import QuickSurvey from './components/QuickSurvey';
-import AppView, { AppTab } from './components/AppView';
-import LandingPageView from './components/LandingPageView';
-import InsightView from './components/InsightView';
+import { AppTab } from './components/AppView';
+
+const AdminView = lazy(() => import('./components/AdminView'));
+const MyProfile = lazy(() => import('./components/MyProfile'));
+const QuickSurvey = lazy(() => import('./components/QuickSurvey'));
+const AppView = lazy(() => import('./components/AppView'));
+const LandingPageView = lazy(() => import('./components/LandingPageView'));
+const InsightView = lazy(() => import('./components/InsightView'));
+
+// Lazy 컴포넌트 로딩 중 임시 화면 (이미 isDbLoaded 스피너와 동일 톤)
+function ChunkLoading() {
+  return (
+    <div className="absolute inset-0 flex flex-col items-center justify-center bg-background">
+      <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+}
 
 export default function App() {
   const { currentUser, db, logout, isDbLoaded, networkError, clearNetworkError } = useStore();
@@ -183,7 +196,7 @@ export default function App() {
           </div>
         </div>
       )}
-      {renderContent()}
+      <Suspense fallback={<ChunkLoading />}>{renderContent()}</Suspense>
     </div>
   );
 }

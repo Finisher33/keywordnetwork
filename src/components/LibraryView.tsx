@@ -41,7 +41,7 @@ function LibraryTeaTimeModal({
         <div className="flex items-center gap-3 mb-5">
           <div className="w-12 h-12 rounded-xl overflow-hidden flex items-center justify-center border border-outline bg-surface-container-low shrink-0">
             {targetUser.profilePic
-              ? <img src={targetUser.profilePic} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              ? <img loading="lazy" decoding="async" src={targetUser.profilePic} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
               : <span className="font-bold text-primary text-sm">{targetUser.name.charAt(0)}</span>}
           </div>
           <div className="flex-1 min-w-0">
@@ -320,7 +320,7 @@ export default function LibraryView() {
                     }`}
                   >
                     {u.profilePic ? (
-                      <img src={u.profilePic} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      <img loading="lazy" decoding="async" src={u.profilePic} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     ) : (
                       <span className="text-base font-bold text-primary">{u.name.charAt(0)}</span>
                     )}
