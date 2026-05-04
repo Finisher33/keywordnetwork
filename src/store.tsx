@@ -314,10 +314,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const collectionsToLoad = ['users', 'courses', 'sessions', 'interests', 'teaTimeRequests', 'userInsights', 'canonicalTerms', 'presetInterests'];
     const loadedCollections = new Set<string>();
 
-    const checkAllLoaded = (collectionName: string) => {
+    const checkAllLoaded = (collectionName: string, success: boolean = true) => {
       loadedCollections.add(collectionName);
       if (loadedCollections.size === collectionsToLoad.length) {
         setIsDbLoaded(true);
+      }
+      // 리스너가 한 번이라도 데이터를 정상 수신하면, 초기 fetchData 실패로 띄운
+      // 네트워크 오류 배너를 자동으로 해제 (UX 자가 회복).
+      if (success) {
+        setNetworkError(null);
       }
     };
 
@@ -328,7 +333,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           code: error?.code,
           collection: collectionName,
         }));
-        checkAllLoaded(collectionName);
+        checkAllLoaded(collectionName, false);
       };
 
       // Users
