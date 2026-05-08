@@ -855,10 +855,11 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
                   </p>
 
                   {/* Bubble canvas — 모바일에서 위/아래 1.5배 확대 (55vw → 82.5vw)
-                      sm 이상에서는 기존 420px 유지 */}
+                      PC(sm 이상)에서는 기존 420px 대비 약 1.5~1.7배 확대 (sm 640px / xl 720px)
+                      → 전체화면 진입 없이도 한 화면에 키워드를 더 크게 확인 가능 */}
                   <div
                     ref={setBubbleContainerEl}
-                    className={`relative w-full ${isBubbleFullScreen ? 'h-[calc(100dvh-72px)]' : 'min-h-[82.5vw] sm:min-h-[420px]'} overflow-hidden`}
+                    className={`relative w-full ${isBubbleFullScreen ? 'h-[calc(100dvh-72px)]' : 'min-h-[82.5vw] sm:min-h-[640px] xl:min-h-[720px]'} overflow-hidden`}
                     style={{ touchAction: 'none', cursor: isBubbleDragging ? 'grabbing' : 'grab' }}
                     onPointerDownCapture={handleBubblePointerDown}
                     onClickCapture={handleBubbleClickCapture}
