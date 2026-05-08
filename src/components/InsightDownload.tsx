@@ -152,25 +152,36 @@ export default function InsightDownload({ courseId }: Props) {
           </p>
         </div>
       ) : (
-        <div className="rounded-2xl border border-outline-variant/20 bg-white shadow-sm overflow-x-auto">
-          <table className="w-full text-xs border-collapse">
+        // 가로 스크롤로 모든 열 확인 가능. sticky 컬럼 사용 시 폭 불일치로 겹침이 발생해
+        // sticky 를 제거하고 단순 가로 스크롤 + 컬럼별 최소 폭 보장 방식으로 변경.
+        <div className="rounded-2xl border border-outline-variant/20 bg-white shadow-sm overflow-x-auto overflow-y-visible">
+          <table className="text-xs border-collapse" style={{ minWidth: 'max-content' }}>
+            <colgroup>
+              {/* 고정 3컬럼 */}
+              <col style={{ width: 140 }} />{/* 소속 */}
+              <col style={{ width: 100 }} />{/* 성명 */}
+              <col style={{ width: 120 }} />{/* 직급 */}
+              {/* 세션별 (키워드, 코멘트) 페어 */}
+              {sessions.flatMap(s => [
+                <col key={`k-${s.id}`} style={{ width: 160 }} />,
+                <col key={`d-${s.id}`} style={{ width: 320 }} />,
+              ])}
+            </colgroup>
             <thead className="bg-surface-container-high sticky top-0 z-10">
               <tr>
                 {headers.map((h, idx) => {
                   const isFixed = idx < 3;
-                  // 세션 페어 컬러링: (idx-3) 기준 페어 인덱스 → 짝/홀로 옅은 배경 alternation
                   const pairIdx = isFixed ? -1 : Math.floor((idx - 3) / 2);
                   const isKeyword = !isFixed && (idx - 3) % 2 === 0;
                   return (
                     <th
                       key={idx}
-                      className={`px-3 py-2.5 text-left font-black text-[10px] uppercase tracking-widest border-b border-outline-variant/30 whitespace-nowrap
-                        ${isFixed ? 'text-primary bg-primary/5 sticky left-0 z-20' : ''}
+                      className={`px-3 py-2.5 text-left font-black text-[10px] uppercase tracking-widest border-b border-outline-variant/30 whitespace-nowrap align-bottom
+                        ${isFixed ? 'text-primary bg-primary/5' : ''}
                         ${!isFixed && pairIdx % 2 === 0 ? 'bg-surface-container-high' : ''}
                         ${!isFixed && pairIdx % 2 === 1 ? 'bg-surface-container' : ''}
                         ${!isFixed ? (isKeyword ? 'text-secondary' : 'text-on-surface-variant') : ''}
                       `}
-                      style={isFixed ? { left: idx === 0 ? 0 : idx === 1 ? 96 : 240 } : undefined}
                     >
                       {h}
                     </th>
@@ -188,11 +199,10 @@ export default function InsightDownload({ courseId }: Props) {
                       <td
                         key={ci}
                         className={`px-3 py-2 align-top border-b border-outline-variant/15
-                          ${isFixed ? 'sticky left-0 z-10 bg-inherit font-bold text-on-surface whitespace-nowrap' : ''}
-                          ${!isFixed && isKeyword ? 'font-bold text-secondary whitespace-nowrap' : ''}
-                          ${!isFixed && !isKeyword ? 'text-on-surface-variant max-w-[320px] whitespace-pre-wrap break-words' : ''}
+                          ${isFixed ? 'font-bold text-on-surface whitespace-nowrap' : ''}
+                          ${!isFixed && isKeyword ? 'font-bold text-secondary whitespace-pre-wrap break-words' : ''}
+                          ${!isFixed && !isKeyword ? 'text-on-surface-variant whitespace-pre-wrap break-words' : ''}
                         `}
-                        style={isFixed ? { left: ci === 0 ? 0 : ci === 1 ? 96 : 240 } : undefined}
                       >
                         {cell || <span className="text-on-surface-variant/30">—</span>}
                       </td>
