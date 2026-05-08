@@ -5,6 +5,7 @@ import PeopleMap from './PeopleMap';
 import InsightView from './InsightView';
 import TotalInsight from './TotalInsight';
 import SurveyInsight from './SurveyInsight';
+import InsightDownload from './InsightDownload';
 import MyNetwork from './MyNetwork';
 import MyProfile from './MyProfile';
 import NotificationBell from './NotificationBell';
@@ -85,7 +86,7 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
   
   // Analysis State
   const [analysisCourseId, setAnalysisCourseId] = useState('');
-  const [analysisFeature, setAnalysisFeature] = useState<'survey' | 'total' | 'network' | 'peoplemap' | 'insight'>('survey');
+  const [analysisFeature, setAnalysisFeature] = useState<'survey' | 'total' | 'network' | 'peoplemap' | 'insight' | 'download'>('survey');
 
   // User List State
   const [userListCourseId, setUserListCourseId] = useState('');
@@ -704,7 +705,7 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
         </div>
       )}
 
-      <main className={`flex-1 overflow-y-auto pt-8 px-4 md:px-8 mx-auto transition-all duration-500 pb-[calc(5rem+env(safe-area-inset-bottom))] ${adminSubView === 'analysis' || adminSubView === 'users' ? 'max-w-[98%]' : 'max-w-5xl'}`}>
+      <main className={`flex-1 overflow-y-auto pt-8 px-4 md:px-8 mx-auto transition-all duration-500 pb-[calc(5rem+env(safe-area-inset-bottom))] ${adminSubView === 'analysis' ? 'max-w-none w-full' : adminSubView === 'users' ? 'max-w-[98%]' : 'max-w-5xl'}`}>
         {adminSubView === 'management' ? (
           <div className="space-y-12">
             <div>
@@ -1523,12 +1524,22 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
                   >
                     세션별 키워드 인사이트
                   </button>
+                  <button
+                    onClick={() => setAnalysisFeature('download')}
+                    className={`flex-1 min-w-fit px-3 py-2 rounded-lg text-[10px] sm:text-xs font-bold transition-all whitespace-nowrap ${analysisFeature === 'download' ? 'bg-primary text-on-primary shadow-md' : 'text-on-surface-variant hover:text-on-surface'}`}
+                  >
+                    인사이트 다운로드
+                  </button>
                 </div>
               </div>
             </div>
 
             {analysisCourseId ? (
-              <div className="bg-surface-container rounded-3xl border border-outline-variant/15 overflow-hidden min-h-[600px] sm:min-h-[800px] relative shadow-2xl">
+              // 분석 콘텐츠 래퍼.
+              // - 'insight' / 'download' 처럼 길이가 가변적인 리스트형 콘텐츠는 페이지 흐름(outer scroll)에 맡겨
+              //   내부 스크롤이 중복 발생하지 않도록 min-h 와 overflow 를 해제.
+              // - 'survey' / 'total' / 'network' / 'peoplemap' 같은 시각화 영역은 기존처럼 고정 박스 유지.
+              <div className={`bg-surface-container rounded-3xl border border-outline-variant/15 relative shadow-2xl ${analysisFeature === 'insight' || analysisFeature === 'download' ? '' : 'overflow-hidden min-h-[600px] sm:min-h-[800px]'}`}>
                 {analysisFeature === 'survey' ? (
                   <SurveyInsight courseId={analysisCourseId} />
                 ) : analysisFeature === 'total' ? (
@@ -1537,8 +1548,10 @@ export default function AdminView({ onBack, onLogout }: { onBack: () => void, on
                   <NetworkMap adminCourseId={analysisCourseId} />
                 ) : analysisFeature === 'peoplemap' ? (
                   <PeopleMap adminCourseId={analysisCourseId} />
-                ) : (
+                ) : analysisFeature === 'insight' ? (
                   <InsightView adminCourseId={analysisCourseId} />
+                ) : (
+                  <InsightDownload courseId={analysisCourseId} />
                 )}
               </div>
             ) : (

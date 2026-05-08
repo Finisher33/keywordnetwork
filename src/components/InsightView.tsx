@@ -515,7 +515,9 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
   };
 
   return (
-    <div className="absolute inset-0 bg-background text-on-surface flex flex-col overflow-hidden">
+    // 관리자 분석 화면에서는 페이지 자체 스크롤(AdminView main)에 흐름을 위임 → 내부 스크롤 제거로 이중 스크롤 방지.
+    // 일반 유저 화면에서는 기존처럼 absolute 채움 박스로 동작.
+    <div className={`${adminCourseId ? 'relative w-full' : 'absolute inset-0'} bg-background text-on-surface flex flex-col overflow-hidden`}>
       {/* Top Nav - Hidden in Admin Mode */}
       {!adminCourseId && (
         <header className="header-safe bg-white/80 backdrop-blur-xl border-b border-outline shadow-sm shrink-0 z-50">
@@ -555,7 +557,7 @@ export default function InsightView({ onBack, onLogout, onProfileClick, onNotifi
         </header>
       )}
 
-      <main className={`flex-1 overflow-y-auto overflow-x-hidden w-full px-4 sm:px-6 mx-auto transition-all ${adminCourseId ? 'max-w-none pt-8 pb-[env(safe-area-inset-bottom)]' : 'max-w-5xl pt-8 pb-[calc(6rem+env(safe-area-inset-bottom))]'}`}>
+      <main className={`overflow-x-hidden w-full px-4 sm:px-6 mx-auto transition-all ${adminCourseId ? 'max-w-none pt-8 pb-8' : 'flex-1 overflow-y-auto max-w-5xl pt-8 pb-[calc(6rem+env(safe-area-inset-bottom))]'}`}>
         <AnimatePresence mode="wait">
           {selectedSessionId ? (
             /* ── Input View ────────────────────────────────────────────────── */

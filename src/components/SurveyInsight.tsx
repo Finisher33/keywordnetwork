@@ -300,7 +300,7 @@ function ConditionScene({ users }: { users: User[] }) {
         })}
       </svg>
 
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 sm:gap-5 px-4 sm:px-8 py-6 sm:py-10 overflow-y-auto">
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 sm:gap-5 px-4 sm:px-8 py-6 sm:py-10 overflow-hidden">
         {/* 타이틀 */}
         <div className="text-center shrink-0">
           <p className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.4em] text-white/70" style={softStyle}>
