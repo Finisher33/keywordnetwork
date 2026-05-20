@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useStore, UserInsight, User } from '../store';
+import { useStore, UserInsight, User, Interest } from '../store';
 import { sortSessions } from '../utils/sortSessions';
 import { cosineSimilarity } from '../services/embeddingService';
 
@@ -7,7 +7,7 @@ interface Props {
   courseId: string;
 }
 
-type SubTab = 'people' | 'keyword';
+type SubTab = 'people' | 'keyword' | 'interests';
 
 // ─── 공통 유틸: CSV 셀 이스케이프 + 다운로드 ─────────────────────────────────
 // Claude / Excel / pandas 모두 호환되도록 ASCII filename + BOM 옵션 + utf-8.
@@ -143,16 +143,20 @@ export default function InsightDownload({ courseId }: Props) {
             >
               <option value="people">인원</option>
               <option value="keyword">키워드</option>
+              <option value="interests">Giver/Taker</option>
             </select>
             <span className="material-symbols-outlined text-on-surface-variant text-lg absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">expand_more</span>
           </div>
         </div>
       </div>
 
-      {tab === 'people'
-        ? <PeopleView courseId={courseId} courseName={course?.name} />
-        : <KeywordView courseId={courseId} courseName={course?.name} />
-      }
+      {tab === 'people' ? (
+        <PeopleView courseId={courseId} courseName={course?.name} />
+      ) : tab === 'keyword' ? (
+        <KeywordView courseId={courseId} courseName={course?.name} />
+      ) : (
+        <InterestsView courseId={courseId} courseName={course?.name} />
+      )}
 
       <p className="text-[10px] text-on-surface-variant/70 italic">
         ※ Excel 에서 한글이 깨진다면, 빈 시트에서 [데이터 → 텍스트/CSV 가져오기] 로 UTF-8 인코딩 지정 후 열어주세요.
@@ -494,6 +498,234 @@ function KeywordView({ courseId, courseName }: { courseId: string; courseName?: 
       )}
     </div>
   );
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// 3) Giver/Taker 뷰: 유저별 Giver / Taker 키워드 + 설명
+// ───────────────────────────────────────────────────────────────────────────
+function InterestsView({ courseId, courseName }: { courseId: string; courseName?: string }) {
+  const { db } = useStore();
+  const [downloading, setDownloading] = useState(false);
+  const [filterType, setFilterType] = useState<'all' | 'giver' | 'taker'>('all');
+
+  // 유저: 해당 과정 가입자 (소속 → 성명 가나다 정렬)
+  const users = useMemo(
+    () => db.users
+      .filter(u => u.courseId === courseId)
+      .sort((a, b) => (a.company || '').localeCompare(b.company || '') || (a.name || '').localeCompare(b.name || '')),
+    [db.users, courseId]
+  );
+  const userIds = useMemo(() => new Set(users.map(u => u.id)), [users]);
+
+  // 관심사: 해당 과정의 유저만, 타입 필터 적용
+  const interestsByUser = useMemo(() => {
+    const m = new Map<string, { giver: Interest[]; taker: Interest[] }>();
+    users.forEach(u => m.set(u.id, { giver: [], taker: [] }));
+    (db.interests || []).forEach(it => {
+      if (!userIds.has(it.userId)) return;
+      const entry = m.get(it.userId);
+      if (!entry) return;
+      if (it.type === 'giver') entry.giver.push(it);
+      else if (it.type === 'taker') entry.taker.push(it);
+    });
+    return m;
+  }, [db.interests, users, userIds]);
+
+  // 통계
+  const stats = useMemo(() => {
+    let giverCnt = 0, takerCnt = 0, filledUsers = 0;
+    interestsByUser.forEach(({ giver, taker }) => {
+      giverCnt += giver.length;
+      takerCnt += taker.length;
+      if (giver.length + taker.length > 0) filledUsers += 1;
+    });
+    return { giverCnt, takerCnt, filledUsers };
+  }, [interestsByUser]);
+
+  // 화면 표시용 행 — 유저 단위로 (giver 들 + taker 들) 묶어 렌더, rowSpan 으로 유저 정보 병합
+  // 필터 'giver' / 'taker' 인 경우 해당 타입만 표시.
+  type DisplayUserRow = { user: User; giver: Interest[]; taker: Interest[]; total: number };
+  const displayRows = useMemo<DisplayUserRow[]>(() => {
+    return users.map(u => {
+      const e = interestsByUser.get(u.id) || { giver: [], taker: [] };
+      const giver = filterType === 'taker' ? [] : e.giver;
+      const taker = filterType === 'giver' ? [] : e.taker;
+      return { user: u, giver, taker, total: giver.length + taker.length };
+    });
+  }, [users, interestsByUser, filterType]);
+
+  // CSV 행 — flat denormalized (한 관심사 = 한 행). 미입력 유저도 빈 행으로 1줄 보존.
+  const buildCsvRows = (): string[][] => {
+    const headers = ['회사', '부서', '성명', '직책', '구분', '키워드', '설명'];
+    const rows: string[][] = [headers];
+    displayRows.forEach(({ user, giver, taker }) => {
+      const all = [
+        ...giver.map(g => ({ type: 'Giver', kw: g.keyword, desc: g.description })),
+        ...taker.map(t => ({ type: 'Taker', kw: t.keyword, desc: t.description })),
+      ];
+      if (all.length === 0) {
+        rows.push([user.company || '', user.department || '', user.name || '', user.title || '', '', '', '']);
+        return;
+      }
+      all.forEach(it => {
+        rows.push([
+          user.company || '',
+          user.department || '',
+          user.name || '',
+          user.title || '',
+          it.type,
+          it.kw || '',
+          it.desc || '',
+        ]);
+      });
+    });
+    return rows;
+  };
+
+  const handleDownload = () => {
+    if (downloading) return;
+    setDownloading(true);
+    try {
+      const safe = (courseName || 'course').replace(/[\\/:*?"<>|\s]/g, '_');
+      const tag = filterType === 'all' ? 'giver_taker' : filterType;
+      downloadCsvFile(buildCsvRows(), `insights_${tag}_${safe}_${todayStamp()}`);
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* 필터 + 통계 + 다운로드 */}
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* 타입 필터 */}
+          <div className="flex gap-1 p-1 bg-surface-container-highest rounded-xl">
+            {([
+              { v: 'all',   label: '전체',  cnt: stats.giverCnt + stats.takerCnt },
+              { v: 'giver', label: 'Giver', cnt: stats.giverCnt },
+              { v: 'taker', label: 'Taker', cnt: stats.takerCnt },
+            ] as const).map(opt => (
+              <button
+                key={opt.v}
+                onClick={() => setFilterType(opt.v)}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-black transition-all ${
+                  filterType === opt.v ? 'bg-primary text-on-primary shadow-sm' : 'text-on-surface-variant hover:text-on-surface'
+                }`}
+              >
+                {opt.label} <span className="opacity-70">({opt.cnt})</span>
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-2 text-[11px] text-on-surface-variant">
+            <span className="px-2 py-0.5 rounded-md bg-surface-container-low border border-outline-variant/30">참가자 <b className="text-on-surface">{users.length}</b>명</span>
+            <span className="px-2 py-0.5 rounded-md bg-surface-container-low border border-outline-variant/30">입력 참가자 <b className="text-on-surface">{stats.filledUsers}</b>명</span>
+          </div>
+        </div>
+        <button
+          onClick={handleDownload}
+          disabled={downloading || users.length === 0}
+          className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-primary text-on-primary font-black text-xs uppercase tracking-widest shadow-lg hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+        >
+          <span className="material-symbols-outlined text-lg">download</span>
+          {downloading ? '내려받는 중...' : 'CSV 다운로드'}
+        </button>
+      </div>
+
+      {users.length === 0 ? (
+        <EmptyState reason="이 과정에 등록된 참가자가 없습니다." />
+      ) : (
+        <div className="rounded-2xl border border-outline-variant/20 bg-white shadow-sm overflow-x-auto overflow-y-visible">
+          <table className="text-xs border-collapse w-full" style={{ minWidth: 1100 }}>
+            <colgroup>
+              <col style={{ width: 130 }} />{/* 회사 */}
+              <col style={{ width: 130 }} />{/* 부서 */}
+              <col style={{ width: 90 }}  />{/* 성명 */}
+              <col style={{ width: 110 }} />{/* 직책 */}
+              <col style={{ width: 70 }}  />{/* 구분 */}
+              <col style={{ width: 150 }} />{/* 키워드 */}
+              <col style={{ width: 420 }} />{/* 설명 */}
+            </colgroup>
+            <thead className="bg-surface-container-high sticky top-0 z-10">
+              <tr>
+                {['회사', '부서', '성명', '직책', '구분', '키워드', '설명'].map((h, idx) => (
+                  <th
+                    key={idx}
+                    className="px-3 py-2.5 text-left font-black text-[10px] uppercase tracking-widest border-b border-outline-variant/30 whitespace-nowrap text-primary bg-primary/5"
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {displayRows.map(({ user, giver, taker, total }, ui) => {
+                const userRowBg = ui % 2 === 0 ? 'bg-white' : 'bg-surface-container-lowest';
+                // 미입력 유저: 빈 1행 (필터 적용 시 해당 타입이 없는 유저도 동일 처리)
+                if (total === 0) {
+                  return (
+                    <tr key={user.id} className={`${userRowBg} hover:bg-primary/5 transition-colors border-b-2 border-outline-variant/30`}>
+                      <td className="px-3 py-2 align-top text-on-surface whitespace-nowrap">{user.company || <Dash />}</td>
+                      <td className="px-3 py-2 align-top text-on-surface-variant whitespace-nowrap">{user.department || <Dash />}</td>
+                      <td className="px-3 py-2 align-top font-bold text-on-surface whitespace-nowrap">{user.name || <Dash />}</td>
+                      <td className="px-3 py-2 align-top text-on-surface-variant whitespace-nowrap">{user.title || <Dash />}</td>
+                      <td colSpan={3} className="px-3 py-2 align-top text-on-surface-variant/40 italic">
+                        — {filterType === 'giver' ? 'Giver' : filterType === 'taker' ? 'Taker' : '관심사'} 미입력 —
+                      </td>
+                    </tr>
+                  );
+                }
+                // 입력 있음: rowSpan 으로 유저 정보 4칸 병합 후 각 관심사 1행씩.
+                const items: { type: 'Giver' | 'Taker'; it: Interest }[] = [
+                  ...giver.map(g => ({ type: 'Giver' as const, it: g })),
+                  ...taker.map(t => ({ type: 'Taker' as const, it: t })),
+                ];
+                return items.map(({ type, it }, ii) => {
+                  const isFirst = ii === 0;
+                  const isLast = ii === items.length - 1;
+                  return (
+                    <tr
+                      key={`${user.id}-${it.id}`}
+                      className={`${userRowBg} hover:bg-primary/5 transition-colors ${isLast ? 'border-b-2 border-outline-variant/30' : ''}`}
+                    >
+                      {isFirst && (
+                        <>
+                          <td rowSpan={items.length} className="px-3 py-2 align-top border-r border-outline-variant/15 text-on-surface whitespace-nowrap">{user.company || <Dash />}</td>
+                          <td rowSpan={items.length} className="px-3 py-2 align-top border-r border-outline-variant/15 text-on-surface-variant whitespace-nowrap">{user.department || <Dash />}</td>
+                          <td rowSpan={items.length} className="px-3 py-2 align-top border-r border-outline-variant/15 font-bold text-on-surface whitespace-nowrap">{user.name || <Dash />}</td>
+                          <td rowSpan={items.length} className="px-3 py-2 align-top border-r border-outline-variant/15 text-on-surface-variant whitespace-nowrap">{user.title || <Dash />}</td>
+                        </>
+                      )}
+                      <td className="px-3 py-2 align-top whitespace-nowrap">
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest ${
+                          type === 'Giver' ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-secondary/10 text-secondary border border-secondary/20'
+                        }`}>
+                          <span className="material-symbols-outlined text-[11px]">
+                            {type === 'Giver' ? 'volunteer_activism' : 'pan_tool'}
+                          </span>
+                          {type}
+                        </span>
+                      </td>
+                      <td className={`px-3 py-2 align-top font-bold whitespace-pre-wrap break-words ${type === 'Giver' ? 'text-primary' : 'text-secondary'}`}>
+                        #{it.keyword}
+                      </td>
+                      <td className="px-3 py-2 align-top text-on-surface-variant whitespace-pre-wrap break-words">
+                        {it.description || <Dash />}
+                      </td>
+                    </tr>
+                  );
+                });
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Dash() {
+  return <span className="text-on-surface-variant/30">—</span>;
 }
 
 // ─── 빈 상태 ────────────────────────────────────────────────────────────────
